@@ -1,7 +1,1 @@
 @import "tailwindcss";
-
-/* Ensure body has no default margin/padding */
-body {
-  margin: 0;
-  padding: 0;
-}

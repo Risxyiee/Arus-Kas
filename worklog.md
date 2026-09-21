@@ -54,3 +54,25 @@ Stage Summary:
 - 6 pages: Dashboard, Transaksi, Utang & Piutang, Statistik, Laporan, Pengaturan
 - Features: Smart input with auto-categorization (ID+EN keywords), amount detection in descriptions, canvas charts, PDF export, dark mode, localStorage persistence, JSON backup/import
 - 100% faithful reproduction of the original HTML design via iframe embedding
+---
+Task ID: 1-2
+Agent: Main
+Task: Replace iframe landing page with proper React landing page component
+
+Work Log:
+- Read original landing page HTML from uploaded file (625 lines)
+- Created `/home/z/my-project/src/styles/landing.css` with all CSS styles, prefixed with `.lp` class
+- Created `/home/z/my-project/src/components/landing-page.tsx` as 'use client' React component
+- Implemented all sections: Nav, Hero, Marquee, Preview, Features, Demo, Numbers, Testimonials, Pricing, FAQ, CTA, Footer
+- Implemented interactivity: scroll-based nav blur, mobile menu, IntersectionObserver reveal, counter animation, FAQ accordion, demo typing animation with keyword matching
+- Updated `/home/z/my-project/src/app/page.tsx` to show landing page by default and switch to app dashboard on "Buka Aplikasi" click
+- Updated `/home/z/my-project/src/app/layout.tsx` with Google Fonts (Fraunces, Plus Jakarta Sans, JetBrains Mono)
+- Updated `/home/z/my-project/src/app/globals.css` with base body styles
+- Fixed FAQ accordion CSS conflict (removed CSS max-height:0 override)
+- Browser tested: landing page renders, FAQ accordion works, Buka Aplikasi → app dashboard, back button → landing page, mobile responsive layout
+
+Stage Summary:
+- Landing page is now a proper React component instead of an iframe
+- All "Buka Aplikasi" buttons call onOpenApp callback to switch to app view
+- App view has "← Kembali ke Beranda" back button
+- Full flow: Landing Page ↔ App Dashboard works

@@ -1,34 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
-  title: "FinTrack - Personal Finance Tracker",
-  description:
-    "Track your personal finances with FinTrack. Manage transactions, debts, receivables, and generate reports.",
-  keywords: [
-    "FinTrack",
-    "Personal Finance",
-    "Budget",
-    "Tracker",
-    "Next.js",
-  ],
-  authors: [{ name: "FinTrack" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
+  title: "Arus — Keuangan Pribadi",
+  description: "Arus — Aplikasi Keuangan Pribadi",
 };
 
 export default function RootLayout({
@@ -37,19 +12,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-        <Toaster />
+    <html lang="id" suppressHydrationWarning>
+      <body style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+        {children}
       </body>
     </html>
   );

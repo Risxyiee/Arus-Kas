@@ -382,7 +382,7 @@ function seed(){
   add('expense',p[0],p[1],Math.round((p[2]+Math.random()*(p[3]-p[2]))/500)*500,addDays(now,-dd));}
  add('expense','Makanan & Minuman','Makan siang — nasi goreng GoFood',27000,addDays(now,0));
  add('expense','Transportasi','Gojek ke kantor',28000,addDays(now,-1));
- add('expense','Hiburan','Langganan Netflix',54000,addMonthsISO(iso(new Date(now.getFullYear(),now.getMonth(),5)))>todayISO()?iso(new Date(now.getFullYear(),now.getMonth(),5)):iso(new Date(now.getFullYear(),now.getMonth()+1,5)));
+ add('expense','Hiburan','Langganan Netflix',54000,addMonthsISO(iso(new Date(now.getFullYear(),now.getMonth(),5)))>todayISO()?new Date(now.getFullYear(),now.getMonth(),5):new Date(now.getFullYear(),now.getMonth()+1,5));
  T[T.length-1].recur='monthly'; // template bulanan → otomatis digandakan
  const defs=[
   {name:'Budi Santoso',type:'receivable',amount:2500000,paid:1000000,due:12},

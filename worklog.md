@@ -76,3 +76,22 @@ Stage Summary:
 - All "Buka Aplikasi" buttons call onOpenApp callback to switch to app view
 - App view has "← Kembali ke Beranda" back button
 - Full flow: Landing Page ↔ App Dashboard works
+---
+Task ID: fix
+Agent: Main
+Task: Fix "website ga tampil" - Arus v3.0 app not rendering
+
+Work Log:
+- Investigated blank page issue in iframe
+- Found `#view` element had 0 children (JS not rendering content)
+- Traced to `db` being null because `seed()` function was failing
+- Found root cause: Line 385 in arus.html had `iso(new Date(...))` which returns a STRING, but `add()` function expects a Date object (calls `iso(dt)` and `dt.getTime()`)
+- Fixed by replacing `iso(new Date(...))` with `new Date(...)` on line 385
+- Cleared corrupted localStorage data
+- Reloaded and verified all views work: Dashboard, Transaksi, Utang & Piutang, Statistik, Laporan, Pengaturan
+- Tested: onboarding modal, demo data loading, dark mode toggle, mobile responsive layout
+
+Stage Summary:
+- Bug fix: `seed()` function's Netflix recurring transaction line passed string instead of Date to `add()`
+- All 6 views now render correctly
+- App fully functional with demo data

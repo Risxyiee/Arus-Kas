@@ -95,3 +95,36 @@ Stage Summary:
 - Bug fix: `seed()` function's Netflix recurring transaction line passed string instead of Date to `add()`
 - All 6 views now render correctly
 - App fully functional with demo data
+
+---
+Task ID: 1
+Agent: main
+Task: Fix landing page - make it look like a dashboard with clear readable text and no color clashes
+
+Work Log:
+- Analyzed current landing page screenshot with VLM - scored 5/10 readability
+- Fixed dark theme not applying (CSS targeted `body.lp` but class was on `<div>`)
+- Brightened all text colors: `--ink` #EFEBDE→#F5F1E6, `--mut` #A39B85→#C8C0AA, `--dim` #6F6957→#9A9279
+- Brightened gradient text (.g class) for better visibility
+- Made nav links use `var(--ink)` with 0.8 opacity instead of muted color
+- Added font-weight:500 to all muted/dim text for better readability
+- Redesigned hero section as dashboard layout with side-by-side grid (text left, cards right)
+- Added 4 dashboard stat cards: Saldo Aktif, Pemasukan, Pengeluaran, Utang Belum Lunas
+- Added sparkline mini-charts to Pemasukan and Pengeluaran cards
+- Added trend indicator (↑ 12.4%) to Saldo card
+- Added badge ("2 orang") to Utang card
+- Added transaction list below dashboard cards with 4 recent transactions
+- Added spending composition breakdown (horizontal bars) to preview section
+- Added emoji icons to feature cards
+- Changed all `var(--dim)` references to `var(--mut)` for better readability
+- Increased hero font-weight from 420 to 480
+- Made CTA button bolder (font-weight:800, letter-spacing:.02em)
+- Verified with VLM: hero scores 8.5/10, bottom sections score 9/10
+- Verified "Buka Aplikasi" button works and opens the app
+
+Stage Summary:
+- Dark theme now properly applies (fixed CSS selector)
+- Text readability improved from 5/10 to 8.5-9/10
+- Landing page now looks like a dashboard with stat cards, sparklines, and transaction list
+- All text clearly readable with no color clashes against dark background
+- Navigation links, body text, and all secondary text now use brighter colors

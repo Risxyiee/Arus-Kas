@@ -277,43 +277,112 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
         </div>
       </nav>
 
-      {/* ═══ HERO ═══ */}
-      <header className="hero" id="top">
+      {/* ═══ HERO — DASHBOARD STYLE ═══ */}
+      <header className="hero dashboard-hero" id="top">
         <div className="glow g1" />
         <div className="glow g2" />
         <div className="hero-frame" />
         <div className="wrap">
-          <span
-            className="eyebrow center"
-            style={{ opacity: 0, animation: 'rise .8s .05s forwards', transform: 'translateY(16px)' }}
-          >
-            Buku Kas pribadi · Privat · Tanpa akun
-          </span>
-          <h1 className="h1big">
-            <span className="line">Catat dalam sekejap.</span>
-            <span className="line">Kelola dengan <em className="g">kelas</em>.</span>
-          </h1>
-          <p className="sub">
-            Arus mencatat pemasukan, pengeluaran, utang &amp; piutang dengan kategori otomatis —
-            secepat menulis catatan, selengkap pembukuan profesional. Semuanya berjalan di perangkatmu.
-          </p>
-          <div className="hero-cta">
-            <a
-              className="btn btn-gold"
-              href="#"
-              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-            >
-              Buka Aplikasi — Gratis <ArrowSvg />
-            </a>
-            <a className="btn btn-ghost" href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>
-              Jelajahi fitur
-            </a>
-          </div>
-          <div className="hero-stats">
-            <div className="hstat"><b className="g">±2 dtk</b><span>mencatat 1 transaksi</span></div>
-            <div className="hstat"><b className="g">14+</b><span>kategori pintar ID &amp; EN</span></div>
-            <div className="hstat"><b className="g">100%</b><span>data di perangkatmu</span></div>
-            <div className="hstat"><b className="g">Rp 0</b><span>biaya, selamanya</span></div>
+          <div className="dash-hero-grid">
+            {/* Left: Text */}
+            <div className="dash-hero-text">
+              <span
+                className="eyebrow"
+                style={{ opacity: 0, animation: 'rise .8s .05s forwards', transform: 'translateY(16px)' }}
+              >
+                Buku Kas pribadi · Privat · Tanpa akun
+              </span>
+              <h1 className="h1big" style={{ textAlign: 'left' }}>
+                <span className="line">Catat dalam sekejap.</span>
+                <span className="line">Kelola dengan <em className="g">kelas</em>.</span>
+              </h1>
+              <p className="sub" style={{ marginTop: 20 }}>
+                Arus mencatat pemasukan, pengeluaran, utang &amp; piutang dengan kategori otomatis —
+                secepat menulis catatan, selengkap pembukuan profesional. Semuanya berjalan di perangkatmu.
+              </p>
+              <div className="hero-cta" style={{ justifyContent: 'flex-start' }}>
+                <a
+                  className="btn btn-gold"
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+                >
+                  Buka Aplikasi — Gratis <ArrowSvg />
+                </a>
+                <a className="btn btn-ghost" href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>
+                  Jelajahi fitur
+                </a>
+              </div>
+            </div>
+
+            {/* Right: Dashboard Cards */}
+            <div className="dash-hero-cards">
+              <div className="dash-cards">
+                {/* Saldo Card */}
+                <div className="dcard dcard-saldo">
+                  <div className="dcard-label">Saldo Aktif</div>
+                  <div className="dcard-value">Rp 12.480.000 <span className="livedot" /></div>
+                  <div className="dcard-trend"><span className="trend-up">↑ 12.4%</span> vs bulan lalu</div>
+                </div>
+                {/* Pemasukan Card */}
+                <div className="dcard dcard-in">
+                  <div className="dcard-label">Pemasukan</div>
+                  <div className="dcard-value" style={{ color: 'var(--pos)' }}>+Rp 8.500.000</div>
+                  <div className="dcard-mini-chart">
+                    <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="sparkline">
+                      <polyline fill="none" stroke="var(--pos)" strokeWidth="2" points="0,28 15,22 30,24 45,14 60,18 75,8 100,4" />
+                    </svg>
+                  </div>
+                </div>
+                {/* Pengeluaran Card */}
+                <div className="dcard dcard-out">
+                  <div className="dcard-label">Pengeluaran</div>
+                  <div className="dcard-value" style={{ color: 'var(--neg)' }}>−Rp 3.720.000</div>
+                  <div className="dcard-mini-chart">
+                    <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="sparkline">
+                      <polyline fill="none" stroke="var(--neg)" strokeWidth="2" points="0,20 15,16 30,22 45,12 60,18 75,10 100,6" />
+                    </svg>
+                  </div>
+                </div>
+                {/* Utang Card */}
+                <div className="dcard dcard-debt">
+                  <div className="dcard-label">Utang Belum Lunas</div>
+                  <div className="dcard-value" style={{ color: '#E8C44A' }}>Rp 1.200.000</div>
+                  <div className="dcard-badge">2 orang</div>
+                </div>
+              </div>
+
+              {/* Mini Transaction List */}
+              <div className="dash-txn">
+                <div className="dash-txn-head">
+                  <span>Transaksi Terakhir</span>
+                  <span className="dash-txn-more" onClick={() => onOpenApp?.()}>Lihat semua →</span>
+                </div>
+                <div className="dash-txn-row">
+                  <i className="tdot" style={{ background: '#0E7C55' }} />
+                  <span className="n">Gaji bulanan</span>
+                  <span className="d">Hari ini</span>
+                  <span className="amt-p mono">+Rp 8.500.000</span>
+                </div>
+                <div className="dash-txn-row">
+                  <i className="tdot" style={{ background: '#C7723B' }} />
+                  <span className="n">Kopi — cafe lokal</span>
+                  <span className="d">Kemarin</span>
+                  <span className="amt-n mono">−Rp 35.000</span>
+                </div>
+                <div className="dash-txn-row">
+                  <i className="tdot" style={{ background: '#3E8FA8' }} />
+                  <span className="n">Gojek ke kantor</span>
+                  <span className="d">2 hari lalu</span>
+                  <span className="amt-n mono">−Rp 28.000</span>
+                </div>
+                <div className="dash-txn-row">
+                  <i className="tdot" style={{ background: '#C14E33' }} />
+                  <span className="n">Bayar utang Budi</span>
+                  <span className="d">3 hari</span>
+                  <span className="amt-n mono">−Rp 500.000</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -360,12 +429,27 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <div className="appbody">
                   <div className="bal-lbl">Saldo aktif</div>
                   <div className="bal">Rp 12.480.000 <span className="livedot" /></div>
-                  <div className="mbars">
-                    <div style={{ height: '34%' }} /><div style={{ height: '58%' }} /><div style={{ height: '44%' }} />
-                    <div style={{ height: '72%' }} /><div style={{ height: '52%' }} /><div style={{ height: '88%' }} />
-                    <div style={{ height: '64%' }} /><div style={{ height: '96%' }} />
+                  {/* Spending breakdown bars */}
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+                    <div style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 12 }}>Komposisi pengeluaran</div>
+                    {[
+                      { name: 'Makanan', pct: 38, color: '#C7723B' },
+                      { name: 'Transportasi', pct: 24, color: '#3E8FA8' },
+                      { name: 'Belanja', pct: 18, color: '#A75686' },
+                      { name: 'Tagihan', pct: 12, color: '#B8862F' },
+                      { name: 'Lainnya', pct: 8, color: '#6E6757' },
+                    ].map((c, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, fontSize: 12 }}>
+                        <i className="tdot" style={{ background: c.color }} />
+                        <span style={{ flex: 1, color: 'var(--ink)', fontWeight: 600, fontSize: 11.5 }}>{c.name}</span>
+                        <div style={{ flex: 2, height: 6, borderRadius: 3, background: 'var(--card2)', overflow: 'hidden' }}>
+                          <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 3, background: c.color }} />
+                        </div>
+                        <span className="mono" style={{ fontSize: 10.5, color: 'var(--mut)', fontWeight: 600 }}>{c.pct}%</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="trows">
+                  <div className="trows" style={{ marginTop: 14 }}>
                     <div className="trow"><i className="tdot" style={{ background: '#0E7C55' }} /><span className="n">Gaji bulanan</span><span className="d">Hari ini</span><span className="amt-p mono">+Rp 8.500.000</span></div>
                     <div className="trow"><i className="tdot" style={{ background: '#C7723B' }} /><span className="n">Kopi — cafe lokal</span><span className="d">Kemarin</span><span className="amt-n mono">−Rp 35.000</span></div>
                     <div className="trow"><i className="tdot" style={{ background: '#C14E33' }} /><span className="n">Pembayaran utang — Budi</span><span className="d">2 hari</span><span className="amt-n mono">−Rp 500.000</span></div>
@@ -390,14 +474,15 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
           </div>
           <div className="feat-grid">
             {[
-              { num: 'No. 01', title: 'Input Pintar', desc: 'Tulis "kopi 35rb" — kategori dan jumlah terisi sendiri. Ibarat asisten pribadi yang hafal kebiasaan belanjamu, dalam Bahasa Indonesia maupun Inggris.', delay: '' },
-              { num: 'No. 02', title: 'Utang & Piutang', desc: 'Status berjalan sendiri: belum dibayar, sebagian, lunas. Setiap pembayaran langsung mengalir ke buku kas dan saldo diperbarui seketika.', delay: '.08s' },
-              { num: 'No. 03', title: 'Kartu PDF per Orang', desc: 'Satu klik: seluruh riwayat tagihan, pembayaran, dan sisa utang seseorang — tercetak rapi dengan baris total. Ahli berkata: ini penghabisan debat "berberapa sisa?".', delay: '.16s' },
-              { num: 'No. 04', title: 'Statistik Berkelas', desc: 'Donut komposisi pengeluaran, tren enam bulan, dan lima pengeluaran terbesar. Angka yang tidak hanya benar, tetapi berbicara.', delay: '' },
-              { num: 'No. 05', title: 'Laporan PDF', desc: 'Filter per bulan, header mewah, ringkasan terhitung, nomor halaman. Siap dicetak, diarsipkan, atau dikirim ke siapa pun.', delay: '.08s' },
-              { num: 'No. 06', title: 'Privat Sejak Desain', desc: 'Tanpa server, tanpa akun, tanpa pelacak. Data keuanganmu tinggal di perangkatmu — bukan di gudang data orang lain.', delay: '.16s' },
+              { num: 'No. 01', title: 'Input Pintar', desc: 'Tulis "kopi 35rb" — kategori dan jumlah terisi sendiri. Ibarat asisten pribadi yang hafal kebiasaan belanjamu, dalam Bahasa Indonesia maupun Inggris.', icon: '\u26A1', delay: '' },
+              { num: 'No. 02', title: 'Utang & Piutang', desc: 'Status berjalan sendiri: belum dibayar, sebagian, lunas. Setiap pembayaran langsung mengalir ke buku kas dan saldo diperbarui seketika.', icon: '\u21C4', delay: '.08s' },
+              { num: 'No. 03', title: 'Kartu PDF per Orang', desc: 'Satu klik: seluruh riwayat tagihan, pembayaran, dan sisa utang seseorang — tercetak rapi dengan baris total. Ahli berkata: ini penghabisan debat "berapa sisa?".', icon: '\uD83D\uDCC4', delay: '.16s' },
+              { num: 'No. 04', title: 'Statistik Berkelas', desc: 'Donut komposisi pengeluaran, tren enam bulan, dan lima pengeluaran terbesar. Angka yang tidak hanya benar, tetapi berbicara.', icon: '\uD83D\uDCCA', delay: '' },
+              { num: 'No. 05', title: 'Laporan PDF', desc: 'Filter per bulan, header mewah, ringkasan terhitung, nomor halaman. Siap dicetak, diarsipkan, atau dikirim ke siapa pun.', icon: '\uD83D\uDCCB', delay: '.08s' },
+              { num: 'No. 06', title: 'Privat Sejak Desain', desc: 'Tanpa server, tanpa akun, tanpa pelacak. Data keuanganmu tinggal di perangkatmu — bukan di gudang data orang lain.', icon: '\uD83D\uDD12', delay: '.16s' },
             ].map((feat, idx) => (
               <div key={idx} className="feat reveal" style={feat.delay ? { transitionDelay: feat.delay } : undefined}>
+                <div className="ficon">{feat.icon}</div>
                 <div className="fnum">{feat.num}</div>
                 <h3>{feat.title}</h3>
                 <p>{feat.desc}</p>

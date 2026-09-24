@@ -347,9 +347,9 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 tersinkron — begitu ada pembayaran, buku kas dan statusnya ikut bergerak. Tanpa konfigurasi, langsung terasa rapi.
               </p>
               <div style={{ display: 'flex', gap: 12, marginTop: 32, flexWrap: 'wrap' }}>
-                <span className="chip"><i className="cdot" style={{ background: '#C9A962' }} />Saldo real-time</span>
-                <span className="chip"><i className="cdot" style={{ background: '#7FC79E' }} />Status lunas otomatis</span>
-                <span className="chip"><i className="cdot" style={{ background: '#E08A6D' }} />Peringatan jatuh tempo</span>
+                <span className="chip"><i className="cdot" style={{ background: '#4EC38A' }} />Saldo real-time</span>
+                <span className="chip"><i className="cdot" style={{ background: '#4EC38A' }} />Status lunas otomatis</span>
+                <span className="chip"><i className="cdot" style={{ background: '#E8825F' }} />Peringatan jatuh tempo</span>
               </div>
             </div>
             <div className="reveal" style={{ transitionDelay: '.15s' }}>

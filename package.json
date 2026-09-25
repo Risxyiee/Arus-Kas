@@ -4,10 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "node build.mjs",
-    "build:worker": "npx @cloudflare/next-on-pages",
-    "deploy:worker": "bun run build:worker && npx wrangler deploy",
-    "preview:worker": "bun run build:worker && npx wrangler dev",
+    "build": "next build",
+    "deploy": "bun run build && npx wrangler deploy",
+    "preview": "bun run build && npx wrangler dev",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",

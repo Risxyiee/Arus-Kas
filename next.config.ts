@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* Cloudflare Pages compatibility via @cloudflare/next-on-pages */
+  /* Static export for landing page — API routes handled by CF Worker */
+  output: "export",
   images: {
     unoptimized: true,
   },

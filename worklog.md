@@ -128,3 +128,26 @@ Stage Summary:
 - Landing page now looks like a dashboard with stat cards, sparklines, and transaction list
 - All text clearly readable with no color clashes against dark background
 - Navigation links, body text, and all secondary text now use brighter colors
+
+---
+Task ID: 2
+Agent: main
+Task: Remove AI slop from landing page - redesign to feel human-crafted
+
+Work Log:
+- Analyzed landing page with VLM for AI slop indicators
+- Score before: 9.5/10 AI slop severity
+- Identified problems: glassmorphism cards, gradient/glow abuse, fake dashboard data, cookie-cutter structure, serif+sans-serif cliché, dark+green palette, fake testimonials, generic FAQ, no brand personality, symmetric fatigue, buzzword copy
+- Complete redesign delegated to full-stack-developer agent
+- Removed: grain overlay, glow blobs, gradient text (.g), fake stats/sparklines, testimonials section, counter animation, marquee, green color scheme, cookie-cutter eyebrow→h2→p→grid pattern
+- Built: hero with interactive demo input as centerpiece, "How it works" 3-step flow, real input examples with asymmetric grid, opinionated pitch section, minimal pricing (Rp 0. Selamanya.), trimmed FAQ (4 questions), minimal footer
+- Changed color palette from dark+green to warm dark+terracotta (#D4845A)
+- Applied VLM feedback: removed GRATIS badge, made copy honest about limitations ("Hilang kalau hapus cache"), changed CTA to "Coba ketik transaksi pertama", added italic caveat about data dying with device
+- Copy uses colloquial Indonesian (nggak, kamu) instead of corporate speak
+- Score after: 1-2/10 AI slop (hero: 2/10, lower sections: 1/10)
+- VLM verdict: "Would pass as a real product launch on Hacker News or Product Hunt without triggering AI-generated radar"
+
+Stage Summary:
+- AI slop score: 9.5/10 → 1-2/10 (massive improvement)
+- Key wins: honest copy, terracotta accent, no fake data, no decorative noise, asymmetric layout, specific Indonesian examples, opinionated voice
+- Remaining minor slop: dark-mode SaaS aesthetic is still trendy (but execution feels genuine)

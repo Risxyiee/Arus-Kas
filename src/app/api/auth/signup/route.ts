@@ -2,19 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 /** Proxy sign-up to Supabase Auth */
 export async function POST(req: NextRequest) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: "Supabase belum dikonfigurasi" }, { status: 500 });
+    }
+
     const { email, password, name } = await req.json();
 
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    const res = await fetch(`${supabaseUrl}/auth/v1/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
+        apikey: supabaseAnonKey,
       },
       body: JSON.stringify({
         email,

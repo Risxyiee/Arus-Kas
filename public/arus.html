@@ -418,6 +418,7 @@ function load(){
  if(!db){try{raw=localStorage.getItem(KEY_OLD);}catch(e){}
   if(raw){try{db=migrateOld(JSON.parse(raw));save();}catch(e){db=null;}}}
  if(!db||!Array.isArray(db.transactions)){db=seed();save();}
+ if(db.debts)db.debts.forEach(d=>{if(!d.note)d.note='';});
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){
  toast('Gagal menyimpan — penyimpanan browser penuh?','error');}}
@@ -452,6 +453,7 @@ function updateTransaction(id,patch){
  if(patch.ref_id&&patch.ref_id!==oldRef)recomputeDebt(patch.ref_id);}
 function addDebt(o){
  o.id=uid();o.paid_amount=0;o.status='unpaid';o.settled_at=null;
+ o.note=o.note||'';
  o.created_at=new Date().toISOString();db.debts.push(o);save();}
 function deleteDebt(id){
  const d=db.debts.find(x=>x.id===id);if(!d)return;
@@ -926,6 +928,7 @@ function debtRow(d){
    '<div class="row wrap" style="gap:8px"><span class="tname">'+esc(d.name)+'</span>'+statusBadge(d.status)+'</div>'+
    '<div class="xs muted" style="margin-top:2px"><span class="'+(isDebt?'neg':'pos')+'" style="font-weight:600">'+(isDebt?'Utang':'Piutang')+'</span> · '+
    '<span class="'+(over?'neg':'')+'" style="'+(over?'font-weight:600':'')+'">'+dueLabel(d)+'</span></div>'+
+   (d.note?'<div class="xs" style="margin-top:3px;color:var(--ink);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">'+esc(d.note)+'</div>':'')+
    '<div class="prog" style="margin-top:8px;max-width:220px"><i style="width:'+pct+'%;background:'+(isDebt?'var(--neg)':'var(--pos)')+'"></i></div></div>'+
   '<div class="right" style="flex-shrink:0">'+
    '<div class="mono" style="font-weight:700">'+money(d.amount)+'</div>'+
@@ -971,7 +974,9 @@ function pageDebts(){
     '<div><label class="lbl">Jumlah</label><input id="d-amt" class="fld mono" inputmode="decimal" placeholder="0"></div>'+
     '<div><label class="lbl">Jatuh tempo</label><input id="d-due" type="date" class="fld mono"></div>'+
     '<div style="display:flex;align-items:flex-end"><button class="btn primary" style="width:100%" title="Tambah" aria-label="Tambah">'+ic('plus')+'</button></div>'+
-   '</form></div>'+
+   '</form>'+
+   '<div style="margin-top:8px"><label class="lbl">Keterangan (kenapa utang/piutang)</label><input id="d-note" class="fld" placeholder="cth: Pinjam modal usaha, piutang proyek web"></div>'+
+   '</div>'+
   '<div class="card" style="padding:18px 20px;margin-top:14px">'+
    '<div class="row between wrap" style="gap:10px">'+
     '<div style="font-weight:700;font-size:14.5px">Daftar entri</div>'+
@@ -986,7 +991,7 @@ function afterDebts(){
   const name=$('#d-name').value.trim(),amt=parseAmt($('#d-amt').value);
   if(!name){toast('Isi nama orang/lembaga.','error');$('#d-name').focus();return;}
   if(!(amt>0)){toast('Masukkan jumlah yang valid.','error');$('#d-amt').focus();return;}
-  addDebt({name:name,type:$('#d-type').value,amount:amt,due_date:$('#d-due').value||null});
+  addDebt({name:name,type:$('#d-type').value,amount:amt,due_date:$('#d-due').value||null,note:$('#d-note').value.trim()});
   toast(($('#d-type').value==='debt'?'Utang':'Piutang')+' <b class="mono">'+money(amt)+'</b> atas nama '+esc(name)+' tercatat.');
   render();});
  $('#d-tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;
@@ -1006,6 +1011,7 @@ function editDebtModal(id){
   '<div><label class="lbl">Jatuh tempo</label><input id="ed-due" type="date" class="fld mono" value="'+(d.due_date||'')+'"></div></div>'+
   '<div style="margin-top:12px"><label class="lbl">Total tagihan</label><input id="ed-amt" class="fld mono" inputmode="decimal" value="'+d.amount+'">'+
   (d.paid_amount>0?'<div class="xs muted" style="margin-top:6px">Sudah dibayar '+money(d.paid_amount)+' — total tidak boleh di bawah nilai ini.</div>':'')+'</div>'+
+  '<div style="margin-top:12px"><label class="lbl">Keterangan</label><input id="ed-note" class="fld" value="'+esc(d.note||'')+'" maxlength="120" placeholder="cth: Pinjam modal usaha"></div>'+
   '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">'+
   '<button type="button" class="btn" data-close>Batal</button>'+
   '<button class="btn primary">Simpan</button></div></form>');
@@ -1014,7 +1020,7 @@ function editDebtModal(id){
   const name=$('#ed-name').value.trim(),amt=parseAmt($('#ed-amt').value);
   if(!name){toast('Nama tidak boleh kosong.','error');return;}
   if(!(amt>0)||amt<d.paid_amount){toast('Jumlah tidak valid / di bawah yang sudah dibayar.','error');return;}
-  updateDebt(id,{name:name,type:$('#ed-type').value,amount:amt,due_date:$('#ed-due').value||null});
+  updateDebt(id,{name:name,type:$('#ed-type').value,amount:amt,due_date:$('#ed-due').value||null,note:$('#ed-note').value.trim()});
   closeModal();toast('Entri diperbarui.');render();});}
 function settleModal(id){
  const d=db.debts.find(x=>x.id===id);if(!d||d.status==='paid')return;
@@ -1456,7 +1462,7 @@ function pdfFooter(doc,period){
   doc.text('Arus — pencatatan keuangan pribadi · '+period,48,H-30);
   doc.text('Halaman '+i+' dari '+n,W-48,H-30,{align:'right'});}}
 function pdfContHead(period){
- return d=>{if(d.internal.getCurrentPageInfo().pageNumber>1){
+ return data=>{const d=data.doc||data;if(d.internal.getCurrentPageInfo().pageNumber>1){
   d.setFont('helvetica','bold');d.setFontSize(8);d.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
   d.text('Arus — '+period+' (lanjutan)',48,28);}};}
 function printFallback(title,html){
@@ -1477,6 +1483,7 @@ function personHTML(d,rows,extra,stamp,status,sisa){
  const isDebt=d.type==='debt';
  return '<h1>'+(isDebt?'Kartu Utang':'Kartu Piutang')+' — '+esc(d.name)+'</h1>'+
   '<div class="mut">Arus · Status: '+status+' · Jatuh tempo: '+(d.due_date?fmtDate(d.due_date):'-')+' · Dicetak: '+stamp+'</div>'+
+  (d.note?'<div class="mut" style="margin-top:4px">Keterangan: '+esc(d.note)+'</div>':'')+
   '<div class="boxes">'+
   '<div class="box"><b>Total tagihan</b><span>'+money(d.amount)+'</span></div>'+
   '<div class="box"><b>Sudah dibayar</b><span>'+money(d.paid_amount)+'</span></div>'+
@@ -1508,6 +1515,7 @@ function exportPersonPDF(id){
  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(110,104,90);
  doc.text('Jenis: '+(isDebt?'Utang':'Piutang')+'   ·   Jatuh tempo: '+(d.due_date?fmtDate(d.due_date):'-')+
   '   ·   Tercatat: '+fmtDate((d.created_at||'').slice(0,10)||todayISO()),48,182);
+ if(d.note){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,104,90);const noteLines=doc.splitTextToSize('Keterangan: '+d.note,440);doc.text(noteLines,48,194);}
  const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('Kartu '+(isDebt?'utang':'piutang')+' '+d.name)});
  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
  doc.text('Riwayat tagihan & pembayaran',48,206);
@@ -1546,6 +1554,7 @@ function exportAllDebtsPDF(){
   if(y>H-190){doc.addPage();y=56;}
   doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
   doc.text(d.name+'  ·  '+(d.type==='debt'?'Utang':'Piutang')+'  ·  '+STATUS[d.status][0]+'  ·  Sisa '+money(sisa),48,y);
+  if(d.note){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,104,90);doc.text('Keterangan: '+d.note,48,y+12);y+=4;}
   doc.autoTable(Object.assign(base,{startY:y+8,
    head:[['Tanggal','Keterangan','Tagihan','Dibayar','Sisa']],
    body:rows,
@@ -1585,8 +1594,8 @@ function exportReportPDF(){
  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
  doc.text('Utang & Piutang',48,y);
  doc.autoTable(Object.assign(base,{startY:y+8,
-  head:[['Nama','Jenis','Tagihan','Dibayar','Jatuh Tempo','Status']],
-  body:F.debts.length?F.debts.map(d=>[d.name,d.type==='debt'?'Utang':'Piutang',money(d.amount),money(d.paid_amount),d.due_date?fmtDate(d.due_date):'-',STATUS[d.status][0]]):[['Tidak ada entri pada periode ini','','','','','']],
+  head:[['Nama','Jenis','Tagihan','Dibayar','Jatuh Tempo','Status','Keterangan']],
+  body:F.debts.length?F.debts.map(d=>[d.name,d.type==='debt'?'Utang':'Piutang',money(d.amount),money(d.paid_amount),d.due_date?fmtDate(d.due_date):'-',STATUS[d.status][0],d.note||'-']):[['Tidak ada entri pada periode ini','','','','','','']],
   columnStyles:{2:{halign:'right',cellWidth:86},3:{halign:'right',cellWidth:78},4:{cellWidth:68},5:{cellWidth:82}}}));
  pdfFooter(doc,'Laporan '+period);
  doc.save('arus-laporan-'+(F.ym||'semua')+'.pdf');

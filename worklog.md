@@ -221,3 +221,33 @@ Stage Summary:
 - CSS animations verified: borderRotate, float3d, rotateRing all active
 - Design rated 8.5/10 by VLM - "Agency-quality with premium polish"
 - No console errors
+---
+Task ID: 3
+Agent: main
+Task: Fix PDF download and add keterangan field for utang/piutang
+
+Work Log:
+- Explored arus.html codebase (1769 lines standalone SPA)
+- Found PDF bug: pdfContHead() used `d` (HookData object from autotable 3.x) instead of `d.doc` (the actual jsPDF instance)
+- Fixed pdfContHead: changed `d=>{if(d.internal.getCurrentPageInfo()...)` to `data=>{const d=data.doc||data;if(d.internal.getCurrentPageInfo()...)`
+- Verified fix: exportReportPDF() now returns "PDF ok" instead of error
+- Added keterangan/note field to debt model: `o.note=o.note||''` in addDebt()
+- Added keterangan input to debt form: `<input id="d-note" placeholder="cth: Pinjam modal usaha, piutang proyek web">`
+- Updated form handler: `note:$('#d-note').value.trim()`
+- Display note in debt row: truncated with ellipsis, max-width 280px, opacity .7
+- Added keterangan to editDebtModal(): `<input id="ed-note">` + update `note` field
+- Added note to personHTML() (print fallback PDF): "Keterangan: {note}"
+- Added note to exportPersonPDF(): doc.splitTextToSize for wrapping
+- Added note text to exportAllDebtsPDF() per-person header
+- Added 'Keterangan' column to exportReportPDF() debts table
+- Added data migration: `db.debts.forEach(d=>{if(!d.note)d.note='';})`
+- Tested: added debt "Budi Santoso" with note "Pinjam modal buka warung kopi" - saved correctly
+- Tested: note displays in debt row
+- Tested: PDF export works (person PDF + report PDF)
+- Tested: edit modal shows existing note
+
+Stage Summary:
+- PDF download bug FIXED (autotable 3.x HookData compatibility)
+- Keterangan/note field ADDED to utang/piutang for business use
+- All 10 code edits applied and verified
+- Both features tested and working in browser

@@ -60,10 +60,51 @@ function scanDemo(s: string): DemoResult {
   return { cat: cat || (inc ? 'Pemasukan Lain' : 'Lainnya'), catColor, inc, amt };
 }
 
-/* ── Arrow SVG ── */
+/* ── Premium SVG Line Icons (Phosphor Light style) ── */
 const ArrowIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
+const IconPencil = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17v3z" />
+    <path d="M14.5 7.5l3 3" />
+  </svg>
+);
+
+const IconTag = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+    <circle cx="7" cy="7" r="1.5" />
+  </svg>
+);
+
+const IconCheck = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <path d="M22 4L12 14.01l-3-3" />
+  </svg>
+);
+
+const IconShield = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const IconUser = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="3.5" />
+  </svg>
+);
+
+const IconBox = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
   </svg>
 );
 
@@ -286,6 +327,25 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
       {/* ═══ HERO ═══ */}
       <header className="hero" id="top" ref={heroRef}>
         <div className="hero-glow" style={{ left: glowPos.x, top: glowPos.y }} />
+
+        {/* 3D Geometric Shapes */}
+        <div className="geo-3d" style={{ top: '18%', left: '5%' }}>
+          <div className="geo-ring" />
+        </div>
+        <div className="geo-3d" style={{ top: '60%', right: '8%' }}>
+          <div className="geo-ring-2" />
+        </div>
+        <div className="geo-3d" style={{ top: '35%', right: '3%' }}>
+          <div className="geo-diamond" />
+        </div>
+
+        {/* 3D Parallax Orbs */}
+        <div className="parallax-orb orb-float-1" style={{ top: '10%', left: '60%' }} />
+        <div className="parallax-orb orb-float-2" style={{ bottom: '20%', left: '15%' }} />
+
+        {/* 3D Perspective Grid */}
+        <div className="perspective-grid" />
+
         <div className="wrap">
           <div className="hero-grid">
             {/* Left: Name, tagline, demo */}
@@ -366,8 +426,12 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               </div>
             </div>
 
-            {/* Right: App preview — Double-Bezel */}
+            {/* Right: App preview — Double-Bezel with 3D depth */}
             <div className="hero-preview">
+              <div className="hero-depth-stack">
+                <div className="depth-card depth-card-2" />
+                <div className="depth-card depth-card-1" />
+              </div>
               <div className="appwin-shell">
                 <div className="appwin">
                   <div className="appbar"><i /><i /><i /></div>
@@ -432,7 +496,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
             <div className="how-step reveal">
               <div className="inner">
                 <div className="how-num">01</div>
-                <div className="how-icon">✏️</div>
+                <div className="how-icon"><IconPencil /></div>
                 <h3>Tulis</h3>
                 <p>Ketik aja apa yang kamu beli atau terima. <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>kopi 35rb</span>, <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>gaji 8,5jt</span> — natural.</p>
               </div>
@@ -440,7 +504,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
             <div className="how-step reveal" style={{ transitionDelay: '.12s' }}>
               <div className="inner">
                 <div className="how-num">02</div>
-                <div className="how-icon">🏷️</div>
+                <div className="how-icon"><IconTag /></div>
                 <h3>Kategori otomatis</h3>
                 <p>Arus baca kata kuncinya, langsung masukin ke kategori yang pas. Makanan, transportasi, tagihan — semua ke-handle.</p>
               </div>
@@ -448,7 +512,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
             <div className="how-step reveal" style={{ transitionDelay: '.24s' }}>
               <div className="inner">
                 <div className="how-num">03</div>
-                <div className="how-icon">✅</div>
+                <div className="how-icon"><IconCheck /></div>
                 <h3>Simpan</h3>
                 <p>Sudah. Nggak ada tombol "simpan", nggak ada form panjang. Satu baris, selesai. Data tinggal di perangkatmu.</p>
               </div>
@@ -512,21 +576,21 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               </p>
               <div className="pitch-points">
                 <div className="pitch-point">
-                  <span className="icon">🔒</span>
+                  <span className="icon"><IconShield /></span>
                   <div>
                     <strong>Nggak ada server</strong>
                     <span>Data cuma hidup di browsermu. Bisa dipakai mode pesawat.</span>
                   </div>
                 </div>
                 <div className="pitch-point">
-                  <span className="icon">👤</span>
+                  <span className="icon"><IconUser /></span>
                   <div>
                     <strong>Nggak ada akun</strong>
                     <span>Buka, pakai, selesai. Nggak perlu email, nggak perlu password.</span>
                   </div>
                 </div>
                 <div className="pitch-point">
-                  <span className="icon">📦</span>
+                  <span className="icon"><IconBox /></span>
                   <div>
                     <strong>Backup JSON — datamu, kendalimu</strong>
                     <span>Unduh satu file, impor ke perangkat lain. Kamu yang pegang kendali.</span>

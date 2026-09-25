@@ -251,3 +251,28 @@ Stage Summary:
 - Keterangan/note field ADDED to utang/piutang for business use
 - All 10 code edits applied and verified
 - Both features tested and working in browser
+---
+Task ID: 1
+Agent: Main
+Task: Simplify monetization from 4 tiers to 2 (Gratis + Pro) for UMKM target
+
+Work Log:
+- Read full arus.html (2023 lines) to understand current monetization code
+- Simplified PLANS constant: removed bisnis (Rp 79.000) and tim (Rp 149.000), kept only free and pro
+- Updated PLAN_ORDER from ['free','pro','bisnis','tim'] to ['free','pro']
+- Simplified showUpgrade() — only suggests 'pro' since that's the only paid plan
+- Rewrote openUpgradeModal() — removed multi-plan logic, always shows "Upgrade ke Pro" with Rp 29.000
+- Completely rewrote pageLangganan() — 2 plan cards side by side (Gratis & Pro), feature comparison table with 2 columns, UMKM-focused FAQ including "Kenapa Rp 29.000/bulan?" question
+- Changed "POPULER" badge to "COCOK UMKM" on Pro card
+- Added confirmation modal on upgrade click (was missing before)
+- Cleaned CSS: removed .plan-bisnis and .plan-tim, added .plan-grid responsive class
+- Added responsive CSS for pricing cards (stacks on mobile)
+- Browser-verified: 2 plans, Rp 29.000 pricing, upgrade/cancel flow, feature gating all working
+
+Stage Summary:
+- Monetization simplified to 2 tiers: Gratis (free forever) + Pro (Rp 29.000/bln)
+- Pro features: unlimited wallets/debts/budgets/categories, recurring, cloud sync, P&L, branded PDF, push notif, invoice
+- Free limits: 2 wallets, 5 debts, 3 budgets, 3 custom cats
+- "COCOK UMKM" badge on Pro card, UMKM-friendly FAQ
+- Confirmation modal on upgrade and cancel
+- All browser tests passed

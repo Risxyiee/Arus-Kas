@@ -99,11 +99,11 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
 .sic-pos{background:var(--pos-soft);color:var(--pos)}
 .rank{width:22px;height:22px;border-radius:7px;background:var(--soft);color:var(--mut);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;font-family:ui-monospace,Consolas,monospace}
 .plan-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.04em}
-.plan-free{background:var(--soft);color:var(--mut)}.plan-pro{background:var(--pos-soft);color:var(--pos)}.plan-bisnis{background:var(--warn-soft);color:var(--warn)}.plan-tim{background:var(--neg-soft);color:var(--neg)}
+.plan-free{background:var(--soft);color:var(--mut)}.plan-pro{background:var(--pos-soft);color:var(--pos)}
 .price-card{border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;transition:.2s}
 .price-card:hover{border-color:var(--mut);box-shadow:var(--shadow)}
 .price-card.popular{border-color:var(--pos);box-shadow:0 0 0 1px var(--pos)}
-.price-card.popular::before{content:'POPULER';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--pos);color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;padding:3px 12px;border-radius:99px}
+.price-card.popular::before{content:'COCOK UMKM';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--pos);color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;padding:3px 12px;border-radius:99px}
 .price-feat{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:12.5px}
 .price-feat svg{flex-shrink:0;margin-top:2px}
 .upgrade-strip{background:linear-gradient(135deg,var(--pos-soft),var(--warn-soft));border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-top:14px}
@@ -157,6 +157,9 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
  #formcard{position:static!important}}
 @media(max-width:860px){.dform{grid-template-columns:1fr 1fr!important}.dform>div:last-child{grid-column:1/-1}}
 @media(max-width:560px){.g2{grid-template-columns:1fr}}
+@media(max-width:640px){.price-card{padding:18px}}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;margin:0 auto}
+@media(max-width:560px){.plan-grid{grid-template-columns:1fr;max-width:400px}}
 @media(max-width:640px){.hide-sm{display:none}}
 .overlay{position:fixed;inset:0;background:rgba(15,13,10,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:16px;animation:fade .15s}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;width:100%;max-width:440px;box-shadow:var(--shadow);animation:rise .2s ease;max-height:90vh;overflow-y:auto}
@@ -362,25 +365,13 @@ function smartScan(desc,type){
 const PLANS={
  free:{id:'free',name:'Gratis',price:0,period:'',color:'plan-free',
   wallets:2,debts:5,budgets:3,recurring:false,cloudSync:false,
-  customCats:3,multiUser:1,invoice:false,approval:false,
-  taxReport:false,plReport:false,brandedPdf:false,
-  notifPush:false,apiAccess:false},
+  customCats:3,invoice:false,plReport:false,brandedPdf:false,
+  notifPush:false},
  pro:{id:'pro',name:'Pro',price:29000,period:'/bln',color:'plan-pro',
   wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
-  customCats:Infinity,multiUser:1,invoice:false,approval:false,
-  taxReport:false,plReport:true,brandedPdf:true,
-  notifPush:true,apiAccess:false},
- bisnis:{id:'bisnis',name:'Bisnis',price:79000,period:'/bln',color:'plan-bisnis',
-  wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
-  customCats:Infinity,multiUser:2,invoice:true,approval:false,
-  taxReport:false,plReport:true,brandedPdf:true,
-  notifPush:true,apiAccess:false},
- tim:{id:'tim',name:'Tim',price:149000,period:'/bln',color:'plan-tim',
-  wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
-  customCats:Infinity,multiUser:5,invoice:true,approval:true,
-  taxReport:true,plReport:true,brandedPdf:true,
-  notifPush:true,apiAccess:true}};
-const PLAN_ORDER=['free','pro','bisnis','tim'];
+  customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
+  notifPush:true}};
+const PLAN_ORDER=['free','pro'];
 function getPlan(){return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
 function planName(){const p=getPlan();return p.id==='free'?'Gratis':p.name;}
 function planBadge(){const p=getPlan();return '<span class="plan-pill '+p.color+'">'+p.name.toUpperCase()+'</span>';}
@@ -401,36 +392,29 @@ function limitLabel(feature){
 function showUpgrade(feature,msg){
  const plan=getPlan();
  if(plan.id==='free'){openUpgradeModal(feature,msg);return true;}
- if(plan.id!=='tim'){
-  const next=plan.id==='pro'?'bisnis':'tim';
-  openUpgradeModal(feature,msg||'Fitur ini tersedia di paket '+PLANS[next].name+'.',next);return true;}
  return false;}
-function openUpgradeModal(feature,msg,suggestPlan){
- const suggested=suggestPlan||(feature&&PLANS.pro[feature]!==false?'pro':'bisnis');
- const sPlan=PLANS[suggested];
+function openUpgradeModal(feature,msg){
  const allFeats={
   wallets:'Multi-dompet unlimited',debts:'Utang & piutang unlimited',budgets:'Budget unlimited',
   recurring:'Transaksi berulang bulanan',cloudSync:'Sinkronisasi cloud (multi-device)',
   customCats:'Kategori kustom unlimited',invoice:'Buat & kirim invoice',
-  approval:'Approval flow pengeluaran',taxReport:'Laporan pajak sederhana',
   plReport:'Laporan P&L (laba-rugi)',brandedPdf:'PDF dengan logo usaha',
-  notifPush:'Notifikasi jatuh tempo push',apiAccess:'API akses untuk integrasi'};
+  notifPush:'Notifikasi jatuh tempo push'};
  const featLabel=allFeats[feature]||feature;
- const unlockPlan=PLAN_ORDER.find(p=>PLANS[p][feature]!==false&&PLANS[p][feature]!==0&&PLANS[p]!==plan)||'pro';
  openModal(
   '<div style="text-align:center;padding:8px 0">'+
   '<div style="display:inline-flex;color:var(--pos);margin-bottom:6px">'+ic('crown','w20')+'</div>'+
-  '<h3 style="font-weight:800;font-size:17px">Upgrade ke '+PLANS[unlockPlan].name+'</h3>'+
+  '<h3 style="font-weight:800;font-size:17px">Upgrade ke Pro</h3>'+
   (msg?'<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(msg)+'</p>':
-   '<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(featLabel)+' tersedia mulai paket <b>'+PLANS[unlockPlan].name+'</b>.</p>')+
-  '<div class="mono" style="font-size:28px;font-weight:800;margin-top:14px;color:var(--pos)">'+money(PLANS[unlockPlan].price)+'<span class="muted" style="font-size:12px;font-weight:400">/bln</span></div>'+
+   '<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(featLabel)+' tersedia di paket <b>Pro</b>.</p>')+
+  '<div class="mono" style="font-size:28px;font-weight:800;margin-top:14px;color:var(--pos)">Rp 29.000<span class="muted" style="font-size:12px;font-weight:400">/bln</span></div>'+
   '</div>'+
   '<div style="margin-top:16px">'+
-  '<button class="btn primary" id="up-confirm" style="width:100%;justify-content:center;gap:8px">'+ic('crown','w14')+' Upgrade ke '+PLANS[unlockPlan].name+'</button>'+
-  '<button class="btn" id="up-all" style="width:100%;margin-top:8px;justify-content:center">Lihat semua paket</button>'+
+  '<button class="btn primary" id="up-confirm" style="width:100%;justify-content:center;gap:8px">'+ic('crown','w14')+' Upgrade ke Pro</button>'+
+  '<button class="btn" id="up-all" style="width:100%;margin-top:8px;justify-content:center">Lihat detail paket</button>'+
   '<button class="btn" data-close style="width:100%;margin-top:8px;justify-content:center">Nanti dulu</button>'+
   '</div>');
- $('#up-confirm').onclick=()=>{closeModal();activatePlan(unlockPlan);};
+ $('#up-confirm').onclick=()=>{closeModal();activatePlan('pro');};
  $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
 function activatePlan(planId){
  const plan=PLANS[planId];
@@ -1824,85 +1808,100 @@ function showPinLock(){
 /* ══════ LANGGANAN / PRICING ══════ */
 function pageLangganan(){
  const curPlan=getPlan();
- const featRow=(label,free,pro,bis,tim)=>{
-  const check=v=>v===true?ic('check2','w12'):v===false?ic('x','w12'):(v===Infinity?'∞':String(v));
-  const freeCls=free===false?'neg':'ink';
+ const ck=v=>v===true?ic('check2','w12'):(v===Infinity?'<span class="mono">∞</span>':String(v));
+ const xn=ic('x','w12');
+ const featRow=(label,freeV,proV)=>{
+  const fCls=freeV===false?'neg':'ink';
   return '<div class="price-feat"><span class="grow minw">'+esc(label)+'</span>'+
-   '<span style="width:52px;text-align:center" class="xs '+freeCls+'">'+check(free)+'</span>'+
-   '<span style="width:52px;text-align:center;color:var(--pos)">'+check(pro)+'</span>'+
-   '<span style="width:52px;text-align:center;color:var(--warn)">'+check(bis)+'</span>'+
-   '<span style="width:52px;text-align:center;color:var(--neg)">'+check(tim)+'</span></div>';};
+   '<span style="width:56px;text-align:center" class="xs '+fCls+'">'+(freeV===false?xn:ck(freeV))+'</span>'+
+   '<span style="width:56px;text-align:center;color:var(--pos)">'+ck(proV)+'</span></div>';};
  const featureRows=[
-  featRow('Dompet',2,'∞','∞','∞'),
-  featRow('Utang/piutang aktif',5,'∞','∞','∞'),
-  featRow('Budget kategori',3,'∞','∞','∞'),
-  featRow('Kategori kustom',3,'∞','∞','∞'),
-  featRow('Transaksi berulang',false,true,true,true),
-  featRow('Sinkronisasi cloud',false,true,true,true),
-  featRow('Laporan P&L',false,true,true,true),
-  featRow('PDF branded (logo)',false,true,true,true),
-  featRow('Notifikasi push',false,true,true,true),
-  featRow('Invoice',false,false,true,true),
-  featRow('Multi-user',1,1,2,5),
-  featRow('Approval flow',false,false,false,true),
-  featRow('Laporan pajak',false,false,false,true),
-  featRow('API akses',false,false,false,true)];
- const planCard=(planId)=>{
-  const p=PLANS[planId],isCurrent=curPlan.id===planId;
-  const isPopular=planId==='pro';
-  const priceStr=p.price===0?'Gratis':money(p.price);
-  const periodStr=p.price===0?'selamanya':'per bulan';
-  const annual=Math.round(p.price*12*0.8);
-  const annualStr=p.price===0?'':money(annual)+'/thn (hemat 20%)';
-  return '<div class="price-card'+(isPopular?' popular':'')+'">'+
-   (isCurrent?'<div style="position:absolute;top:12px;right:12px"><span class="plan-pill '+p.color+'">AKTIF</span></div>':'')+
-   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">'+p.name+'</div>'+
-   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px">'+priceStr+'</div>'+
-   '<div class="xs muted" style="margin-top:2px">'+periodStr+'</div>'+
-   (annualStr?'<div class="xs" style="color:var(--pos);margin-top:3px">'+annualStr+'</div>':'')+
-   (isCurrent?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>'
-    :p.price===0?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" data-downgrade="free">Pilih Gratis</button>'
-    :'<button class="btn primary" style="width:100%;margin-top:16px;justify-content:center;gap:8px" data-upgrade="'+planId+'">'+ic('crown','w14')+' Upgrade</button>')+
-   '</div>';};
+  featRow('Transaksi',Infinity,Infinity),
+  featRow('Dompet',2,Infinity),
+  featRow('Utang & piutang aktif',5,Infinity),
+  featRow('Budget per kategori',3,Infinity),
+  featRow('Kategori kustom',3,Infinity),
+  featRow('Transaksi berulang',false,true),
+  featRow('Sinkronisasi cloud',false,true),
+  featRow('Laporan P&L (laba-rugi)',false,true),
+  featRow('PDF dengan logo usaha',false,true),
+  featRow('Notifikasi push jatuh tempo',false,true),
+  featRow('Buat & kirim invoice',false,true)];
+ const isPro=curPlan.id==='pro';
+ const proAnnual=Math.round(29000*12*0.8);
+ const proFeatures=[
+  'Semua fitur Gratis','Dompet unlimited','Utang & piutang unlimited',
+  'Budget & kategori unlimited','Transaksi berulang otomatis',
+  'Sinkronisasi cloud (multi-device)','Laporan P&L laba-rugi',
+  'PDF dengan logo usaha sendiri','Notifikasi push jatuh tempo',
+  'Buat & kirim invoice ke klien'];
+ const freeFeatures=[
+  'Transaksi unlimited','2 dompet','5 utang/piutang aktif',
+  '3 budget per kategori','3 kategori kustom','Laporan dasar','Ekspor PDF/CSV'];
  return '<div style="text-align:center;padding:8px 0 16px">'+
   '<div style="display:inline-flex;color:var(--pos);margin-bottom:4px">'+ic('crown','w20')+'</div>'+
-  '<div style="font-weight:800;font-size:22px;letter-spacing:-.02em">Pilih paket yang cocok</div>'+
-  '<div class="muted" style="margin-top:6px;font-size:13.5px;line-height:1.5">Mulai gratis, upgrade kalau udah butuh lebih. Bisa batalkan kapan aja.</div>'+
+  '<div style="font-weight:800;font-size:22px;letter-spacing:-.02em">Paket untuk UMKM</div>'+
+  '<div class="muted" style="margin-top:6px;font-size:13.5px;line-height:1.5">Mulai gratis, upgrade kalau usaha udah berkembang. Bisa batalkan kapan aja.</div>'+
   '</div>'+
-  /* Current plan status */
-  (curPlan.id!=='free'?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
+  /* Current plan banner */
+  (isPro?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
    '<div class="row between wrap" style="gap:8px">'+
-   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket '+curPlan.name+' aktif</span></div>'+
+   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket Pro aktif</span></div>'+
    '<div class="row" style="gap:8px">'+
    (db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
    '<button class="btn mini danger" id="cancel-sub">Batalkan</button></div></div></div>':'')+
-  /* Plan cards */
-  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">'+
-  planCard('free')+planCard('pro')+planCard('bisnis')+planCard('tim')+'</div>'+
+  /* Two plan cards side by side */
+  '<div class="plan-grid">'+
+  /* FREE */
+  '<div class="price-card" style="display:flex;flex-direction:column">'+
+   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Gratis</div>'+
+   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px">Rp 0</div>'+
+   '<div class="xs muted" style="margin-top:2px">selamanya</div>'+
+   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
+   freeFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
+   '</div></div>'+
+   (!isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
+    '<button class="btn" style="width:100%;margin-top:16px;justify-content:center" data-downgrade="free">Kembali ke Gratis</button>')+
+  '</div>'+
+  /* PRO */
+  '<div class="price-card popular" style="display:flex;flex-direction:column">'+
+   (isPro?'<div style="position:absolute;top:12px;right:12px"><span class="plan-pill plan-pro">AKTIF</span></div>':'')+
+   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Pro</div>'+
+   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px;color:var(--pos)">Rp 29.000</div>'+
+   '<div class="xs muted" style="margin-top:2px">per bulan</div>'+
+   '<div class="xs" style="color:var(--pos);margin-top:3px">'+money(proAnnual)+'/thn — hemat 20%</div>'+
+   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
+   proFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
+   '</div></div>'+
+   (isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
+    '<button class="btn primary" style="width:100%;margin-top:16px;justify-content:center;gap:8px" data-upgrade="pro">'+ic('crown','w14')+' Upgrade ke Pro</button>')+
+  '</div>'+
+  '</div>'+
   /* Feature comparison table */
   '<div class="card" style="padding:18px 20px;margin-top:20px">'+
    '<div style="font-weight:700;font-size:14.5px;margin-bottom:10px">Perbandingan fitur</div>'+
    '<div class="row" style="gap:0;margin-bottom:4px;padding:0 0 4px;border-bottom:1px solid var(--line)">'+
    '<span class="grow"></span>'+
-   '<span style="width:52px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)">Free</span>'+
-   '<span style="width:52px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Pro</span>'+
-   '<span style="width:52px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--warn)">Bisnis</span>'+
-   '<span style="width:52px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--neg)">Tim</span></div>'+
+   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)">Gratis</span>'+
+   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Pro</span></div>'+
    featureRows.join('')+
   '</div>'+
   /* FAQ */
   '<div class="card" style="padding:18px 20px;margin-top:14px">'+
    '<div style="font-weight:700;font-size:14.5px;margin-bottom:8px">Pertanyaan umum</div>'+
    '<div style="display:grid;gap:10px">'+
-   '<div><div style="font-weight:700;font-size:12.5px">Kalau saya batalkan, data saya hilang?</div><div class="small muted" style="margin-top:2px">Tidak — semua data tetap tersimpan. Tapi fitur Pro/Bisnis akan terkunci kembali, dan entri di atas limit gratis tidak bisa ditambah (yang sudah ada tetap bisa dilihat).</div></div>'+
-   '<div><div style="font-weight:700;font-size:12.5px">Metode pembayaran apa?</div><div class="small muted" style="margin-top:2px">Di produksi: QRIS, GoPay, OVO, virtual account BCA/Mandiri/BRI, kartu kredit/debit via Midtrans. Untuk sekarang ini simulasi.</div></div>'+
-   '<div><div style="font-weight:700;font-size:12.5px">Bisa bayar tahunan?</div><div class="small muted" style="margin-top:2px">Ya! Bayar tahunan hemat 20%. Paket Pro: '+money(Math.round(29000*12*0.8))+'/thn, Bisnis: '+money(Math.round(79000*12*0.8))+'/thn, Tim: '+money(Math.round(149000*12*0.8))+'/thn.</div></div>'+
+   '<div><div style="font-weight:700;font-size:12.5px">Kalau saya batalkan, data saya hilang?</div><div class="small muted" style="margin-top:2px">Tidak — semua data tetap tersimpan. Tapi fitur Pro akan terkunci kembali, dan entri di atas limit gratis tidak bisa ditambah (yang sudah ada tetap bisa dilihat).</div></div>'+
+   '<div><div style="font-weight:700;font-size:12.5px">Metode pembayaran apa?</div><div class="small muted" style="margin-top:2px">QRIS, GoPay, OVO, virtual account BCA/Mandiri/BRI, kartu kredit/debit via Midtrans. Untuk sekarang ini simulasi.</div></div>'+
+   '<div><div style="font-weight:700;font-size:12.5px">Bisa bayar tahunan?</div><div class="small muted" style="margin-top:2px">Ya! Bayar tahunan hemat 20% — cukup '+money(proAnnual)+'/thn untuk paket Pro.</div></div>'+
    '<div><div style="font-weight:700;font-size:12.5px">Paket Gratis bisa dipakai selamanya?</div><div class="small muted" style="margin-top:2px">Ya, tanpa batas waktu. Tidak ada trial yang habis. Cukup untuk catat keuangan harian 1 orang.</div></div>'+
+   '<div><div style="font-weight:700;font-size:12.5px">Kenapa Rp 29.000/bulan?</div><div class="small muted" style="margin-top:2px">Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya sudah lengkap untuk kelola keuangan usaha kecil-menengah.</div></div>'+
    '</div></div>';}
 function afterLangganan(){
- $$('#cancel-sub').forEach(b=>b.onclick=()=>{confirmModal('Batalkan langganan?','Data tetap aman, tapi fitur berbayar akan terkunci. Entri di atas limit gratis tetap bisa dilihat.',cancelPlan);});
- $$('[data-upgrade]').forEach(b=>b.onclick=()=>{activatePlan(b.getAttribute('data-upgrade'));});
- $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur berbayar akan terkunci. Data tetap aman.',cancelPlan);});}
+ const cb=$('#cancel-sub');
+ if(cb)cb.onclick=()=>{confirmModal('Batalkan langganan?','Data tetap aman, tapi fitur Pro akan terkunci. Entri di atas limit gratis tetap bisa dilihat.',cancelPlan);};
+ $$('[data-upgrade]').forEach(b=>b.onclick=()=>{
+  confirmModal('Upgrade ke Pro?','Paket Pro Rp 29.000/bulannya. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans/Xendit untuk pembayaran.',()=>activatePlan(b.getAttribute('data-upgrade')));});
+ $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur Pro akan terkunci. Data tetap aman.',cancelPlan);});}
 
 /* ══════ Router & init ══════ */
 const ROUTES={

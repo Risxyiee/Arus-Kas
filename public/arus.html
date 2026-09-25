@@ -975,7 +975,7 @@ function pageDebts(){
     '<div><label class="lbl">Jatuh tempo</label><input id="d-due" type="date" class="fld mono"></div>'+
     '<div style="display:flex;align-items:flex-end"><button class="btn primary" style="width:100%" title="Tambah" aria-label="Tambah">'+ic('plus')+'</button></div>'+
    '</form>'+
-   '<div style="margin-top:8px"><label class="lbl">Keterangan (kenapa utang/piutang)</label><input id="d-note" class="fld" placeholder="cth: Pinjam modal usaha, piutang proyek web"></div>'+
+   '<div style="margin-top:10px"><label class="lbl">Keterangan — kenapa utang/piutang ini? (penting untuk bisnis)</label><input id="d-note" class="fld" placeholder="cth: Pinjam modal usaha, piutang proyek web, bayar supplier"></div>'+
    '</div>'+
   '<div class="card" style="padding:18px 20px;margin-top:14px">'+
    '<div class="row between wrap" style="gap:10px">'+
@@ -1536,10 +1536,24 @@ function exportPersonPDF(id){
  pdfFooter(doc,'Kartu '+(isDebt?'utang':'piutang'));
  doc.save('kartu-'+slug(d.name)+'.pdf');
  toast('Kartu PDF "'+esc(d.name)+'" diunduh.');}
+function allDebtsHTML(T,stamp){
+ return '<h1>ARUS — Rekap Utang & Piutang</h1>'+
+  '<div class="mut">Semua entri beserta riwayat pembayaran per orang · Dicetak: '+stamp+'</div>'+
+  '<div class="boxes">'+
+  '<div class="box"><b>Utang berjalan</b><span>'+money(T.pay)+'</span></div>'+
+  '<div class="box"><b>Piutang berjalan</b><span>'+money(T.rec)+'</span></div>'+
+  '<div class="box"><b>Jumlah entri</b><span>'+db.debts.length+'</span></div></div>'+
+  db.debts.map(d=>{const rows=statementRows(d),sisa=d.amount-d.paid_amount,isDebt=d.type==='debt';
+   return '<h2>'+esc(d.name)+' · '+(isDebt?'Utang':'Piutang')+' · '+STATUS[d.status][0]+' · Sisa '+money(sisa)+'</h2>'+
+   (d.note?'<div class="mut" style="margin-top:2px">Keterangan: '+esc(d.note)+'</div>':'')+
+   '<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th class="r">Tagihan</th><th class="r">Dibayar</th><th class="r">Sisa</th></tr></thead>'+
+   '<tbody>'+rows.map(r=>'<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td><td class="r">'+r[2]+'</td><td class="r">'+r[3]+'</td><td class="r">'+r[4]+'</td></tr>').join('')+'</tbody>'+
+   '<tfoot><tr class="tot"><td></td><td>TOTAL</td><td class="r">'+money(d.amount)+'</td><td class="r">'+money(d.paid_amount)+'</td><td class="r">'+money(sisa)+'</td></tr></tfoot></table>';}).join('');}
 function exportAllDebtsPDF(){
  if(!db.debts.length){toast('Belum ada data utang/piutang.','info');return;}
  const T=totals(),stamp=new Date().toLocaleString('id-ID');
- if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+ if(!window.jspdf){printFallback('Rekap Utang & Piutang — Arus',allDebtsHTML(T,stamp));toast('Pustaka PDF belum termuat — membuka menu cetak.','info');return;}
+ try{
  const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
  const H=doc.internal.pageSize.getHeight();
  pdfHead(doc,'ARUS — REKAP UTANG & PIUTANG','Semua entri beserta riwayat pembayaran per orang','Dicetak: '+stamp,'Data lengkap');
@@ -1564,12 +1578,29 @@ function exportAllDebtsPDF(){
   y=doc.lastAutoTable.finalY+26;});
  pdfFooter(doc,'Rekap utang & piutang');
  doc.save('rekap-utang-piutang.pdf');
- toast('Rekap utang & piutang diunduh.');}
+ toast('Rekap utang & piutang diunduh.');
+ }catch(err){printFallback('Rekap Utang & Piutang — Arus',allDebtsHTML(T,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
+function reportHTML(F,T,period,stamp){
+ return '<h1>ARUS — Laporan Keuangan</h1>'+
+  '<div class="mut">Ringkasan transaksi, utang & piutang · Periode: '+period+' · Dicetak: '+stamp+'</div>'+
+  '<div class="boxes">'+
+  '<div class="box"><b>Pemasukan</b><span>'+money(F.inc)+'</span></div>'+
+  '<div class="box"><b>Pengeluaran</b><span>'+money(F.exp)+'</span></div>'+
+  '<div class="box"><b>Arus kas net</b><span>'+(F.net>=0?'+':'-')+' '+money(Math.abs(F.net))+'</span></div>'+
+  '<div class="box"><b>Utang berjalan</b><span>'+money(T.pay)+'</span></div>'+
+  '<div class="box"><b>Piutang berjalan</b><span>'+money(T.rec)+'</span></div></div>'+
+  '<h2>Transaksi</h2>'+
+  '<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Kategori</th><th>Jenis</th><th class="r">Jumlah</th></tr></thead>'+
+  '<tbody>'+(F.txns.length?F.txns.map(t=>'<tr><td>'+fmtDate(t.occurred_at)+'</td><td>'+esc(t.description)+'</td><td>'+esc(t.category)+'</td><td>'+(t.type==='income'?'Masuk':'Keluar')+'</td><td class="r">'+(t.type==='income'?'+ ':'- ')+money(t.amount)+'</td></tr>').join(''):'<tr><td colspan="5" style="text-align:center" class="mut">Tidak ada transaksi pada periode ini.</td></tr>')+'</tbody></table>'+
+  '<h2>Utang & Piutang</h2>'+
+  '<table><thead><tr><th>Nama</th><th>Jenis</th><th class="r">Tagihan</th><th class="r">Dibayar</th><th>Jatuh Tempo</th><th>Status</th><th>Keterangan</th></tr></thead>'+
+  '<tbody>'+(F.debts.length?F.debts.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+(d.type==='debt'?'Utang':'Piutang')+'</td><td class="r">'+money(d.amount)+'</td><td class="r">'+money(d.paid_amount)+'</td><td>'+(d.due_date?fmtDate(d.due_date):'-')+'</td><td>'+STATUS[d.status][0]+'</td><td>'+(d.note||'-')+'</td></tr>').join(''):'<tr><td colspan="7" style="text-align:center" class="mut">Tidak ada entri pada periode ini.</td></tr>')+'</tbody></table>';}
 function exportReportPDF(){
  const F=reportData(),T=totals();
  const period=F.ym?monthName(F.ym):'Semua waktu';
  const stamp=new Date().toLocaleString('id-ID');
- if(!window.jspdf){toast('Pustaka PDF belum termuat.','error');return;}
+ if(!window.jspdf){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('Pustaka PDF belum termuat — membuka menu cetak.','info');return;}
+ try{
  const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
  const H=doc.internal.pageSize.getHeight();
  pdfHead(doc,'ARUS — LAPORAN KEUANGAN','Ringkasan transaksi, utang & piutang','Periode: '+period,'Dicetak: '+stamp);
@@ -1599,7 +1630,8 @@ function exportReportPDF(){
   columnStyles:{2:{halign:'right',cellWidth:86},3:{halign:'right',cellWidth:78},4:{cellWidth:68},5:{cellWidth:82}}}));
  pdfFooter(doc,'Laporan '+period);
  doc.save('arus-laporan-'+(F.ym||'semua')+'.pdf');
- toast('Laporan '+period+' diunduh.');}
+ toast('Laporan '+period+' diunduh.');
+ }catch(err){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
 
 /* ══════ Notifikasi bell ══════ */
 function bellModal(){
@@ -1621,9 +1653,9 @@ function onboardModal(){
   '<h3 style="font-weight:800;font-size:17px">Selamat datang di Arus</h3>'+
   '<p class="small muted" style="margin-top:8px;line-height:1.65">Data hanya tersimpan di browser ini — tidak ada server, tidak ada akun. Mulai dari mana?</p></div>'+
   '<div style="display:grid;gap:8px;margin-top:18px">'+
-  '<button class="btn primary" id="ob-demo" style="justify-content:flex-start">📦 Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
-  '<button class="btn" id="ob-clean" style="justify-content:flex-start">✨ Mulai bersih<span class="xs muted" style="margin-left:auto">kosong, siap diisi</span></button>'+
-  '<button class="btn" id="ob-import" style="justify-content:flex-start">♻️ Pulihkan backup JSON<span class="xs muted" style="margin-left:auto">pindah perangkat</span></button>'+
+  '<button class="btn primary" id="ob-demo" style="justify-content:flex-start">'+ic('bar','w14')+' Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
+  '<button class="btn" id="ob-clean" style="justify-content:flex-start">'+ic('plus','w14')+' Mulai bersih<span class="xs muted" style="margin-left:auto">kosong, siap diisi</span></button>'+
+  '<button class="btn" id="ob-import" style="justify-content:flex-start">'+ic('upload','w14')+' Pulihkan backup JSON<span class="xs muted" style="margin-left:auto">pindah perangkat</span></button>'+
   '<input type="file" id="ob-file" accept="application/json,.json" hidden></div>');
  $('#ob-demo').onclick=()=>{db.settings.onboarded=true;save();closeModal();render();toast('Data contoh dimuat — bebas diubah-ubah.');};
  $('#ob-clean').onclick=()=>{const keep={profile:db.profile,settings:Object.assign({},db.settings,{onboarded:true})};

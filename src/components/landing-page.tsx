@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ═══════════════════════════════════════════════════
-   Arus Landing Page — Human-crafted, warm, opinionated
+   Arus Landing — $150k Agency Build
    ═══════════════════════════════════════════════════ */
 
 interface LandingPageProps {
@@ -61,13 +61,13 @@ function scanDemo(s: string): DemoResult {
 }
 
 /* ── Arrow SVG ── */
-const ArrowSvg = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+const ArrowIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 );
 
-/* ── FAQ data (trimmed to 4) ── */
+/* ── FAQ data ── */
 const FAQ_DATA = [
   {
     q: 'Data saya dikirim ke internet?',
@@ -101,25 +101,63 @@ const EXAMPLES = [
    Main Component
    ═══════════════════════════════════════════════════ */
 export default function LandingPage({ onOpenApp }: LandingPageProps) {
-  /* ── State ── */
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [demoInput, setDemoInput] = useState('');
   const [userTyped, setUserTyped] = useState(false);
   const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
+  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
 
   const demoInputRef = useRef<HTMLInputElement>(null);
   const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroRef = useRef<HTMLElement>(null);
 
-  /* ── Nav scroll listener ── */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* ── Scroll reveal ── */
+  /* ── Cursor glow tracking ── */
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const onMove = (e: MouseEvent) => {
+      const rect = hero.getBoundingClientRect();
+      setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
+    hero.addEventListener('mousemove', onMove, { passive: true });
+    return () => hero.removeEventListener('mousemove', onMove);
+  }, []);
+
+  /* ── Tilt effect on app preview ── */
+  useEffect(() => {
+    const shell = document.querySelector('.appwin-shell');
+    if (!shell) return;
+    const onMove = (e: MouseEvent) => {
+      const rect = shell.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - .5;
+      const y = (e.clientY - rect.top) / rect.height - .5;
+      (shell as HTMLElement).style.transform = `perspective(800px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+    };
+    const onLeave = () => {
+      (shell as HTMLElement).style.transform = 'perspective(800px) rotateY(0) rotateX(0)';
+      (shell as HTMLElement).style.transition = 'transform .6s cubic-bezier(.32,.72,0,1)';
+    };
+    const onEnter = () => {
+      (shell as HTMLElement).style.transition = 'transform .1s ease-out';
+    };
+    shell.addEventListener('mousemove', onMove, { passive: true });
+    shell.addEventListener('mouseleave', onLeave);
+    shell.addEventListener('mouseenter', onEnter);
+    return () => {
+      shell.removeEventListener('mousemove', onMove);
+      shell.removeEventListener('mouseleave', onLeave);
+      shell.removeEventListener('mouseenter', onEnter);
+    };
+  }, []);
+
   useEffect(() => {
     const io = new IntersectionObserver(
       (entries) => entries.forEach((x) => {
@@ -128,7 +166,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
           io.unobserve(x.target);
         }
       }),
-      { threshold: 0.12 }
+      { threshold: 0.1 }
     );
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
     return () => io.disconnect();
@@ -192,7 +230,6 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
     };
   }, [userTyped, runDemoResult]);
 
-  /* ── Demo input change handler ── */
   const handleDemoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setUserTyped(true);
@@ -200,12 +237,10 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
     runDemoResult(val);
   };
 
-  /* ── FAQ toggle ── */
   const toggleFaq = (idx: number) => {
     setOpenFaq(openFaq === idx ? null : idx);
   };
 
-  /* ── Smooth scroll for anchor links ── */
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (href.startsWith('#')) {
       e.preventDefault();
@@ -217,49 +252,55 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
 
   return (
     <>
-      {/* ═══ NAV ═══ */}
+      {/* ═══ NAV — Floating Glass Pill ═══ */}
       <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`}>
-        <div className="wrap navin">
-          <a className="logo" href="#top" onClick={(e) => handleNavClick(e, '#top')}>
-            <span className="logomark"><i /></span>Arus
-          </a>
-          <div className={`nlinks${menuOpen ? ' open' : ''}`}>
-            <a href="#cara" onClick={(e) => handleNavClick(e, '#cara')}>Cara kerja</a>
-            <a href="#contoh" onClick={(e) => handleNavClick(e, '#contoh')}>Contoh</a>
-            <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')}>FAQ</a>
+        <div className="nav-pill">
+          <div className="navin">
+            <a className="logo" href="#top" onClick={(e) => handleNavClick(e, '#top')}>
+              <span className="logomark"><i /></span>Arus
+            </a>
+            <div className={`nlinks${menuOpen ? ' open' : ''}`}>
+              <a href="#cara" onClick={(e) => handleNavClick(e, '#cara')}>Cara kerja</a>
+              <a href="#contoh" onClick={(e) => handleNavClick(e, '#contoh')}>Contoh</a>
+              <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')}>FAQ</a>
+            </div>
+            <a
+              className="btn btn-accent nav-cta"
+              href="#"
+              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+            >
+              Buka
+              <span className="btn-icon"><ArrowIcon /></span>
+            </a>
+            <button
+              className="menu-btn"
+              aria-label="Menu"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              ≡
+            </button>
           </div>
-          <a
-            className="btn btn-accent nav-cta"
-            href="#"
-            style={{ padding: '10px 18px' }}
-            onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-          >
-            Buka Aplikasi
-          </a>
-          <button
-            className="menu-btn"
-            aria-label="Menu"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            ≡
-          </button>
         </div>
       </nav>
 
       {/* ═══ HERO ═══ */}
-      <header className="hero" id="top">
+      <header className="hero" id="top" ref={heroRef}>
+        <div className="hero-glow" style={{ left: glowPos.x, top: glowPos.y }} />
         <div className="wrap">
           <div className="hero-grid">
             {/* Left: Name, tagline, demo */}
             <div className="hero-text">
+              <div className="eyebrow" style={{ opacity: 0, animation: 'heroRise 1s .05s cubic-bezier(.16,1,.3,1) forwards', transform: 'translateY(20px)', filter: 'blur(6px)' }}>
+                Buku Kas Pribadi
+              </div>
               <h1 className="hero-name">
                 <span className="line">Arus.</span>
-                <span className="line" style={{ color: 'var(--accent)', fontSize: 'clamp(22px, 3.2vw, 32px)', fontWeight: 500, letterSpacing: '-.01em', lineHeight: 1.4, marginTop: 8 }}>
-                  Catat uang di browser. Hilang kalau hapus cache.
+                <span className="line" style={{ color: 'var(--accent)', fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 500, letterSpacing: '-.01em', lineHeight: 1.4, marginTop: 12 }}>
+                  Catat uang di browser.<br />Hilang kalau hapus cache.
                 </span>
               </h1>
               <p className="hero-tagline">
-                Ketik <span className="mono" style={{ color: 'var(--accent2)' }}>kopi 35rb</span>, langsung kecatat. Nggak perlu login, nggak ada cloud, nggak ada yang pegang data selain kamu. Tersimpan di browser — satu device, satu kendali.
+                Ketik <span className="mono" style={{ color: 'var(--accent2)' }}>kopi 35rb</span>, langsung kecatat. Nggak perlu login, nggak ada cloud, nggak ada yang pegang data selain kamu.
               </p>
               <div className="hero-cta">
                 <a
@@ -267,14 +308,31 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                   href="#"
                   onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
                 >
-                  Coba ketik transaksi pertama <ArrowSvg />
+                  Coba sekarang
+                  <span className="btn-icon"><ArrowIcon /></span>
                 </a>
                 <a className="btn btn-ghost" href="#cara" onClick={(e) => handleNavClick(e, '#cara')}>
                   Lihat cara kerjanya
                 </a>
               </div>
 
-              {/* Demo input right in the hero */}
+              {/* Trust badges */}
+              <div className="hero-trust">
+                <div className="trust-item">
+                  <span className="trust-dot" style={{ background: 'var(--pos)' }} />
+                  <span>100% offline</span>
+                </div>
+                <div className="trust-item">
+                  <span className="trust-dot" style={{ background: 'var(--accent)' }} />
+                  <span>Zero tracking</span>
+                </div>
+                <div className="trust-item">
+                  <span className="trust-dot" style={{ background: '#7A6BC9' }} />
+                  <span>Gratis selamanya</span>
+                </div>
+              </div>
+
+              {/* Demo input */}
               <div className="hero-demo">
                 <div className="demo-in">
                   <span className="caret" />
@@ -308,45 +366,47 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               </div>
             </div>
 
-            {/* Right: App preview — transaction list */}
+            {/* Right: App preview — Double-Bezel */}
             <div className="hero-preview">
-              <div className="appwin">
-                <div className="appbar"><i /><i /><i /></div>
-                <div className="appbody">
-                  <div className="bal-lbl">Saldo</div>
-                  <div className="bal" style={{ color: 'var(--ink)' }}>
-                    <span style={{ color: 'var(--accent)' }}>—</span> tersimpan lokal
-                  </div>
-                  <div className="trows">
-                    <div className="trow">
-                      <i className="tdot" style={{ background: '#0E7C55' }} />
-                      <span className="n">gaji bulanan 8,5jt</span>
-                      <span className="d">Hari ini</span>
-                      <span className="amt-p mono">+Rp 8.500.000</span>
+              <div className="appwin-shell">
+                <div className="appwin">
+                  <div className="appbar"><i /><i /><i /></div>
+                  <div className="appbody">
+                    <div className="bal-lbl">Saldo</div>
+                    <div className="bal" style={{ color: 'var(--ink)' }}>
+                      <span style={{ color: 'var(--accent)' }}>—</span> tersimpan lokal
                     </div>
-                    <div className="trow">
-                      <i className="tdot" style={{ background: '#C7723B' }} />
-                      <span className="n">kopi susu 35rb</span>
-                      <span className="d">Hari ini</span>
-                      <span className="amt-n mono">−Rp 35.000</span>
-                    </div>
-                    <div className="trow">
-                      <i className="tdot" style={{ background: '#3E8FA8' }} />
-                      <span className="n">gojek ke kantor 28rb</span>
-                      <span className="d">Kemarin</span>
-                      <span className="amt-n mono">−Rp 28.000</span>
-                    </div>
-                    <div className="trow">
-                      <i className="tdot" style={{ background: '#B8862F' }} />
-                      <span className="n">token listrik pln 100rb</span>
-                      <span className="d">2 hari lalu</span>
-                      <span className="amt-n mono">−Rp 100.000</span>
-                    </div>
-                    <div className="trow">
-                      <i className="tdot" style={{ background: '#C14E33' }} />
-                      <span className="n">bayar utang budi 500rb</span>
-                      <span className="d">3 hari</span>
-                      <span className="amt-n mono">−Rp 500.000</span>
+                    <div className="trows">
+                      <div className="trow">
+                        <i className="tdot" style={{ background: '#0E7C55' }} />
+                        <span className="n">gaji bulanan 8,5jt</span>
+                        <span className="d">Hari ini</span>
+                        <span className="amt-p mono">+Rp 8.500.000</span>
+                      </div>
+                      <div className="trow">
+                        <i className="tdot" style={{ background: '#C7723B' }} />
+                        <span className="n">kopi susu 35rb</span>
+                        <span className="d">Hari ini</span>
+                        <span className="amt-n mono">−Rp 35.000</span>
+                      </div>
+                      <div className="trow">
+                        <i className="tdot" style={{ background: '#3E8FA8' }} />
+                        <span className="n">gojek ke kantor 28rb</span>
+                        <span className="d">Kemarin</span>
+                        <span className="amt-n mono">−Rp 28.000</span>
+                      </div>
+                      <div className="trow">
+                        <i className="tdot" style={{ background: '#B8862F' }} />
+                        <span className="n">token listrik pln 100rb</span>
+                        <span className="d">2 hari lalu</span>
+                        <span className="amt-n mono">−Rp 100.000</span>
+                      </div>
+                      <div className="trow">
+                        <i className="tdot" style={{ background: '#C14E33' }} />
+                        <span className="n">bayar utang budi 500rb</span>
+                        <span className="d">3 hari</span>
+                        <span className="amt-n mono">−Rp 500.000</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -356,46 +416,52 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
         </div>
       </header>
 
-      {/* ═══ HOW IT WORKS ═══ */}
+      {/* ═══ HOW IT WORKS — Bento Steps ═══ */}
       <section id="cara" className="lp-section" style={{ borderBottom: '1px solid var(--line)' }}>
         <div className="wrap">
           <div className="reveal">
-            <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 480, fontSize: 'clamp(26px, 3.5vw, 36px)', lineHeight: 1.15, letterSpacing: '-.01em' }}>
+            <div className="eyebrow">Cara Kerja</div>
+            <h2 style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>
               Tiga langkah. Nggak lebih.
             </h2>
-            <p style={{ color: 'var(--mut)', fontSize: 15, marginTop: 8, fontWeight: 500 }}>
+            <p style={{ color: 'var(--mut)', fontSize: 15, marginTop: 12, fontWeight: 500 }}>
               Nggak perlu setting apa-apa. Tulis, simpan, selesai.
             </p>
           </div>
           <div className="how-grid">
             <div className="how-step reveal">
-              <div className="how-num">01</div>
-              <div className="how-icon">✏️</div>
-              <h3>Tulis</h3>
-              <p>Ketik aja apa yang kamu beli atau terima. <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>kopi 35rb</span>, <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>gaji 8,5jt</span> — pokoknya natural.</p>
+              <div className="inner">
+                <div className="how-num">01</div>
+                <div className="how-icon">✏️</div>
+                <h3>Tulis</h3>
+                <p>Ketik aja apa yang kamu beli atau terima. <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>kopi 35rb</span>, <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>gaji 8,5jt</span> — natural.</p>
+              </div>
             </div>
-            <div className="how-arrow">→</div>
-            <div className="how-step reveal" style={{ transitionDelay: '.1s' }}>
-              <div className="how-num">02</div>
-              <div className="how-icon">🏷️</div>
-              <h3>Kategori otomatis</h3>
-              <p>Arus baca kata kuncinya, langsung masukin ke kategori yang pas. Makanan, transportasi, tagihan — semua ke-handle.</p>
+            <div className="how-step reveal" style={{ transitionDelay: '.12s' }}>
+              <div className="inner">
+                <div className="how-num">02</div>
+                <div className="how-icon">🏷️</div>
+                <h3>Kategori otomatis</h3>
+                <p>Arus baca kata kuncinya, langsung masukin ke kategori yang pas. Makanan, transportasi, tagihan — semua ke-handle.</p>
+              </div>
             </div>
-            <div className="how-arrow">→</div>
-            <div className="how-step reveal" style={{ transitionDelay: '.2s' }}>
-              <div className="how-num">03</div>
-              <div className="how-icon">✅</div>
-              <h3>Simpan</h3>
-              <p>Sudah. Nggak ada tombol "simpan", nggak ada form panjang. Satu baris, selesai. Data tinggal di perangkatmu.</p>
+            <div className="how-step reveal" style={{ transitionDelay: '.24s' }}>
+              <div className="inner">
+                <div className="how-num">03</div>
+                <div className="how-icon">✅</div>
+                <h3>Simpan</h3>
+                <p>Sudah. Nggak ada tombol "simpan", nggak ada form panjang. Satu baris, selesai. Data tinggal di perangkatmu.</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══ EXAMPLES ═══ */}
+      {/* ═══ EXAMPLES — Asymmetrical Bento ═══ */}
       <section id="contoh" className="lp-section examples-section">
         <div className="wrap">
           <div className="ex-header reveal">
+            <div className="eyebrow">Contoh Nyata</div>
             <h2>
               Biarkan contoh yang <span style={{ color: 'var(--accent)' }}>berbicara</span>.
             </h2>
@@ -405,21 +471,23 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               <div
                 key={idx}
                 className={`ex-card reveal${ex.style ? ` ${ex.style}` : ''}`}
-                style={idx > 0 ? { transitionDelay: `${idx * 0.06}s` } : undefined}
+                style={idx > 0 ? { transitionDelay: `${idx * 0.08}s` } : undefined}
               >
-                <div className="ex-input">
-                  <span className="prompt">{'>'}</span> {ex.input}
-                </div>
-                <div className="ex-result">
-                  <span className="ex-cat">
-                    <i className="cdot" style={{ background: ex.catColor, width: 6, height: 6, borderRadius: '50%', display: 'inline-block' }} />
-                    {ex.cat}
-                  </span>
-                  <span className="ex-arrow">→</span>
-                  <span className={`ex-amt ${ex.inc ? 'pos' : 'neg'}`}>
-                    {ex.inc ? '+' : '−'}{ex.amt}
-                  </span>
-                  <span className="ex-type">{ex.type}</span>
+                <div className="inner">
+                  <div className="ex-input">
+                    <span className="prompt">{'>'}</span> {ex.input}
+                  </div>
+                  <div className="ex-result">
+                    <span className="ex-cat">
+                      <i className="cdot" style={{ background: ex.catColor, width: 6, height: 6, borderRadius: '50%', display: 'inline-block' }} />
+                      {ex.cat}
+                    </span>
+                    <span className="ex-arrow">→</span>
+                    <span className={`ex-amt ${ex.inc ? 'pos' : 'neg'}`}>
+                      {ex.inc ? '+' : '−'}{ex.amt}
+                    </span>
+                    <span className="ex-type">{ex.type}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -427,18 +495,19 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ═══ THE PITCH ═══ */}
+      {/* ═══ THE PITCH — Editorial Split ═══ */}
       <section className="lp-section">
         <div className="wrap">
           <div className="pitch-grid">
             <div className="pitch-left reveal">
+              <div className="eyebrow">Kenapa Arus</div>
               <h2>
                 Kenapa nggak pakai app <span style={{ color: 'var(--accent)' }}>biasa</span>?
               </h2>
               <p>
                 Karena app keuangan "biasa" minta kamu daftar akun, upload KTP, sinkronisasi ke cloud — padahal kamu cuma mau catat beli kopi. Arus nggak. Ini bukan SaaS yang mau datamu. Ini alat yang kamu punya penuh.
               </p>
-              <p style={{ color: 'var(--mut)', fontSize: 14, marginTop: 16, fontWeight: 500, fontStyle: 'italic' }}>
+              <p style={{ color: 'var(--dim)', fontSize: 13.5, marginTop: 20, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.7 }}>
                 Konsekuensinya: data mati sama device-nya. Kalau hapus cache tanpa backup, ya hilang. Itu bukan bug — itu pilihan desain. Makanya ada backup JSON.
               </p>
               <div className="pitch-points">
@@ -465,11 +534,15 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 </div>
               </div>
             </div>
-            <div className="pitch-right reveal" style={{ transitionDelay: '.15s' }}>
-              <div className="label">Prinsip</div>
-              <p>
-                "Kalau app keuangan minta akses ke email dan lokasimu, app itu bukan buku kas — app itu data harvester."
-              </p>
+            <div className="reveal" style={{ transitionDelay: '.15s' }}>
+              <div className="pitch-right-shell">
+                <div className="pitch-right">
+                  <div className="label">Prinsip</div>
+                  <p>
+                    "Kalau app keuangan minta akses ke email dan lokasimu, app itu bukan buku kas — app itu data harvester."
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -490,7 +563,8 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               href="#"
               onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
             >
-              Buka Aplikasi <ArrowSvg />
+              Buka Aplikasi
+              <span className="btn-icon"><ArrowIcon /></span>
             </a>
           </div>
         </div>
@@ -500,11 +574,12 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
       <section id="faq" className="lp-section" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="wrap">
           <div className="reveal" style={{ marginBottom: 8 }}>
-            <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 480, fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.2, letterSpacing: '-.01em' }}>
+            <div className="eyebrow">FAQ</div>
+            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)' }}>
               Yang biasa ditanyain
             </h2>
           </div>
-          <div className="faq reveal" style={{ transitionDelay: '.08s' }}>
+          <div className="faq reveal" style={{ transitionDelay: '.1s' }}>
             {FAQ_DATA.map((item, idx) => (
               <div key={idx} className={`qa${openFaq === idx ? ' open' : ''}`}>
                 <button onClick={() => toggleFaq(idx)}>
@@ -523,21 +598,26 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ═══ CTA FINAL ═══ */}
+      {/* ═══ CTA FINAL — Cinematic ═══ */}
       <section className="lp-section final" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="wrap reveal">
-          <h2>
-            Uangmu, <span style={{ color: 'var(--accent)' }}>aturanmu</span>.
-          </h2>
-          <p className="sub">Buka aplikasinya, catat transaksi pertamamu. Nggak perlu daftar, nggak perlu nunggu.</p>
-          <a
-            className="btn btn-accent"
-            href="#"
-            onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-          >
-            Buka Arus <ArrowSvg />
-          </a>
-          <span className="mini">tanpa server · tanpa akun · data tetap di perangkatmu</span>
+          <div className="final-card-shell">
+            <div className="final-card">
+              <h2>
+                Uangmu, <span style={{ color: 'var(--accent)' }}>aturanmu</span>.
+              </h2>
+              <p className="sub">Buka aplikasinya, catat transaksi pertamamu. Nggak perlu daftar, nggak perlu nunggu.</p>
+              <a
+                className="btn btn-accent"
+                href="#"
+                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+              >
+                Buka Arus
+                <span className="btn-icon"><ArrowIcon /></span>
+              </a>
+              <span className="mini">tanpa server · tanpa akun · data tetap di perangkatmu</span>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* Cloudflare Pages compatibility */
-  output: "export",
+  /* Cloudflare Pages compatibility via @cloudflare/next-on-pages */
   images: {
     unoptimized: true,
   },

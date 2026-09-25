@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const runtime = "edge";
+
 /**
  * GET /api/subscription?user_id=xxx
  * POST /api/subscription — activate/upgrade plan

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autoCategorize } from "@/lib/auto-categorize";
 
+export const runtime = "edge";
+
 // POST auto-categorize a description
 export async function POST(req: NextRequest) {
   try {

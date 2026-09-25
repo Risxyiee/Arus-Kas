@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const runtime = "edge";
+
 /**
  * POST /api/sync — Full data sync from localStorage → Supabase
  * Used when user first connects to cloud (Pro feature)

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const runtime = "edge";
+
 /**
  * GET /api/transactions?user_id=xxx&from=2024-01&to=2024-06&type=expense&category=Makanan&wallet=xxx
  * POST /api/transactions — create transaction

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const runtime = "edge";
+
 /**
  * GET /api/debts?user_id=xxx
  * POST /api/debts — create debt

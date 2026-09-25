@@ -1,57 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase";
 
-// GET all transactions
-export async function GET() {
+/**
+ * GET /api/transactions?user_id=xxx&from=2024-01&to=2024-06&type=expense&category=Makanan&wallet=xxx
+ * POST /api/transactions — create transaction
+ * DELETE /api/transactions?id=xxx
+ */
+export async function GET(req: NextRequest) {
   try {
-    const transactions = await db.transaction.findMany({
-      orderBy: { date: "desc" },
-    });
-    return NextResponse.json(transactions);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 });
+    const url = req.nextUrl;
+    const userId = url.searchParams.get("user_id");
+    if (!userId)
+      return NextResponse.json({ error: "user_id required" }, { status: 400 });
+
+    const admin = supabaseAdmin();
+    let query = admin
+      .from("transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("occurred_at", { ascending: false });
+
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+    const type = url.searchParams.get("type");
+    const category = url.searchParams.get("category");
+    const wallet = url.searchParams.get("wallet");
+
+    if (from) query = query.gte("occurred_at", from);
+    if (to) query = query.lte("occurred_at", to);
+    if (type) query = query.eq("type", type);
+    if (category) query = query.eq("category", category);
+    if (wallet) query = query.eq("wallet_id", wallet);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return NextResponse.json({ data });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-// POST create a new transaction
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { amount, date, description, category, type } = body;
+    const admin = supabaseAdmin();
 
-    if (!amount || !date || !description || !category || !type) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const { data, error } = await admin
+      .from("transactions")
+      .insert(body)
+      .select()
+      .single();
 
-    const transaction = await db.transaction.create({
-      data: {
-        amount: parseFloat(amount),
-        date: new Date(date),
-        description,
-        category,
-        type,
-      },
-    });
-
-    return NextResponse.json(transaction);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 });
+    if (error) throw error;
+    return NextResponse.json({ data }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-// DELETE a transaction
 export async function DELETE(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id)
+      return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing transaction id" }, { status: 400 });
-    }
+    const admin = supabaseAdmin();
+    const { error } = await admin.from("transactions").delete().eq("id", id);
+    if (error) throw error;
 
-    await db.transaction.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

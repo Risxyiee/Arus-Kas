@@ -428,17 +428,20 @@ function openUpgradeModal(feature,msg){
   '</div>');
  $('#up-confirm').onclick=()=>{closeModal();activatePlan('pro');};
  $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
-function activatePlan(planId){
+function activatePlan(planId,billing){
  if(planId==='free'){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
  if(planId!=='pro')return;
  if(!currentUser){toast('Daftar/login dulu sebelum upgrade 🔐');openAuthModal('login');return;}
+ const isAnnual=billing==='annual';
+ const amount=isAnnual?278400:29000;
+ const label=isAnnual?'tahunan':'bulanan';
  // Create Midtrans Snap transaction
- api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name})}).then(r=>{
+ api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name,amount:amount,billing:label})}).then(r=>{
   if(r.error){toast('Gagal: '+r.error);return;}
   // Open Midtrans Snap popup
   if(window.snap&&r.token){
    window.snap.pay(r.token,{
-    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:'pro',startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();renderPlanBadge();render();/* Sync to server so Supabase knows immediately */if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'pro'})});}},
+    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');const expMs=isAnnual?365:30;db.subscription={plan:'pro',startedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+expMs*864e5).toISOString(),paymentMethod:'midtrans',transactionId:r.order_id,billing:label};save();renderPlanBadge();render();if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'pro'})});}},
     onPending:function(result){toast('Menunggu pembayaran... ⏳');},
     onError:function(result){toast('Pembayaran gagal 😔');},
     onClose:function(){toast('Pembayaran dibatalkan');}
@@ -1467,8 +1470,10 @@ function pageReports(){
    '<button class="mbtn" id="m-next" aria-label="Bulan berikutnya">'+ic('chr')+'</button></div>'+
   (F.ym?'<button class="btn mini" id="m-all">'+monthName(F.ym)+' · tampilkan semua '+ic('x','w10')+'</button>':'<span class="xs muted">Menampilkan semua waktu</span>')+
   '<span style="flex:1"></span>'+
-  '<button class="btn" id="csv-btn">'+ic('dl')+' CSV (Excel)</button>'+
-  '<button class="btn primary" id="pdf-btn">'+ic('dl')+' Unduh laporan (PDF)</button></div>'+
+  '<button class="btn" id="csv-btn">'+ic('dl')+' CSV</button>'+
+  '<button class="btn primary" id="pdf-btn">'+ic('dl')+' PDF</button>'+
+  (canDo('invoice')?'<button class="btn" id="inv-btn" style="margin-left:4px">'+ic('file','w12')+' Invoice</button>':'')+
+  '</div>'+
   '<div class="grid grid4" style="margin-top:14px">'+
    metricCard({l:'Pemasukan',v:F.inc,cls:'pos',i:'up',s:'periode terpilih'})+
    metricCard({l:'Pengeluaran',v:F.exp,cls:'neg',i:'down',s:'periode terpilih'})+
@@ -1487,7 +1492,43 @@ function pageReports(){
    '<div class="tblwrap" style="margin-top:8px"><table>'+
     '<thead><tr><th>Nama</th><th>Jenis</th><th style="text-align:right">Tagihan</th><th style="text-align:right">Dibayar</th><th>Jatuh tempo</th><th>Status</th><th></th></tr></thead>'+
     '<tbody>'+(debtRows||'<tr><td colspan="7" style="text-align:center;padding:26px" class="muted">Tidak ada entri pada periode ini.</td></tr>')+'</tbody>'+
-   '</table></div></div>';}
+   '</table></div></div>'+
+  /* ═══ P&L Report (Pro feature) ═══ */
+  (getPlan().id==='pro'?
+   (function(){
+    const cats={};
+    F.txns.forEach(t=>{if(!cats[t.category])cats[t.category]={inc:0,exp:0};if(t.type==='income')cats[t.category].inc+=t.amount;else cats[t.category].exp+=t.amount;});
+    const incCats=Object.entries(cats).filter(([_,v])=>v.inc>0).sort((a,b)=>b[1].inc-a[1].inc);
+    const expCats=Object.entries(cats).filter(([_,v])=>v.exp>0).sort((a,b)=>b[1].exp-a[1].exp);
+    const totalInc=incCats.reduce((s,[_,v])=>s+v.inc,0);
+    const totalExp=expCats.reduce((s,[_,v])=>s+v.exp,0);
+    const grossProfit=totalInc-totalExp;
+    const opExp=totalExp;
+    const netIncome=grossProfit-opExp;
+    const margin=totalInc>0?Math.round(netIncome/totalInc*100):0;
+    return '<div class="card" style="padding:18px 20px;margin-top:14px;border-left:3px solid var(--pos)">'+
+     '<div class="row between" style="gap:8px"><div style="font-weight:700;font-size:14.5px">'+ic('chart','w14')+' Laporan P&L (Laba-Rugi)</div>'+
+     '<button class="btn mini primary" id="pl-pdf-btn">'+ic('dl','w10')+' PDF</button></div>'+
+     '<div class="xs muted" style="margin-top:2px">Periode: '+(F.ym?monthName(F.ym):'Semua waktu')+'</div>'+
+     '<div class="grid g2" style="margin-top:14px;gap:10px">'+
+     /* Income breakdown */
+     '<div><div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--pos)">Pemasukan</div>'+
+     incCats.map(([c,v])=>'<div class="row" style="gap:6px;padding:3px 0"><span class="small grow">'+esc(c)+'</span><span class="mono small pos" style="font-weight:600">'+money(v.inc)+'</span></div>').join('')+
+     '<div class="row" style="gap:6px;padding:6px 0;border-top:1px solid var(--line);margin-top:4px"><span style="font-weight:700;font-size:12px">Total Pemasukan</span><span class="mono pos" style="font-weight:700;margin-left:auto">'+money(totalInc)+'</span></div></div>'+
+     /* Expense breakdown */
+     '<div><div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--neg)">Pengeluaran</div>'+
+     expCats.map(([c,v])=>'<div class="row" style="gap:6px;padding:3px 0"><span class="small grow">'+esc(c)+'</span><span class="mono small neg" style="font-weight:600">'+money(v.exp)+'</span></div>').join('')+
+     '<div class="row" style="gap:6px;padding:6px 0;border-top:1px solid var(--line);margin-top:4px"><span style="font-weight:700;font-size:12px">Total Pengeluaran</span><span class="mono neg" style="font-weight:700;margin-left:auto">'+money(totalExp)+'</span></div></div>'+
+     '</div>'+
+     /* Net summary */
+     '<div style="background:var(--soft);border-radius:10px;padding:14px 18px;margin-top:14px">'+
+     '<div class="row between" style="gap:8px"><div><div style="font-weight:700;font-size:13px">Laba Bersih (Net Income)</div><div class="xs muted">Pemasukan − Pengeluaran</div></div>'+
+     '<div class="mono" style="font-size:20px;font-weight:800;color:'+(netIncome>=0?'var(--pos)':'var(--neg)')+'">'+(netIncome>=0?'+':'−')+money(Math.abs(netIncome))+'</div></div>'+
+     '<div class="row" style="gap:16px;margin-top:8px"><div class="xs muted">Margin: <span style="font-weight:700;color:var(--ink)">'+margin+'%</span></div>'+
+     '<div class="xs muted">Rasio biaya: <span style="font-weight:700;color:var(--ink)">'+(totalInc>0?Math.round(totalExp/totalInc*100):0)+'%</span></div></div></div></div>';
+   })()
+  :'<div class="upgrade-strip" style="margin-top:14px"><div class="row between" style="gap:8px"><div class="small"><span style="font-weight:700">'+ic('crown','w12')+' Laporan P&L</span> — analisis laba-rugi per kategori</div><button class="btn mini primary" data-route="langganan">Upgrade</button></div></div>');
+}
 function afterReports(){
  const shift=dl=>{
   if(!ui.reportMonth)ui.reportMonth=todayISO().slice(0,7);
@@ -1499,7 +1540,11 @@ function afterReports(){
  $('#m-pick').addEventListener('change',e=>{ui.reportMonth=e.target.value||'';render();});
  const ma=$('#m-all');if(ma)ma.onclick=()=>{ui.reportMonth='';render();};
  $('#pdf-btn').onclick=exportReportPDF;
- $('#csv-btn').onclick=exportCSV;}
+ $('#csv-btn').onclick=exportCSV;
+ const invBtn=$('#inv-btn');
+ if(invBtn)invBtn.onclick=openInvoiceBuilder;
+ const plBtn=$('#pl-pdf-btn');
+ if(plBtn)plBtn.onclick=exportPLPDF;}
 
 /* ══════ PENGATURAN ══════ */
 function pagePengaturan(){
@@ -1703,6 +1748,10 @@ function pdfHead(doc,title,sub,rightBold,rightMut){
  doc.setFillColor(PDF.hdr[0],PDF.hdr[1],PDF.hdr[2]);doc.rect(0,0,W,88,'F');
  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(PDF.paper[0],PDF.paper[1],PDF.paper[2]);doc.text(title,48,36);
  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(sub,48,58);
+ /* Branded: show business name for Pro users */
+ if(getPlan().id==='pro'&&db.profile.name){
+  doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(200,196,184);doc.text(db.profile.name+' — Arus Pro',48,74);
+ }
  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(rightBold,W-48,36,{align:'right'});
  doc.setFont('helvetica','normal');doc.setTextColor(168,162,146);doc.text(rightMut,W-48,58,{align:'right'});}
 function pdfBoxes(doc,items){
@@ -1895,7 +1944,144 @@ function exportReportPDF(){
  toast('Laporan '+period+' diunduh.');
  }catch(err){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
 
-/* ══════ Notifikasi bell ══════ */
+/* ── P&L PDF Export (Pro) ── */
+function exportPLPDF(){
+ if(!canDo('plReport')){showUpgrade('plReport');return;}
+ const F=reportData();
+ const period=F.ym?monthName(F.ym):'Semua waktu';
+ const stamp=new Date().toLocaleString('id-ID');
+ const cats={};
+ F.txns.forEach(t=>{if(!cats[t.category])cats[t.category]={inc:0,exp:0};if(t.type==='income')cats[t.category].inc+=t.amount;else cats[t.category].exp+=t.amount;});
+ const incCats=Object.entries(cats).filter(([_,v])=>v.inc>0).sort((a,b)=>b[1].inc-a[1].inc);
+ const expCats=Object.entries(cats).filter(([_,v])=>v.exp>0).sort((a,b)=>b[1].exp-a[1].exp);
+ const totalInc=incCats.reduce((s,[_,v])=>s+v.inc,0);
+ const totalExp=expCats.reduce((s,[_,v])=>s+v.exp,0);
+ const netIncome=totalInc-totalExp;
+ const margin=totalInc>0?Math.round(netIncome/totalInc*100):0;
+ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+ try{
+ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+ const businessName=(db.profile&&db.profile.name)||'Arus';
+ /* Branded header for Pro */
+ pdfHead(doc,'ARUS — LAPORAN P&L (LABA-RUGI)',businessName,'Periode: '+period,'Dicetak: '+stamp);
+ pdfBoxes(doc,[
+  ['Total Pemasukan',money(totalInc),[14,123,79]],
+  ['Total Pengeluaran',money(totalExp),[193,78,51]],
+  ['Laba Bersih',(netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),netIncome>=0?[14,123,79]:[193,78,51]],
+  ['Margin',margin+'%',PDF.ink]]);
+ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('P&L '+period)});
+ /* Income table */
+ let y=186;
+ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(14,123,79);
+ doc.text('Pemasukan per Kategori',48,y);y+=8;
+ doc.autoTable(Object.assign(base,{startY:y,
+  head:[['Kategori','Jumlah']],
+  body:incCats.map(([c,v])=>[c,money(v.inc)]),
+  columnStyles:{1:{halign:'right',cellWidth:120}},
+  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[14,123,79];}}));
+ y=doc.lastAutoTable.finalY+24;
+ if(y>H-120){doc.addPage();y=64;}
+ /* Expense table */
+ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(193,78,51);
+ doc.text('Pengeluaran per Kategori',48,y);y+=8;
+ doc.autoTable(Object.assign(base,{startY:y,
+  head:[['Kategori','Jumlah']],
+  body:expCats.map(([c,v])=>[c,money(v.exp)]),
+  columnStyles:{1:{halign:'right',cellWidth:120}},
+  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[193,78,51];}}));
+ /* Summary box */
+ y=doc.lastAutoTable.finalY+24;
+ if(y>H-100){doc.addPage();y=64;}
+ doc.setFillColor(247,245,238);doc.roundedRect(48,y,W-96,50,6,6,'F');
+ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+ doc.text('Laba Bersih = Pemasukan − Pengeluaran',62,y+18);
+ doc.setFontSize(14);doc.setTextColor(netIncome>=0?14:193,netIncome>=0?123:78,netIncome>=0?79:51);
+ doc.text((netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),W-62,y+36,{align:'right'});
+ pdfFooter(doc,'P&L '+period);
+ doc.save('arus-pnl-'+(F.ym||'semua')+'.pdf');
+ toast('Laporan P&L '+period+' diunduh.');
+ }catch(err){toast('PDF gagal: '+err.message,'error');}}
+
+/* ── Invoice Builder (Pro) ── */
+function openInvoiceBuilder(){
+ if(!canDo('invoice')){showUpgrade('invoice');return;}
+ const invNum='INV-'+new Date().getFullYear()+p2(new Date().getMonth()+1)+p2(new Date().getDate())+'-'+(Math.random()*900+100|0);
+ openModal(
+  '<div style="padding:4px 0">'+
+  '<div class="row" style="gap:8px;margin-bottom:12px"><span style="display:inline-flex;color:var(--pos)">'+ic('file','w18')+'</span><h3 style="margin:0;font-weight:800;font-size:16px">Buat Invoice</h3></div>'+
+  '<label class="lbl">Nama klien / penerima</label><input id="inv-to" class="fld" placeholder="PT Contoso" maxlength="60">'+
+  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  '<div><label class="lbl">No. Invoice</label><input id="inv-no" class="fld mono" value="'+invNum+'" maxlength="30"></div>'+
+  '<div><label class="lbl">Tanggal</label><input id="inv-date" type="date" class="fld" value="'+todayISO()+'"></div></div>'+
+  '<label class="lbl" style="margin-top:10px">Item / Jasa</label><input id="inv-item" class="fld" placeholder="Jasa desain brand" maxlength="80">'+
+  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  '<div><label class="lbl">Jumlah (Rp)</label><input id="inv-amt" class="fld mono6" type="number" inputmode="numeric" placeholder="500000"></div>'+
+  '<div><label class="lbl">Catatan</label><input id="inv-note" class="fld" placeholder="Terima kasih" maxlength="100"></div></div>'+
+  '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">'+
+  '<button class="btn" data-close>Batal</button><button class="btn primary" id="inv-ok">Buat PDF</button></div></div>');
+ $('#inv-ok').onclick=exportInvoicePDF;
+}
+function exportInvoicePDF(){
+ const to=$('#inv-to').value.trim()||'Klien';
+ const invNo=$('#inv-no').value.trim()||'INV-001';
+ const invDate=$('#inv-date').value||todayISO();
+ const item=$('#inv-item').value.trim()||'Jasa';
+ const amt=parseInt($('#inv-amt').value)||0;
+ const note=$('#inv-note').value.trim();
+ if(!amt){toast('Isi jumlah invoice.','error');return;}
+ closeModal();
+ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+ try{
+ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+ const businessName=(db.profile&&db.profile.name)||'Arus';
+ const ppn=window.jspdf.jsPDF.API;
+ /* Header */
+ doc.setFillColor(PDF.hdr[0],PDF.hdr[1],PDF.hdr[2]);doc.rect(0,0,W,72,'F');
+ doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(PDF.paper[0],PDF.paper[1],PDF.paper[2]);doc.text('INVOICE',48,42);
+ doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(businessName,48,60);
+ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+ doc.text('Kepada:',48,100);doc.setFont('helvetica','normal');doc.text(to,48,114);
+ doc.setFont('helvetica','bold');doc.text('No. Invoice:',W-200,100);doc.setFont('helvetica','normal');doc.text(invNo,W-200,114);
+ doc.setFont('helvetica','bold');doc.text('Tanggal:',W-200,130);doc.setFont('helvetica','normal');doc.text(fmtDate(invDate),W-200,144);
+ /* Items table */
+ doc.autoTable({startY:170,theme:'grid',
+  styles:{font:'helvetica',fontSize:9,cellPadding:{top:6,bottom:6,left:8,right:8},lineColor:PDF.boxLine,lineWidth:.5,textColor:PDF.ink},
+  headStyles:{fillColor:PDF.hdr,textColor:PDF.paper,fontSize:8.5,lineWidth:0},
+  head:[['No','Deskripsi','Jumlah']],
+  body:[['1',item,money(amt)]],
+  columnStyles:{0:{cellWidth:40},2:{halign:'right',cellWidth:120}}});
+ /* Total */
+ let y=doc.lastAutoTable.finalY+16;
+ doc.setDrawColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);doc.setLineWidth(1);doc.line(W-168,y,W-48,y);y+=16;
+ doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Total',W-168,y);
+ doc.text(money(amt),W-48,y,{align:'right'});y+=24;
+ if(note){doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);doc.text('Catatan: '+note,48,y);y+=16;}
+ /* Footer */
+ doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);
+ doc.text('Terima kasih atas kepercayaan Anda.',48,H-40);
+ doc.text(businessName+' — Invoice via Arus Pro',48,H-26);
+ doc.save(invNo+'.pdf');
+ toast('Invoice diunduh ✅');
+ }catch(err){toast('PDF gagal: '+err.message,'error');}
+}
+
+/* ── Push Notifications for due dates (Pro) ── */
+function initPushNotifications(){
+ if(!canDo('notifPush'))return;
+ if(!('Notification' in window))return;
+ if(Notification.permission==='default'){Notification.requestPermission();}
+ if(Notification.permission!=='granted')return;
+ const items=dueItems().filter(x=>x.days<=1);
+ items.forEach(x=>{
+  try{new Notification('Arus — Jatuh Tempo',{
+   body:x.d.name+': '+dueLabel(x.d)+' ('+money(x.d.amount-x.d.paid_amount)+')',
+   icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34"><rect x="1" y="1" width="32" height="32" rx="9" fill="%23242019"/><path d="M10 12.5h14M10 17h14M10 21.5h9" stroke="%23F4F1E8" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+   tag:'arus-due-'+x.d.id
+  });}catch(e){}
+ });
+}/* ══════ Notifikasi bell ══════ */
 function bellModal(){
  const items=dueItems();
  openModal('<h3 style="font-weight:800;font-size:16px">Jatuh tempo &amp; terlambat</h3>'+
@@ -2027,7 +2213,8 @@ function pageLangganan(){
    proFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
    '</div></div>'+
    (isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
-    '<button class="btn primary" style="width:100%;margin-top:16px;justify-content:center;gap:8px" data-upgrade="pro">'+ic('crown','w14')+' Upgrade ke Pro</button>')+
+    '<div style="margin-top:16px"><div class="row" style="gap:6px;justify-content:center;margin-bottom:8px"><button class="btn mini active" id="bill-m" style="font-size:11px">Bulanan</button><button class="btn mini" id="bill-y" style="font-size:11px">Tahunan</button></div>'+
+    '<button class="btn primary" style="width:100%;justify-content:center;gap:8px" data-upgrade="pro">'+ic('crown','w14')+' Upgrade ke Pro</button></div>')+
   '</div>'+
   '</div>'+
   '</div>'+
@@ -2049,12 +2236,31 @@ function pageLangganan(){
    '<div><div style="font-weight:700;font-size:12.5px">Bisa bayar tahunan?</div><div class="small muted" style="margin-top:2px">Ya! Bayar tahunan hemat 20% — cukup '+money(proAnnual)+'/thn untuk paket Pro.</div></div>'+
    '<div><div style="font-weight:700;font-size:12.5px">Paket Gratis bisa dipakai selamanya?</div><div class="small muted" style="margin-top:2px">Ya, tanpa batas waktu. Tidak ada trial yang habis. Cukup untuk catat keuangan harian 1 orang.</div></div>'+
    '<div><div style="font-weight:700;font-size:12.5px">Kenapa Rp 29.000/bulan?</div><div class="small muted" style="margin-top:2px">Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya sudah lengkap untuk kelola keuangan usaha kecil-menengah.</div></div>'+
-   '</div></div>';}
+   '</div></div>'+
+  /* Payment history (Pro) */
+  (isPro?'<div class="card" style="padding:18px 20px;margin-top:14px">'+
+   '<div style="font-weight:700;font-size:14.5px;margin-bottom:8px">'+ic('file','w14')+' Riwayat Pembayaran</div>'+
+   (db.subscription.transactionId?
+    '<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+    '<span class="small grow" style="font-weight:600">'+esc(db.subscription.transactionId)+'</span>'+
+    '<span class="xs muted">'+(db.subscription.billing||'bulanan')+'</span>'+
+    '<span class="tagx" style="background:var(--pos-soft);color:var(--pos)">Aktif</span></div>':
+    '')+
+   (db.subscription.startedAt?'<div class="xs muted" style="margin-top:6px">Berlangganan sejak '+fmtDate(db.subscription.startedAt)+'</div>':'')+
+   (db.subscription.expiresAt?'<div class="xs muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</div>':'')+
+   ((!db.subscription.transactionId&&!db.subscription.startedAt)?'<div class="small muted">Belum ada riwayat pembayaran.</div>':'')+
+   '</div>':'');}
 function afterLangganan(){
  const cb=$('#cancel-sub');
  if(cb)cb.onclick=()=>{confirmModal('Batalkan langganan?','Data tetap aman, tapi fitur Pro akan terkunci. Entri di atas limit gratis tetap bisa dilihat.',cancelPlan);};
+ let billingType='monthly';
+ const bm=$('#bill-m'),by=$('#bill-y');
+ if(bm)bm.onclick=()=>{billingType='monthly';bm.classList.add('active');if(by)by.classList.remove('active');};
+ if(by)by.onclick=()=>{billingType='annual';by.classList.add('active');if(bm)bm.classList.remove('active');};
  $$('[data-upgrade]').forEach(b=>b.onclick=()=>{
-  confirmModal('Upgrade ke Pro?','Paket Pro Rp 29.000/bulannya. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans untuk pembayaran.',()=>activatePlan('pro'));});
+  const billing=billingType;
+  const isAnnual=billing==='annual';
+  confirmModal('Upgrade ke Pro?',isAnnual?'Paket Pro Rp 278.400/tahun (hemat 20%). Bisa batalkan kapan aja.':'Paket Pro Rp 29.000/bulannya. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans untuk pembayaran.',()=>activatePlan('pro',billing));});
  $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur Pro akan terkunci. Data tetap aman.',cancelPlan);});}
 
 /* ══════ Router & init ══════ */
@@ -2307,6 +2513,7 @@ function finishOnboarding(){
 load();
 applyCustomCats();
 processRecurring();
+initPushNotifications();
 applyThemeUI();
 updateProfileUI();
 if(db.profile.pinEnabled&&db.profile.pin)showPinLock();

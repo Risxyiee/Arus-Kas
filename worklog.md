@@ -118,3 +118,44 @@ Stage Summary:
 - Payment success now syncs to server immediately
 - Landing page features 100% consistent with dashboard
 - No errors in dev log or browser
+---
+Task ID: P2-features
+Agent: main
+Task: Implement missing Pro features — P&L report, PDF branded, invoice builder, push notifications, annual payment, payment history
+
+Work Log:
+- P2-1: Laporan P&L (laba-rugi) — added full P&L section in pageReports()
+  - Shows income/expense breakdown by category
+  - Calculates net income, margin %, cost ratio
+  - Upgrade strip for Free users
+  - PDF export (exportPLPDF) with income/expense tables + summary box
+- P2-2: PDF branded — modified pdfHead() to show business name for Pro users
+  - Adds italic "BusinessName — Arus Pro" line in PDF header
+- P2-3: Transaksi berulang — ALREADY EXISTS (checkbox, gating, edit support)
+- P2-4: Annual payment option — added billing toggle in Langganan page
+  - Bulanan/Tahunan toggle buttons on Pro card
+  - activatePlan() now accepts billing parameter
+  - Worker handleMidtransCreate accepts amount + billing override
+  - Annual: Rp 278.400 (gross_amount: 278400), expiry 365 days
+  - Monthly: Rp 29.000 (gross_amount: 29000), expiry 30 days
+- P2-5: Payment history — added Riwayat Pembayaran section in Langganan page
+  - Shows transaction ID, billing type, active status
+  - Shows subscription start date and expiry date
+- P2-6: Invoice builder — added openInvoiceBuilder() + exportInvoicePDF()
+  - Modal with client name, invoice number, date, item, amount, notes
+  - Professional PDF with branded header, items table, total
+  - Button added to Laporan page (Pro only)
+- P2-7: Push notifications — added initPushNotifications()
+  - Uses browser Notification API for due date reminders (≤1 day)
+  - Called on init, only for Pro users
+  - Requests permission, shows notification with debt details
+
+Stage Summary:
+- ALL 7 missing Pro features now implemented
+- P&L report with PDF export
+- PDF branded with business name
+- Annual payment with Midtrans support
+- Payment history in Langganan page
+- Invoice builder with PDF export
+- Push notifications for due dates
+- No errors, all features verified

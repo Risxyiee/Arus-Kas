@@ -874,6 +874,14 @@ async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
 
   if (!userId) return json({ error: "user_id required" }, 400);
 
+  // Support annual billing (amount override)
+  const requestedAmount = (body.amount as number) || 29000;
+  const billingLabel = (body.billing as string) || "bulanan";
+  const isAnnual = requestedAmount >= 278400;
+  const grossAmount = isAnnual ? 278400 : 29000;
+  const itemName = isAnnual ? "Arus Pro — Tahunan" : "Arus Pro — Bulanan";
+  const itemId = isAnnual ? "pro-annual" : "pro-monthly";
+
   const isProd = env.MIDTRANS_IS_PRODUCTION === "true";
   const baseUrl = isProd
     ? "https://app.midtrans.com/snap/v1/transactions"
@@ -884,13 +892,13 @@ async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
   const payload = {
     transaction_details: {
       order_id: orderId,
-      gross_amount: 29000, // Rp 29.000/bulan
+      gross_amount: grossAmount,
     },
     item_details: [{
-      id: "pro-monthly",
-      price: 29000,
+      id: itemId,
+      price: grossAmount,
       quantity: 1,
-      name: "Arus Pro — Bulanan",
+      name: itemName,
       category: "Subscription",
     }],
     customer_details: {

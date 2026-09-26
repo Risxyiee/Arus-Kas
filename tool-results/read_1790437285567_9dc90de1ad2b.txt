@@ -1,0 +1,402 @@
+  1800→  '<div class="box"><b>Sudah dibayar</b><span>'+money(d.paid_amount)+'</span></div>'+
+  1801→  '<div class="box"><b>Sisa</b><span>'+money(sisa)+'</span></div></div>'+
+  1802→  '<h2>Riwayat tagihan &amp; pembayaran</h2>'+
+  1803→  '<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th class="r">Tagihan</th><th class="r">Dibayar</th><th class="r">Sisa</th></tr></thead>'+
+  1804→  '<tbody>'+rows.map(r=>'<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td><td class="r">'+r[2]+'</td><td class="r">'+r[3]+'</td><td class="r">'+r[4]+'</td></tr>').join('')+'</tbody>'+
+  1805→  '<tfoot><tr class="tot"><td></td><td>TOTAL</td><td class="r">'+money(d.amount)+'</td><td class="r">'+money(d.paid_amount)+'</td><td class="r">'+money(sisa)+'</td></tr></tfoot></table>'+
+  1806→  (extra.length?'<h2>Transaksi lain terkait</h2><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Kategori</th><th class="r">Jumlah</th></tr></thead><tbody>'+
+  1807→   extra.map(t=>'<tr><td>'+fmtDate(t.occurred_at)+'</td><td>'+esc(t.description)+'</td><td>'+esc(t.category)+'</td><td class="r">'+(t.type==='income'?'+':'-')+' '+money(t.amount)+'</td></tr>').join('')+'</tbody></table>':'');}
+  1808→function exportPersonPDF(id){
+  1809→ const d=db.debts.find(x=>x.id===id);if(!d)return;
+  1810→ const isDebt=d.type==='debt';
+  1811→ const rows=statementRows(d);
+  1812→ const extra=relatedTxns(d).filter(t=>t.ref_id!==d.id);
+  1813→ const sisa=d.amount-d.paid_amount;
+  1814→ const status=STATUS[d.status][0];
+  1815→ const stamp=new Date().toLocaleString('id-ID');
+  1816→ if(!window.jspdf){
+  1817→  printFallback('Kartu '+(isDebt?'Utang':'Piutang')+' — '+d.name,personHTML(d,rows,extra,stamp,status,sisa));
+  1818→  toast('Pustaka PDF belum termuat — membuka menu cetak.','info');return;}
+  1819→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  1820→ const H=doc.internal.pageSize.getHeight();
+  1821→ pdfHead(doc,'ARUS — KARTU '+(isDebt?'UTANG':'PIUTANG'),d.name,'Status: '+status,'Dicetak: '+stamp);
+  1822→ pdfBoxes(doc,[
+  1823→  ['Total tagihan',money(d.amount),PDF.ink],
+  1824→  ['Sudah dibayar',money(d.paid_amount),[14,123,79]],
+  1825→  ['Sisa '+(isDebt?'utang':'piutang'),money(sisa),sisa>0?[193,78,51]:[14,123,79]]]);
+  1826→ doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(110,104,90);
+  1827→ doc.text('Jenis: '+(isDebt?'Utang':'Piutang')+'   ·   Jatuh tempo: '+(d.due_date?fmtDate(d.due_date):'-')+
+  1828→  '   ·   Tercatat: '+fmtDate((d.created_at||'').slice(0,10)||todayISO()),48,182);
+  1829→ if(d.note){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,104,90);const noteLines=doc.splitTextToSize('Keterangan: '+d.note,440);doc.text(noteLines,48,194);}
+  1830→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('Kartu '+(isDebt?'utang':'piutang')+' '+d.name)});
+  1831→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1832→ doc.text('Riwayat tagihan & pembayaran',48,206);
+  1833→ doc.autoTable(Object.assign(base,{startY:214,
+  1834→  head:[['Tanggal','Keterangan','Tagihan','Dibayar','Sisa']],
+  1835→  body:rows,
+  1836→  foot:[['','TOTAL',money(d.amount),money(d.paid_amount),money(sisa)]],
+  1837→  footStyles:{fillColor:[232,228,216],textColor:PDF.ink,fontStyle:'bold',lineWidth:0},
+  1838→  columnStyles:{0:{cellWidth:70},2:{halign:'right',cellWidth:80},3:{halign:'right',cellWidth:80},4:{halign:'right',cellWidth:80}}}));
+  1839→ if(extra.length){
+  1840→  let y=doc.lastAutoTable.finalY+26;if(y>H-140){doc.addPage();y=64;}
+  1841→  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1842→  doc.text('Transaksi lain terkait "'+d.name+'"',48,y);
+  1843→  doc.autoTable(Object.assign(base,{startY:y+8,
+  1844→   head:[['Tanggal','Keterangan','Kategori','Jumlah']],
+  1845→   body:extra.map(t=>[fmtDate(t.occurred_at),t.description,t.category,(t.type==='income'?'+ ':'- ')+money(t.amount)]),
+  1846→   columnStyles:{0:{cellWidth:70},3:{halign:'right',cellWidth:90}}}));}
+  1847→ pdfFooter(doc,'Kartu '+(isDebt?'utang':'piutang'));
+  1848→ doc.save('kartu-'+slug(d.name)+'.pdf');
+  1849→ toast('Kartu PDF "'+esc(d.name)+'" diunduh.');}
+  1850→function allDebtsHTML(T,stamp){
+  1851→ return '<h1>ARUS — Rekap Utang & Piutang</h1>'+
+  1852→  '<div class="mut">Semua entri beserta riwayat pembayaran per orang · Dicetak: '+stamp+'</div>'+
+  1853→  '<div class="boxes">'+
+  1854→  '<div class="box"><b>Utang berjalan</b><span>'+money(T.pay)+'</span></div>'+
+  1855→  '<div class="box"><b>Piutang berjalan</b><span>'+money(T.rec)+'</span></div>'+
+  1856→  '<div class="box"><b>Jumlah entri</b><span>'+db.debts.length+'</span></div></div>'+
+  1857→  db.debts.map(d=>{const rows=statementRows(d),sisa=d.amount-d.paid_amount,isDebt=d.type==='debt';
+  1858→   return '<h2>'+esc(d.name)+' · '+(isDebt?'Utang':'Piutang')+' · '+STATUS[d.status][0]+' · Sisa '+money(sisa)+'</h2>'+
+  1859→   (d.note?'<div class="mut" style="margin-top:2px">Keterangan: '+esc(d.note)+'</div>':'')+
+  1860→   '<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th class="r">Tagihan</th><th class="r">Dibayar</th><th class="r">Sisa</th></tr></thead>'+
+  1861→   '<tbody>'+rows.map(r=>'<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td><td class="r">'+r[2]+'</td><td class="r">'+r[3]+'</td><td class="r">'+r[4]+'</td></tr>').join('')+'</tbody>'+
+  1862→   '<tfoot><tr class="tot"><td></td><td>TOTAL</td><td class="r">'+money(d.amount)+'</td><td class="r">'+money(d.paid_amount)+'</td><td class="r">'+money(sisa)+'</td></tr></tfoot></table>';}).join('');}
+  1863→function exportAllDebtsPDF(){
+  1864→ if(!db.debts.length){toast('Belum ada data utang/piutang.','info');return;}
+  1865→ const T=totals(),stamp=new Date().toLocaleString('id-ID');
+  1866→ if(!window.jspdf){printFallback('Rekap Utang & Piutang — Arus',allDebtsHTML(T,stamp));toast('Pustaka PDF belum termuat — membuka menu cetak.','info');return;}
+  1867→ try{
+  1868→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  1869→ const H=doc.internal.pageSize.getHeight();
+  1870→ pdfHead(doc,'ARUS — REKAP UTANG & PIUTANG','Semua entri beserta riwayat pembayaran per orang','Dicetak: '+stamp,'Data lengkap');
+  1871→ pdfBoxes(doc,[
+  1872→  ['Utang berjalan',money(T.pay),[193,78,51]],
+  1873→  ['Piutang berjalan',money(T.rec),[14,123,79]],
+  1874→  ['Jumlah entri',String(db.debts.length),PDF.ink]]);
+  1875→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('Rekap utang & piutang')});
+  1876→ let y=190;
+  1877→ db.debts.forEach(d=>{
+  1878→  const rows=statementRows(d),sisa=d.amount-d.paid_amount;
+  1879→  if(y>H-190){doc.addPage();y=56;}
+  1880→  doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1881→  doc.text(d.name+'  ·  '+(d.type==='debt'?'Utang':'Piutang')+'  ·  '+STATUS[d.status][0]+'  ·  Sisa '+money(sisa),48,y);
+  1882→  if(d.note){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,104,90);doc.text('Keterangan: '+d.note,48,y+12);y+=4;}
+  1883→  doc.autoTable(Object.assign(base,{startY:y+8,
+  1884→   head:[['Tanggal','Keterangan','Tagihan','Dibayar','Sisa']],
+  1885→   body:rows,
+  1886→   foot:[['','TOTAL',money(d.amount),money(d.paid_amount),money(sisa)]],
+  1887→   footStyles:{fillColor:[232,228,216],textColor:PDF.ink,fontStyle:'bold',lineWidth:0},
+  1888→   columnStyles:{0:{cellWidth:70},2:{halign:'right',cellWidth:80},3:{halign:'right',cellWidth:80},4:{halign:'right',cellWidth:80}}}));
+  1889→  y=doc.lastAutoTable.finalY+26;});
+  1890→ pdfFooter(doc,'Rekap utang & piutang');
+  1891→ doc.save('rekap-utang-piutang.pdf');
+  1892→ toast('Rekap utang & piutang diunduh.');
+  1893→ }catch(err){printFallback('Rekap Utang & Piutang — Arus',allDebtsHTML(T,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
+  1894→function reportHTML(F,T,period,stamp){
+  1895→ return '<h1>ARUS — Laporan Keuangan</h1>'+
+  1896→  '<div class="mut">Ringkasan transaksi, utang & piutang · Periode: '+period+' · Dicetak: '+stamp+'</div>'+
+  1897→  '<div class="boxes">'+
+  1898→  '<div class="box"><b>Pemasukan</b><span>'+money(F.inc)+'</span></div>'+
+  1899→  '<div class="box"><b>Pengeluaran</b><span>'+money(F.exp)+'</span></div>'+
+  1900→  '<div class="box"><b>Arus kas net</b><span>'+(F.net>=0?'+':'-')+' '+money(Math.abs(F.net))+'</span></div>'+
+  1901→  '<div class="box"><b>Utang berjalan</b><span>'+money(T.pay)+'</span></div>'+
+  1902→  '<div class="box"><b>Piutang berjalan</b><span>'+money(T.rec)+'</span></div></div>'+
+  1903→  '<h2>Transaksi</h2>'+
+  1904→  '<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Kategori</th><th>Jenis</th><th class="r">Jumlah</th></tr></thead>'+
+  1905→  '<tbody>'+(F.txns.length?F.txns.map(t=>'<tr><td>'+fmtDate(t.occurred_at)+'</td><td>'+esc(t.description)+'</td><td>'+esc(t.category)+'</td><td>'+(t.type==='income'?'Masuk':'Keluar')+'</td><td class="r">'+(t.type==='income'?'+ ':'- ')+money(t.amount)+'</td></tr>').join(''):'<tr><td colspan="5" style="text-align:center" class="mut">Tidak ada transaksi pada periode ini.</td></tr>')+'</tbody></table>'+
+  1906→  '<h2>Utang & Piutang</h2>'+
+  1907→  '<table><thead><tr><th>Nama</th><th>Jenis</th><th class="r">Tagihan</th><th class="r">Dibayar</th><th>Jatuh Tempo</th><th>Status</th><th>Keterangan</th></tr></thead>'+
+  1908→  '<tbody>'+(F.debts.length?F.debts.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+(d.type==='debt'?'Utang':'Piutang')+'</td><td class="r">'+money(d.amount)+'</td><td class="r">'+money(d.paid_amount)+'</td><td>'+(d.due_date?fmtDate(d.due_date):'-')+'</td><td>'+STATUS[d.status][0]+'</td><td>'+(d.note||'-')+'</td></tr>').join(''):'<tr><td colspan="7" style="text-align:center" class="mut">Tidak ada entri pada periode ini.</td></tr>')+'</tbody></table>';}
+  1909→function exportReportPDF(){
+  1910→ const F=reportData(),T=totals();
+  1911→ const period=F.ym?monthName(F.ym):'Semua waktu';
+  1912→ const stamp=new Date().toLocaleString('id-ID');
+  1913→ if(!window.jspdf){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('Pustaka PDF belum termuat — membuka menu cetak.','info');return;}
+  1914→ try{
+  1915→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  1916→ const H=doc.internal.pageSize.getHeight();
+  1917→ pdfHead(doc,'ARUS — LAPORAN KEUANGAN','Ringkasan transaksi, utang & piutang','Periode: '+period,'Dicetak: '+stamp);
+  1918→ pdfBoxes(doc,[
+  1919→  ['Pemasukan',money(F.inc),[14,123,79]],
+  1920→  ['Pengeluaran',money(F.exp),[193,78,51]],
+  1921→  ['Arus kas net',(F.net>=0?'+ ':'- ')+money(Math.abs(F.net)),F.net>=0?[14,123,79]:[193,78,51]],
+  1922→  ['Utang berjalan',money(T.pay),PDF.ink],
+  1923→  ['Piutang berjalan',money(T.rec),PDF.ink]]);
+  1924→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('Laporan '+period)});
+  1925→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1926→ doc.text('Transaksi',48,186);
+  1927→ doc.autoTable(Object.assign(base,{startY:194,
+  1928→  head:[['Tanggal','Keterangan','Kategori','Jenis','Jumlah']],
+  1929→  body:F.txns.length?F.txns.map(t=>[fmtDate(t.occurred_at),t.description,t.category,t.type==='income'?'Masuk':'Keluar',(t.type==='income'?'+ ':'- ')+money(t.amount)]):[['-','Tidak ada transaksi pada periode ini','','','']],
+  1930→  columnStyles:{0:{cellWidth:64},2:{cellWidth:95},3:{cellWidth:46},4:{cellWidth:95,halign:'right'}},
+  1931→  didParseCell:d=>{if(d.section==='body'&&d.column.index===4&&String(d.row.raw[4]).length>1){
+  1932→   d.cell.styles.fontStyle='bold';
+  1933→   d.cell.styles.textColor=String(d.row.raw[4]).trim().charAt(0)==='+'?[14,123,79]:[193,78,51];}}}));
+  1934→ let y=doc.lastAutoTable.finalY+28;
+  1935→ if(y>H-150){doc.addPage();y=64;}
+  1936→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1937→ doc.text('Utang & Piutang',48,y);
+  1938→ doc.autoTable(Object.assign(base,{startY:y+8,
+  1939→  head:[['Nama','Jenis','Tagihan','Dibayar','Jatuh Tempo','Status','Keterangan']],
+  1940→  body:F.debts.length?F.debts.map(d=>[d.name,d.type==='debt'?'Utang':'Piutang',money(d.amount),money(d.paid_amount),d.due_date?fmtDate(d.due_date):'-',STATUS[d.status][0],d.note||'-']):[['Tidak ada entri pada periode ini','','','','','','']],
+  1941→  columnStyles:{2:{halign:'right',cellWidth:86},3:{halign:'right',cellWidth:78},4:{cellWidth:68},5:{cellWidth:82}}}));
+  1942→ pdfFooter(doc,'Laporan '+period);
+  1943→ doc.save('arus-laporan-'+(F.ym||'semua')+'.pdf');
+  1944→ toast('Laporan '+period+' diunduh.');
+  1945→ }catch(err){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
+  1946→
+  1947→/* ── P&L PDF Export (Pro) ── */
+  1948→function exportPLPDF(){
+  1949→ if(!canDo('plReport')){showUpgrade('plReport');return;}
+  1950→ const F=reportData();
+  1951→ const period=F.ym?monthName(F.ym):'Semua waktu';
+  1952→ const stamp=new Date().toLocaleString('id-ID');
+  1953→ const cats={};
+  1954→ F.txns.forEach(t=>{if(!cats[t.category])cats[t.category]={inc:0,exp:0};if(t.type==='income')cats[t.category].inc+=t.amount;else cats[t.category].exp+=t.amount;});
+  1955→ const incCats=Object.entries(cats).filter(([_,v])=>v.inc>0).sort((a,b)=>b[1].inc-a[1].inc);
+  1956→ const expCats=Object.entries(cats).filter(([_,v])=>v.exp>0).sort((a,b)=>b[1].exp-a[1].exp);
+  1957→ const totalInc=incCats.reduce((s,[_,v])=>s+v.inc,0);
+  1958→ const totalExp=expCats.reduce((s,[_,v])=>s+v.exp,0);
+  1959→ const netIncome=totalInc-totalExp;
+  1960→ const margin=totalInc>0?Math.round(netIncome/totalInc*100):0;
+  1961→ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+  1962→ try{
+  1963→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  1964→ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  1965→ const businessName=(db.profile&&db.profile.name)||'Arus';
+  1966→ /* Branded header for Pro */
+  1967→ pdfHead(doc,'ARUS — LAPORAN P&L (LABA-RUGI)',businessName,'Periode: '+period,'Dicetak: '+stamp);
+  1968→ pdfBoxes(doc,[
+  1969→  ['Total Pemasukan',money(totalInc),[14,123,79]],
+  1970→  ['Total Pengeluaran',money(totalExp),[193,78,51]],
+  1971→  ['Laba Bersih',(netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),netIncome>=0?[14,123,79]:[193,78,51]],
+  1972→  ['Margin',margin+'%',PDF.ink]]);
+  1973→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('P&L '+period)});
+  1974→ /* Income table */
+  1975→ let y=186;
+  1976→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(14,123,79);
+  1977→ doc.text('Pemasukan per Kategori',48,y);y+=8;
+  1978→ doc.autoTable(Object.assign(base,{startY:y,
+  1979→  head:[['Kategori','Jumlah']],
+  1980→  body:incCats.map(([c,v])=>[c,money(v.inc)]),
+  1981→  columnStyles:{1:{halign:'right',cellWidth:120}},
+  1982→  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[14,123,79];}}));
+  1983→ y=doc.lastAutoTable.finalY+24;
+  1984→ if(y>H-120){doc.addPage();y=64;}
+  1985→ /* Expense table */
+  1986→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(193,78,51);
+  1987→ doc.text('Pengeluaran per Kategori',48,y);y+=8;
+  1988→ doc.autoTable(Object.assign(base,{startY:y,
+  1989→  head:[['Kategori','Jumlah']],
+  1990→  body:expCats.map(([c,v])=>[c,money(v.exp)]),
+  1991→  columnStyles:{1:{halign:'right',cellWidth:120}},
+  1992→  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[193,78,51];}}));
+  1993→ /* Summary box */
+  1994→ y=doc.lastAutoTable.finalY+24;
+  1995→ if(y>H-100){doc.addPage();y=64;}
+  1996→ doc.setFillColor(247,245,238);doc.roundedRect(48,y,W-96,50,6,6,'F');
+  1997→ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  1998→ doc.text('Laba Bersih = Pemasukan − Pengeluaran',62,y+18);
+  1999→ doc.setFontSize(14);doc.setTextColor(netIncome>=0?14:193,netIncome>=0?123:78,netIncome>=0?79:51);
+  2000→ doc.text((netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),W-62,y+36,{align:'right'});
+  2001→ pdfFooter(doc,'P&L '+period);
+  2002→ doc.save('arus-pnl-'+(F.ym||'semua')+'.pdf');
+  2003→ toast('Laporan P&L '+period+' diunduh.');
+  2004→ }catch(err){toast('PDF gagal: '+err.message,'error');}}
+  2005→
+  2006→/* ── Invoice Builder (Pro) ── */
+  2007→function openInvoiceBuilder(){
+  2008→ if(!canDo('invoice')){showUpgrade('invoice');return;}
+  2009→ const invNum='INV-'+new Date().getFullYear()+p2(new Date().getMonth()+1)+p2(new Date().getDate())+'-'+(Math.random()*900+100|0);
+  2010→ openModal(
+  2011→  '<div style="padding:4px 0">'+
+  2012→  '<div class="row" style="gap:8px;margin-bottom:12px"><span style="display:inline-flex;color:var(--pos)">'+ic('file','w18')+'</span><h3 style="margin:0;font-weight:800;font-size:16px">Buat Invoice</h3></div>'+
+  2013→  '<label class="lbl">Nama klien / penerima</label><input id="inv-to" class="fld" placeholder="PT Contoso" maxlength="60">'+
+  2014→  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  2015→  '<div><label class="lbl">No. Invoice</label><input id="inv-no" class="fld mono" value="'+invNum+'" maxlength="30"></div>'+
+  2016→  '<div><label class="lbl">Tanggal</label><input id="inv-date" type="date" class="fld" value="'+todayISO()+'"></div></div>'+
+  2017→  '<label class="lbl" style="margin-top:10px">Item / Jasa</label><input id="inv-item" class="fld" placeholder="Jasa desain brand" maxlength="80">'+
+  2018→  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  2019→  '<div><label class="lbl">Jumlah (Rp)</label><input id="inv-amt" class="fld mono6" type="number" inputmode="numeric" placeholder="500000"></div>'+
+  2020→  '<div><label class="lbl">Catatan</label><input id="inv-note" class="fld" placeholder="Terima kasih" maxlength="100"></div></div>'+
+  2021→  '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">'+
+  2022→  '<button class="btn" data-close>Batal</button><button class="btn primary" id="inv-ok">Buat PDF</button></div></div>');
+  2023→ $('#inv-ok').onclick=exportInvoicePDF;
+  2024→}
+  2025→function exportInvoicePDF(){
+  2026→ const to=$('#inv-to').value.trim()||'Klien';
+  2027→ const invNo=$('#inv-no').value.trim()||'INV-001';
+  2028→ const invDate=$('#inv-date').value||todayISO();
+  2029→ const item=$('#inv-item').value.trim()||'Jasa';
+  2030→ const amt=parseInt($('#inv-amt').value)||0;
+  2031→ const note=$('#inv-note').value.trim();
+  2032→ if(!amt){toast('Isi jumlah invoice.','error');return;}
+  2033→ closeModal();
+  2034→ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+  2035→ try{
+  2036→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  2037→ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  2038→ const businessName=(db.profile&&db.profile.name)||'Arus';
+  2039→ const ppn=window.jspdf.jsPDF.API;
+  2040→ /* Header */
+  2041→ doc.setFillColor(PDF.hdr[0],PDF.hdr[1],PDF.hdr[2]);doc.rect(0,0,W,72,'F');
+  2042→ doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(PDF.paper[0],PDF.paper[1],PDF.paper[2]);doc.text('INVOICE',48,42);
+  2043→ doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(businessName,48,60);
+  2044→ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  2045→ doc.text('Kepada:',48,100);doc.setFont('helvetica','normal');doc.text(to,48,114);
+  2046→ doc.setFont('helvetica','bold');doc.text('No. Invoice:',W-200,100);doc.setFont('helvetica','normal');doc.text(invNo,W-200,114);
+  2047→ doc.setFont('helvetica','bold');doc.text('Tanggal:',W-200,130);doc.setFont('helvetica','normal');doc.text(fmtDate(invDate),W-200,144);
+  2048→ /* Items table */
+  2049→ doc.autoTable({startY:170,theme:'grid',
+  2050→  styles:{font:'helvetica',fontSize:9,cellPadding:{top:6,bottom:6,left:8,right:8},lineColor:PDF.boxLine,lineWidth:.5,textColor:PDF.ink},
+  2051→  headStyles:{fillColor:PDF.hdr,textColor:PDF.paper,fontSize:8.5,lineWidth:0},
+  2052→  head:[['No','Deskripsi','Jumlah']],
+  2053→  body:[['1',item,money(amt)]],
+  2054→  columnStyles:{0:{cellWidth:40},2:{halign:'right',cellWidth:120}}});
+  2055→ /* Total */
+  2056→ let y=doc.lastAutoTable.finalY+16;
+  2057→ doc.setDrawColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);doc.setLineWidth(1);doc.line(W-168,y,W-48,y);y+=16;
+  2058→ doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Total',W-168,y);
+  2059→ doc.text(money(amt),W-48,y,{align:'right'});y+=24;
+  2060→ if(note){doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);doc.text('Catatan: '+note,48,y);y+=16;}
+  2061→ /* Footer */
+  2062→ doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);
+  2063→ doc.text('Terima kasih atas kepercayaan Anda.',48,H-40);
+  2064→ doc.text(businessName+' — Invoice via Arus Pro',48,H-26);
+  2065→ doc.save(invNo+'.pdf');
+  2066→ toast('Invoice diunduh ✅');
+  2067→ }catch(err){toast('PDF gagal: '+err.message,'error');}
+  2068→}
+  2069→
+  2070→/* ── Push Notifications for due dates (Pro) ── */
+  2071→function initPushNotifications(){
+  2072→ if(!canDo('notifPush'))return;
+  2073→ if(!('Notification' in window))return;
+  2074→ if(Notification.permission==='default'){Notification.requestPermission();}
+  2075→ if(Notification.permission!=='granted')return;
+  2076→ const items=dueItems().filter(x=>x.days<=1);
+  2077→ items.forEach(x=>{
+  2078→  try{new Notification('Arus — Jatuh Tempo',{
+  2079→   body:x.d.name+': '+dueLabel(x.d)+' ('+money(x.d.amount-x.d.paid_amount)+')',
+  2080→   icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34"><rect x="1" y="1" width="32" height="32" rx="9" fill="%23242019"/><path d="M10 12.5h14M10 17h14M10 21.5h9" stroke="%23F4F1E8" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+  2081→   tag:'arus-due-'+x.d.id
+  2082→  });}catch(e){}
+  2083→ });
+  2084→}/* ══════ Notifikasi bell ══════ */
+  2085→function bellModal(){
+  2086→ const items=dueItems();
+  2087→ openModal('<h3 style="font-weight:800;font-size:16px">Jatuh tempo &amp; terlambat</h3>'+
+  2088→  '<div style="margin-top:12px;max-height:340px;overflow:auto">'+
+  2089→  (items.length?items.map(x=>
+  2090→   '<div class="row trow"><span class="sicon '+(x.d.type==='debt'?'sic-neg':'sic-pos')+'">'+ic(x.d.type==='debt'?'down':'up','w12')+'</span>'+
+  2091→   '<div class="grow minw"><div class="tname">'+esc(x.d.name)+'</div>'+
+  2092→   '<div class="xs '+(x.days<0?'neg':'muted')+'" style="font-weight:'+(x.days<0?'700':'400')+'">'+dueLabel(x.d)+'</div></div>'+
+  2093→   '<span class="mono small" style="font-weight:700">'+money(x.d.amount-x.d.paid_amount)+'</span>'+
+  2094→   '<button class="btn mini primary" data-settle="'+x.d.id+'">'+(x.d.type==='debt'?'Bayar':'Terima')+'</button></div>').join('')
+  2095→  :emptyState('Tidak ada yang jatuh tempo dalam 3 hari ke depan. Tenang.','check'))+'</div>'+
+  2096→  '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-close>Tutup</button></div>');}
+  2097→
+  2098→/* ══════ Onboarding pertama ══════ */
+  2099→function onboardModal(){
+  2100→ openModal('<div class="center"><div style="display:inline-flex;margin-bottom:10px;color:var(--pos)">'+ic('wallet','w20')+'</div>'+
+  2101→  '<h3 style="font-weight:800;font-size:17px">Selamat datang di Arus</h3>'+
+  2102→  '<p class="small muted" style="margin-top:8px;line-height:1.65">Buku kas pribadi & UMKM. Gratis untuk mulai, Pro untuk tumbuh.</p></div>'+
+  2103→  '<div style="display:grid;gap:8px;margin-top:18px">'+
+  2104→  '<button class="btn primary" id="ob-login" style="justify-content:flex-start">'+ic('user','w14')+' Masuk dengan akun<span class="xs muted" style="margin-left:auto">sinkronisasi cloud ☁️</span></button>'+
+  2105→  '<button class="btn" id="ob-demo" style="justify-content:flex-start">'+ic('bar','w14')+' Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
+  2106→  '<button class="btn" id="ob-clean" style="justify-content:flex-start">'+ic('plus','w14')+' Mulai bersih (lokal)<span class="xs muted" style="margin-left:auto">tanpa akun</span></button>'+
+  2107→  '<button class="btn" id="ob-import" style="justify-content:flex-start">'+ic('upload','w14')+' Pulihkan backup JSON<span class="xs muted" style="margin-left:auto">pindah perangkat</span></button>'+
+  2108→  '<input type="file" id="ob-file" accept="application/json,.json" hidden></div>');
+  2109→ $('#ob-login').onclick=()=>{closeModal();openAuthModal('login');};
+  2110→ $('#ob-demo').onclick=()=>{db.settings.onboarded=true;save();closeModal();render();toast('Data contoh dimuat — bebas diubah-ubah.');};
+  2111→ $('#ob-clean').onclick=()=>{const keep={profile:db.profile,settings:Object.assign({},db.settings,{onboarded:true})};
+  2112→  db=Object.assign(defaultDb(),keep,{demo:false});save();closeModal();render();toast('Kanvas kosong siap — catat transaksi pertamamu!');};
+  2113→ $('#ob-import').onclick=()=>$('#ob-file').click();
+  2114→ $('#ob-file').addEventListener('change',e=>{
+  2115→  const f=e.target.files[0];if(!f)return;
+  2116→  const rd=new FileReader();
+  2117→  rd.onload=()=>{try{
+  2118→   const j=JSON.parse(rd.result);
+  2119→   if(!j||!Array.isArray(j.transactions))throw 0;
+  2120→   db=j.version===3?j:migrateOld(j);
+  2121→   db.settings.onboarded=true;applyCustomCats();save();updateProfileUI();closeModal();render();
+  2122→   toast('Backup dipulihkan — selamat datang kembali!');
+  2123→  }catch(err){toast('File backup tidak valid.','error');}};
+  2124→  rd.readAsText(f);});}
+  2125→
+  2126→/* ══════ PIN lock ══════ */
+  2127→function hashPin(p){let h=5381;for(let i=0;i<p.length;i++)h=((h<<5)+h+p.charCodeAt(i))>>>0;return 'h'+h.toString(16);}
+  2128→function showPinLock(){
+  2129→ const lk=$('#pinlock');
+  2130→ lk.style.display='flex';
+  2131→ lk.innerHTML='<div class="panel" style="max-width:320px;text-align:center">'+
+  2132→  '<div style="display:inline-flex;color:var(--mut);margin-bottom:8px">'+ic('lock','w20')+'</div>'+
+  2133→  '<h3 style="font-weight:800;font-size:16px">Arus terkunci</h3>'+
+  2134→  '<p class="xs muted" style="margin-top:4px">Masukkan PIN untuk melanjutkan</p>'+
+  2135→  '<input id="pin-in" class="fld mono" type="password" inputmode="numeric" maxlength="8" style="text-align:center;font-size:20px;letter-spacing:.4em;margin-top:14px" aria-label="PIN">'+
+  2136→  '<button class="btn primary" id="pin-ok" style="width:100%;margin-top:12px">Buka</button>'+
+  2137→  '<div class="xs muted" style="margin-top:10px">Lupa PIN? Hapus data browser (localStorage "arus-data-v3") — atau pulihkan dari backup.</div></div>';
+  2138→ const check=()=>{
+  2139→  if($('#pin-in').value.length>=4&&hashPin($('#pin-in').value)===db.profile.pin){
+  2140→   lk.style.display='none';lk.innerHTML='';}
+  2141→  else{lk.classList.add('shake');$('#pin-in').value='';
+  2142→   setTimeout(()=>lk.classList.remove('shake'),420);}};
+  2143→ $('#pin-ok').onclick=check;
+  2144→ $('#pin-in').addEventListener('keydown',e=>{if(e.key==='Enter')check();});
+  2145→ setTimeout(()=>$('#pin-in').focus(),60);}
+  2146→
+  2147→/* ══════ LANGGANAN / PRICING ══════ */
+  2148→function pageLangganan(){
+  2149→ const curPlan=getPlan();
+  2150→ const ck=v=>v===true?ic('check2','w12'):(v===Infinity?'<span class="mono">∞</span>':String(v));
+  2151→ const xn=ic('x','w12');
+  2152→ const featRow=(label,freeV,proV)=>{
+  2153→  const fCls=freeV===false?'neg':'ink';
+  2154→  return '<div class="price-feat"><span class="grow minw">'+esc(label)+'</span>'+
+  2155→   '<span style="width:56px;text-align:center" class="xs '+fCls+'">'+(freeV===false?xn:ck(freeV))+'</span>'+
+  2156→   '<span style="width:56px;text-align:center;color:var(--pos)">'+ck(proV)+'</span></div>';};
+  2157→ const featureRows=[
+  2158→  featRow('Transaksi',Infinity,Infinity),
+  2159→  featRow('Dompet',2,Infinity),
+  2160→  featRow('Utang & piutang aktif',5,Infinity),
+  2161→  featRow('Budget per kategori',3,Infinity),
+  2162→  featRow('Kategori kustom',3,Infinity),
+  2163→  featRow('Transaksi berulang',false,true),
+  2164→  featRow('Sinkronisasi cloud',false,true),
+  2165→  featRow('Laporan P&L (laba-rugi)',false,true),
+  2166→  featRow('PDF dengan logo usaha',false,true),
+  2167→  featRow('Notifikasi push jatuh tempo',false,true),
+  2168→  featRow('Buat & kirim invoice',false,true)];
+  2169→ const isPro=curPlan.id==='pro';
+  2170→ const proAnnual=Math.round(29000*12*0.8);
+  2171→ const proFeatures=[
+  2172→  'Semua fitur Gratis','Dompet unlimited','Utang & piutang unlimited',
+  2173→  'Budget & kategori unlimited','Transaksi berulang otomatis',
+  2174→  'Sinkronisasi cloud (multi-device)','Laporan P&L laba-rugi',
+  2175→  'PDF dengan logo usaha sendiri','Notifikasi push jatuh tempo',
+  2176→  'Buat & kirim invoice ke klien'];
+  2177→ const freeFeatures=[
+  2178→  'Transaksi unlimited','2 dompet','5 utang/piutang aktif',
+  2179→  '3 budget per kategori','3 kategori kustom','Laporan dasar','Ekspor PDF/CSV'];
+  2180→ return '<div style="text-align:center;padding:8px 0 16px">'+
+  2181→  '<div style="display:inline-flex;color:var(--pos);margin-bottom:4px">'+ic('crown','w20')+'</div>'+
+  2182→  '<div style="font-weight:800;font-size:22px;letter-spacing:-.02em">Paket untuk UMKM</div>'+
+  2183→  '<div class="muted" style="margin-top:6px;font-size:13.5px;line-height:1.5">Mulai gratis, upgrade kalau usaha udah berkembang. Bisa batalkan kapan aja.</div>'+
+  2184→  '</div>'+
+  2185→  /* Current plan banner */
+  2186→  (isPro?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
+  2187→   '<div class="row between wrap" style="gap:8px">'+
+  2188→   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket Pro aktif</span></div>'+
+  2189→   '<div class="row" style="gap:8px">'+
+  2190→   (db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
+  2191→   '<button class="btn mini danger" id="cancel-sub">Batalkan</button></div></div></div>':'')+
+  2192→  /* Two plan cards side by side */
+  2193→  '<div class="plan-grid">'+
+  2194→  /* FREE */
+  2195→  '<div class="price-card" style="display:flex;flex-direction:column">'+
+  2196→   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Gratis</div>'+
+  2197→   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px">Rp 0</div>'+
+  2198→   '<div class="xs muted" style="margin-top:2px">selamanya</div>'+
+  2199→   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
+
+[showing lines 1800-2199 of 2625; use offset=2200 with limit to continue reading]

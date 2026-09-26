@@ -1,0 +1,402 @@
+   200→ <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+   201→ <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+   202→ <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+   203→ <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+   204→ <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+   205→ <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+   206→ <symbol id="i-chl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol>
+   207→ <symbol id="i-chr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol>
+   208→ <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></symbol>
+   209→ <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></symbol>
+   210→ <symbol id="i-dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+   211→ <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+   212→ <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+   213→ <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></symbol>
+   214→ <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2 2 2 0 0 1 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4z"/></symbol>
+   215→ <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+   216→ <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+   217→ <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+   218→ <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+   219→ <symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-5 4-4-6-4 6z"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></symbol>
+   220→ <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></symbol>
+   221→ <symbol id="i-check2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+   222→ <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.3A5 5 0 0 0 7 9a3 3 0 0 0-.6 5.9A3.5 3.5 0 0 0 9.5 19H18a4 4 0 0 0 0-8z"/></symbol>
+   223→ <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+   224→ <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+   225→ <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+   226→</svg>
+   227→
+   228→<div class="app">
+   229→ <aside class="sidebar" id="sidebar">
+   230→  <a class="brand" href="#/dashboard">
+   231→   <svg viewBox="0 0 34 34" style="width:32px;height:32px;flex-shrink:0;color:var(--ink)">
+   232→    <rect x="1" y="1" width="32" height="32" rx="9" fill="currentColor"/>
+   233→    <path d="M10 12.5h14M10 17h14M10 21.5h9" stroke="var(--card)" stroke-width="2" stroke-linecap="round" fill="none"/>
+   234→    <circle cx="24" cy="21.5" r="2.2" fill="var(--pos)"/></svg>
+   235→   <div><div style="font-weight:800;letter-spacing:-.02em;font-size:15px">Arus</div>
+   236→    <div class="mono" style="font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--mut)">buku kas pribadi</div></div>
+   237→  </a>
+   238→  <nav>
+   239→   <div class="lbl" style="padding:6px 10px 8px">Menu</div>
+   240→   <a href="#/dashboard" data-route="dashboard" class="navlink active"><svg class="w16"><use href="#i-grid"/></svg>Dashboard</a>
+   241→   <a href="#/transaksi" data-route="transaksi" class="navlink"><svg class="w16"><use href="#i-swap"/></svg>Transaksi</a>
+   242→   <a href="#/utang" data-route="utang" class="navlink"><svg class="w16"><use href="#i-scale"/></svg>Utang &amp; Piutang
+   243→    <span class="bcount" id="nav-badge">0</span></a>
+   244→   <a href="#/statistik" data-route="statistik" class="navlink"><svg class="w16"><use href="#i-chart"/></svg>Statistik</a>
+   245→   <a href="#/laporan" data-route="laporan" class="navlink"><svg class="w16"><use href="#i-file"/></svg>Laporan</a>
+   246→   <a href="#/langganan" data-route="langganan" class="navlink"><svg class="w16"><use href="#i-crown"/></svg>Langganan</a>
+   247→   <a href="#/pengaturan" data-route="pengaturan" class="navlink"><svg class="w16"><use href="#i-gear"/></svg>Pengaturan</a>
+   248→  </nav>
+   249→  <div style="padding:10px 12px;border-top:1px solid var(--line)">
+   250→   <div id="demo-flag"></div>
+   251→   <div id="backup-flag"></div>
+   252→   <button class="navlink" id="theme-row"><span id="theme-ic2"></span><span id="theme-lbl">Mode gelap</span></button>
+   253→   <button id="profile-btn" style="margin-top:8px;width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:none;border-radius:12px;padding:9px;cursor:pointer;text-align:left;font-family:inherit;color:var(--ink)">
+   254→    <span id="avatar" style="width:32px;height:32px;border-radius:99px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">AL</span>
+   255→    <span style="min-width:0"><span id="profile-name" style="display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Alex Laurel</span>
+   256→    <span class="mono" style="display:block;font-size:8.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.12em;margin-top:1px">klik untuk ganti nama</span></span>
+   257→    <span id="auth-indicator" style="margin-left:auto;font-size:12px;cursor:pointer" title="Login/Logout"></span>
+   258→   </button>
+   259→  </div>
+   260→ </aside>
+   261→ <div id="scrim" class="scrim"></div>
+   262→
+   263→ <div class="main">
+   264→  <header class="topbar">
+   265→   <button class="btn icon menu-btn" id="menu-btn" aria-label="Buka menu"><svg class="w16"><use href="#i-menu"/></svg></button>
+   266→   <div style="min-width:0"><h1 id="page-title" style="font-size:16px;font-weight:800;letter-spacing:-.01em">Dashboard</h1>
+   267→    <div class="mono" id="page-sub" style="font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--mut);margin-top:1px"></div></div>
+   268→   <span style="flex:1"></span>
+   269→   <div class="balpill"><svg class="w14" style="color:var(--mut)"><use href="#i-wallet"/></svg>
+   270→    <span class="mono" style="font-size:9px;letter-spacing:.16em;color:var(--mut)">SALDO</span>
+   271→    <b class="mono" id="top-bal" style="font-size:13px">—</b></div>
+   272→   <button class="btn icon" id="bell-btn" aria-label="Notifikasi jatuh tempo"><svg class="w16"><use href="#i-bell"/></svg><span id="bell-badge" style="display:none" class="bellb">0</span></button>
+   273→   <span id="plan-badge-top" class="plan-pill plan-free" style="cursor:pointer" title="Paket langganan">GRATIS</span>
+   274→   <button class="btn icon" id="theme-top" aria-label="Ganti tema"><span id="theme-ic"></span></button>
+   275→   <button class="btn icon" id="admin-btn" style="display:none" onclick="openAdmin()" aria-label="Admin panel">🛡️</button>
+   276→   <button class="btn primary" id="add-btn"><svg class="w16"><use href="#i-plus"/></svg><span class="hide-sm">Transaksi baru</span></button>
+   277→  </header>
+   278→  <main id="view"></main>
+   279→  <footer style="max-width:1160px;margin:0 auto;width:100%;padding:0 20px 22px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+   280→   <span class="mono" style="font-size:9px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase">Arus v3.0 — pencatatan keuangan pribadi</span>
+   281→   <span class="mono" style="font-size:9px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase">Data tersimpan lokal di browser ini</span>
+   282→  </footer>
+   283→ </div>
+   284→</div>
+   285→
+   286→<div id="toasts" aria-live="polite"></div>
+   287→<div id="modal-root" role="dialog" aria-modal="true"></div>
+   288→<div id="pinlock" style="display:none"></div>
+   289→
+   290→<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+   291→<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+   292→
+   293→<script>
+   294→'use strict';
+   295→/* ═══════════════════════════════════════════════════════════
+   296→   ARUS v3.0 — skema mengikuti Supabase + tabel baru:
+   297→   wallets(id,name,color,initial) · budgets · customCats
+   298→   transactions(+wallet_id,recur,recur_parent) · debts
+   299→   ═══════════════════════════════════════════════════════════ */
+   300→const $=(s,r)=>(r||document).querySelector(s);
+   301→const $$=(s,r)=>Array.prototype.slice.call((r||document).querySelectorAll(s));
+   302→const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+   303→const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('id-'+Date.now().toString(36)+Math.random().toString(36).slice(2,9));
+   304→const ic=(n,c)=>'<svg class="'+(c||'w16')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';
+   305→const p2=n=>String(n).padStart(2,'0');
+   306→const iso=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+   307→const todayISO=()=>iso(new Date());
+   308→const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+   309→const parseISO=s=>{const a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2]);};
+   310→const addMonthsISO=dstr=>{const d=parseISO(dstr);const n=new Date(d.getFullYear(),d.getMonth()+1,1);
+   311→ n.setDate(Math.min(d.getDate(),new Date(n.getFullYear(),n.getMonth()+1,0).getDate()));return iso(n);};
+   312→const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+   313→const MONF=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+   314→const fmtDate=s=>{const d=parseISO(s);return d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear();};
+   315→const monthName=ym=>{const a=ym.split('-');return MONF[a[1]-1]+' '+a[0];};
+   316→function fmtDay(s){const diff=Math.round((parseISO(todayISO())-parseISO(s))/864e5);
+   317→ if(diff===0)return 'Hari ini';if(diff===1)return 'Kemarin';if(diff===-1)return 'Besok';return fmtDate(s);}
+   318→const FMT=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
+   319→const money=n=>FMT.format(Math.round(n)).replace(/\u00A0/g,' ');
+   320→function shortMoney(n){const a=Math.abs(n),s=n<0?'-':'';
+   321→ if(a>=1e9)return s+(a/1e9).toFixed(1).replace('.0','')+'M';
+   322→ if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.0','')+'jt';
+   323→ if(a>=1e3)return s+Math.round(a/1e3)+'rb';return s+Math.round(a);}
+   324→const initials=n=>{const w=String(n||'?').trim().split(/\s+/).slice(0,2);return (w.map(x=>x[0]).join('')||'?').toUpperCase();};
+   325→const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'entri';
+   326→function parseAmt(str){
+   327→ let s=String(str||'').toLowerCase().trim().replace(/^rp\.?\s*/,'').replace(/\s/g,'');
+   328→ const m=s.match(/^([\d.,]+)(k|rb|jt|juta)?$/);if(!m)return 0;
+   329→ let num=m[1];const suf=m[2]||'';
+   330→ const dec=/^\d+[.,]\d{1,2}$/.test(num);
+   331→ if(!dec)num=num.replace(/[.,]/g,'');else num=num.replace(',','.');
+   332→ let n=parseFloat(num);if(isNaN(n))return 0;
+   333→ if(suf==='k'||suf==='rb')n*=1e3;if(suf==='jt'||suf==='juta')n*=1e6;
+   334→ return Math.round(n);}
+   335→function detectAmt(desc){
+   336→ const re=/(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(k|rb|jt|juta)?(?!\d)/gi;
+   337→ let m,best=0;
+   338→ while((m=re.exec(desc||''))){const val=parseAmt(m[0]);
+   339→  if(!m[2]&&!/[.,]\d{3}/.test(m[1])&&val<10000)continue;
+   340→  if(val>best)best=val;}
+   341→ return best;}
+   342→
+   343→/* ── Kategori (bawaan + kustom) ── */
+   344→const KW_EXP={
+   345→ 'Makanan & Minuman':['makan','bakso','mie','nasi','ayam','kopi','cafe','kafe','resto','restoran','warung','warteg','gofood','grabfood','shopeefood','snack','lunch','dinner','breakfast','food','minum','jus','roti','sate','soto','padang','seblak','boba','starbucks','kfc','mcd','burger','pizza','grocer','sarapan','catering'],
+   346→ 'Transportasi':['bensin','pertalite','pertamax','tol','e-toll','etoll','parkir','gojek','grab','uber','ojek','taksi','taxi','krl','mrt','transjakarta','busway','kereta','bus','commuter','transport','fuel','bbm'],
+   347→ 'Belanja':['shopee','tokopedia','lazada','bukalapak','blibli','uniqlo','zara','baju','kaos','celana','sepatu','sandal','tas','belanja','mall','skincare','kosmetik','amazon','clothes'],
+   348→ 'Tagihan':['listrik','pln','token','pdam','internet','wifi','indihome','biznet','pulsa','paket data','telkomsel','indosat','bpjs','iuran','tagihan'],
+   349→ 'Hiburan':['netflix','spotify','disney','vidio','youtube','bioskop','cgv','xxi','cinema','movie','game','steam','genshin','konser','tiket','hiburan'],
+   350→ 'Kesehatan':['apotek','obat','dokter','klinik','rumah sakit','hospital','vitamin','gym','fitness','puskesmas'],
+   351→ 'Pendidikan':['kursus','les','sekolah','kuliah','spp','buku','udemy','coursera','kelas','training','seminar'],
+   352→ 'Cicilan / Utang':['cicilan','angsuran','pinjam','pinjaman','utang','kredit','loan','paylater']};
+   353→const KW_INC={
+   354→ 'Gaji':['gaji','salary','payroll','paycheck','thr','upah'],
+   355→ 'Freelance':['freelance','proyek','project','klien','client','jasa','desain','invoice'],
+   356→ 'Investasi':['dividen','dividend','bunga','interest','saham','crypto','reksadana','kupon'],
+   357→ 'Pemasukan Lain':['jual','terjual','refund','cashback','hadiah','bonus','subsidi']};
+   358→const EXP_LIST0=Object.keys(KW_EXP).concat(['Lainnya']);
+   359→const INC_LIST0=Object.keys(KW_INC).concat(['Piutang','Pemasukan Lain']);
+   360→const CAT_COLOR={'Makanan & Minuman':'#C7723B','Transportasi':'#3E8FA8','Belanja':'#A75686','Tagihan':'#B8862F','Hiburan':'#7A6BC9','Kesehatan':'#4E9B6E','Pendidikan':'#5A72B8','Cicilan / Utang':'#C14E33','Lainnya':'#8B8474','Gaji':'#0E7C55','Freelance':'#2F9E77','Investasi':'#1F7A5C','Piutang':'#0E7C55','Pemasukan Lain':'#5C9E7E'};
+   361→const CUST_PAL=['#D0693B','#4A8FB5','#B05590','#C09A2E','#8468D6','#3FA070','#5F76C4','#A8643C'];
+   362→function applyCustomCats(){(db.customCats||[]).forEach(c=>{CAT_COLOR[c.name]=c.color;});}
+   363→function expCats(){return EXP_LIST0.concat((db.customCats||[]).filter(c=>c.type==='expense').map(c=>c.name));}
+   364→function incCats(){return INC_LIST0.concat((db.customCats||[]).filter(c=>c.type==='income').map(c=>c.name));}
+   365→const catDot=c=>CAT_COLOR[c]||'#8B8474';
+   366→function smartScan(desc,type){
+   367→ const s=String(desc||'').toLowerCase();if(!s)return null;
+   368→ const map=type==='income'?KW_INC:KW_EXP;
+   369→ const keys=Object.keys(map);
+   370→ for(let i=0;i<keys.length;i++){const cat=keys[i];
+   371→  for(let j=0;j<map[cat].length;j++)if(s.indexOf(map[cat][j])>-1)return cat;}
+   372→ for(let i=0;i<(db.customCats||[]).length;i++){const c=db.customCats[i];
+   373→  if(c.type===(type==='income'?'income':'expense')&&c.kw&&c.kw.some(k=>s.indexOf(k)>-1))return c.name;}
+   374→ return null;}
+   375→
+   376→/* ══════ PLANS & Monetisasi ══════ */
+   377→const PLANS={
+   378→ free:{id:'free',name:'Gratis',price:0,period:'',color:'plan-free',
+   379→  wallets:2,debts:5,budgets:3,recurring:false,cloudSync:false,
+   380→  customCats:3,invoice:false,plReport:false,brandedPdf:false,
+   381→  notifPush:false},
+   382→ pro:{id:'pro',name:'Pro',price:29000,period:'/bln',color:'plan-pro',
+   383→  wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
+   384→  customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
+   385→  notifPush:true}};
+   386→const PLAN_ORDER=['free','pro'];
+   387→function getPlan(){return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
+   388→function planName(){const p=getPlan();return p.id==='free'?'Gratis':p.name;}
+   389→function planBadge(){const p=getPlan();return '<span class="plan-pill '+p.color+'">'+p.name.toUpperCase()+'</span>';}
+   390→function canDo(feature){const p=getPlan();return p[feature]!==false&&p[feature]!==0;}
+   391→function planLimit(feature){const p=getPlan();return p[feature]||0;}
+   392→function planUsage(feature){
+   393→ if(feature==='wallets')return db.wallets.length;
+   394→ if(feature==='debts')return db.debts.filter(d=>d.status!=='paid').length;
+   395→ if(feature==='budgets')return Object.keys(db.budgets||{}).length;
+   396→ if(feature==='customCats')return(db.customCats||[]).length;
+   397→ return 0;}
+   398→function atLimit(feature){const lim=planLimit(feature);if(lim===Infinity)return false;return planUsage(feature)>=lim;}
+   399→function nearLimit(feature){const lim=planLimit(feature);if(lim===Infinity)return false;return planUsage(feature)>=lim*0.8;}
+   400→function limitLabel(feature){
+   401→ const lim=planLimit(feature),used=planUsage(feature);
+   402→ if(lim===Infinity)return used+' / ∞';
+   403→ return used+' / '+lim;}
+   404→function showUpgrade(feature,msg){
+   405→ const plan=getPlan();
+   406→ if(plan.id==='free'){openUpgradeModal(feature,msg);return true;}
+   407→ return false;}
+   408→function openUpgradeModal(feature,msg){
+   409→ const allFeats={
+   410→  wallets:'Multi-dompet unlimited',debts:'Utang & piutang unlimited',budgets:'Budget unlimited',
+   411→  recurring:'Transaksi berulang bulanan',cloudSync:'Sinkronisasi cloud (multi-device)',
+   412→  customCats:'Kategori kustom unlimited',invoice:'Buat & kirim invoice',
+   413→  plReport:'Laporan P&L (laba-rugi)',brandedPdf:'PDF dengan logo usaha',
+   414→  notifPush:'Notifikasi jatuh tempo push'};
+   415→ const featLabel=allFeats[feature]||feature;
+   416→ openModal(
+   417→  '<div style="text-align:center;padding:8px 0">'+
+   418→  '<div style="display:inline-flex;color:var(--pos);margin-bottom:6px">'+ic('crown','w20')+'</div>'+
+   419→  '<h3 style="font-weight:800;font-size:17px">Upgrade ke Pro</h3>'+
+   420→  (msg?'<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(msg)+'</p>':
+   421→   '<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(featLabel)+' tersedia di paket <b>Pro</b>.</p>')+
+   422→  '<div class="mono" style="font-size:28px;font-weight:800;margin-top:14px;color:var(--pos)">Rp 29.000<span class="muted" style="font-size:12px;font-weight:400">/bln</span></div>'+
+   423→  '</div>'+
+   424→  '<div style="margin-top:16px">'+
+   425→  '<button class="btn primary" id="up-confirm" style="width:100%;justify-content:center;gap:8px">'+ic('crown','w14')+' Upgrade ke Pro</button>'+
+   426→  '<button class="btn" id="up-all" style="width:100%;margin-top:8px;justify-content:center">Lihat detail paket</button>'+
+   427→  '<button class="btn" data-close style="width:100%;margin-top:8px;justify-content:center">Nanti dulu</button>'+
+   428→  '</div>');
+   429→ $('#up-confirm').onclick=()=>{closeModal();activatePlan('pro');};
+   430→ $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
+   431→function activatePlan(planId,billing){
+   432→ if(planId==='free'){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
+   433→ if(planId!=='pro')return;
+   434→ if(!currentUser){toast('Daftar/login dulu sebelum upgrade 🔐');openAuthModal('login');return;}
+   435→ const isAnnual=billing==='annual';
+   436→ const amount=isAnnual?278400:29000;
+   437→ const label=isAnnual?'tahunan':'bulanan';
+   438→ // Create Midtrans Snap transaction
+   439→ api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name,amount:amount,billing:label})}).then(r=>{
+   440→  if(r.error){toast('Gagal: '+r.error);return;}
+   441→  // Open Midtrans Snap popup
+   442→  if(window.snap&&r.token){
+   443→   window.snap.pay(r.token,{
+   444→    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');const expMs=isAnnual?365:30;db.subscription={plan:'pro',startedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+expMs*864e5).toISOString(),paymentMethod:'midtrans',transactionId:r.order_id,billing:label};save();renderPlanBadge();render();if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'pro'})});}},
+   445→    onPending:function(result){toast('Menunggu pembayaran... ⏳');},
+   446→    onError:function(result){toast('Pembayaran gagal 😔');},
+   447→    onClose:function(){toast('Pembayaran dibatalkan');}
+   448→   });
+   449→  }else if(r.redirect_url){window.open(r.redirect_url,'_blank');}
+   450→ });
+   451→}
+   452→function cancelPlan(){
+   453→ db.subscription={plan:'free',startedAt:null,expiresAt:null};
+   454→ save();render();
+   455→ toast('Paket Pro dibatalkan');
+   456→ // Server-side sync will be handled by cloud sync
+   457→ if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'free'})});}
+   458→}
+   459→function renderPlanBadge(){
+   460→ const p=getPlan(),el=$('#plan-badge-top');
+   461→ if(!el)return;
+   462→ el.className='plan-pill '+p.color;
+   463→ el.textContent=p.id==='free'?'GRATIS':p.name.toUpperCase();}
+   464→
+   465→/* ── Store & migrasi ── */
+   466→const KEY='arus-data-v3',KEY_OLD='arus-data-v2';
+   467→// ─── Cloud API (Cloudflare Worker) ─────────────────────────────
+   468→const API = location.hostname === 'localhost' ? '' : '';  // same origin
+   469→let authToken = localStorage.getItem('arus-auth-token') || null;
+   470→let currentUser = JSON.parse(localStorage.getItem('arus-current-user') || 'null');
+   471→
+   472→function apiHeaders() {
+   473→  const h = {'Content-Type':'application/json'};
+   474→  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+   475→  return h;
+   476→}
+   477→
+   478→async function api(path, opts = {}) {
+   479→  try {
+   480→    const res = await fetch(API + '/api' + path, {headers: apiHeaders(), ...opts});
+   481→    const text = await res.text();
+   482→    try { return JSON.parse(text); } catch {
+   483→      return {error: 'Server error: respons bukan JSON. Pastikan API sudah berjalan.'};
+   484→    }
+   485→  } catch(e) { return {error: e.message || 'Koneksi gagal'}; }
+   486→}
+   487→
+   488→let db=null;
+   489→function defaultDb(){const w={id:uid(),name:'Dompet Utama',color:'#C9A962',initial:0};
+   490→ return {version:3,profile:{name:'Alex Laurel',pin:null,pinEnabled:false},
+   491→  settings:{lastBackup:null,onboarded:false},
+   492→  subscription:{plan:'free',startedAt:null,expiresAt:null,paymentMethod:null,transactionId:null},
+   493→  demo:true,wallets:[w],budgets:{},customCats:[],
+   494→  transactions:[],debts:[]};}
+   495→function seed(){
+   496→ const d=defaultDb();const W=d.wallets[0].id;
+   497→ const T=[],D=[],now=new Date();
+   498→ const add=(type,category,description,amount,dt,source,ref_id)=>{
+   499→  T.push({id:uid(),type:type,category:category,description:description,amount:amount,
+   500→   occurred_at:iso(dt),source:source||'manual',ref_id:ref_id||null,wallet_id:W,
+   501→   recur:'none',recur_parent:null,
+   502→   created_at:new Date(dt.getTime()+Math.random()*5e7).toISOString()});};
+   503→ for(let i=5;i>=0;i--){const dd=new Date(now.getFullYear(),now.getMonth()-i,28);
+   504→  if(dd<now)add('income','Gaji','Gaji bulanan — PT Nusantara Digital',8500000,dd);}
+   505→ add('income','Freelance','Proyek desain brand — Kopi Kana',3200000,addDays(now,-12));
+   506→ add('income','Investasi','Dividen saham BBCA',418000,addDays(now,-33));
+   507→ add('income','Pemasukan Lain','Jual monitor lama di Tokopedia',650000,addDays(now,-55));
+   508→ add('income','Freelance','Landing page — Rumah Studio',2750000,addDays(now,-76));
+   509→ const pool=[
+   510→  ['Makanan & Minuman','Makan siang warteg dekat kantor',15000,30000],
+   511→  ['Makanan & Minuman','GoFood — makan malam',30000,70000],
+   512→  ['Makanan & Minuman','Kopi — cafe lokal',20000,40000],
+   513→  ['Makanan & Minuman','Belanja groceries mingguan',180000,420000],
+   514→  ['Transportasi','Gojek ke kantor',18000,40000],
+   515→  ['Transportasi','Isi bensin Pertamax',80000,150000],
+   516→  ['Transportasi','Parkir & e-toll',12000,35000],
+   517→  ['Belanja','Shopee — kebutuhan rumah',50000,200000],
+   518→  ['Belanja','Uniqlo — diskon akhir pekan',120000,330000],
+   519→  ['Tagihan','Token listrik PLN',100000,250000],
+   520→  ['Tagihan','Internet IndiHome bulanan',320000,320000],
+   521→  ['Hiburan','Nonton bioskop akhir pekan',80000,140000],
+   522→  ['Hiburan','Langganan Netflix',54000,54000],
+   523→  ['Kesehatan','Apotek — vitamin',30000,110000],
+   524→  ['Pendidikan','Kelas online — data analysis',150000,350000]];
+   525→ for(let dd=170;dd>=2;dd-=2+Math.floor(Math.random()*4)){
+   526→  const p=pool[Math.floor(Math.random()*pool.length)];
+   527→  add('expense',p[0],p[1],Math.round((p[2]+Math.random()*(p[3]-p[2]))/500)*500,addDays(now,-dd));}
+   528→ add('expense','Makanan & Minuman','Makan siang — nasi goreng GoFood',27000,addDays(now,0));
+   529→ add('expense','Transportasi','Gojek ke kantor',28000,addDays(now,-1));
+   530→ add('expense','Hiburan','Langganan Netflix',54000,addMonthsISO(iso(new Date(now.getFullYear(),now.getMonth(),5)))>todayISO()?new Date(now.getFullYear(),now.getMonth(),5):new Date(now.getFullYear(),now.getMonth()+1,5));
+   531→ T[T.length-1].recur='monthly'; // template bulanan → otomatis digandakan
+   532→ const defs=[
+   533→  {name:'Budi Santoso',type:'receivable',amount:2500000,paid:1000000,due:12},
+   534→  {name:'Kartu Kredit BCA',type:'debt',amount:3250000,paid:1200000,due:5},
+   535→  {name:'Citra Widjaja',type:'receivable',amount:750000,paid:0,due:-3},
+   536→  {name:'Kontraktor renovasi tahap 2',type:'debt',amount:12000000,paid:0,due:24}];
+   537→ defs.forEach(x=>{const id=uid();
+   538→  D.push({id:id,name:x.name,type:x.type,amount:x.amount,paid_amount:x.paid,
+   539→   due_date:iso(addDays(now,x.due)),
+   540→   status:x.paid>=x.amount?'paid':(x.paid>0?'partially_paid':'unpaid'),
+   541→   settled_at:null,created_at:new Date(now.getTime()-86400000*20).toISOString()});
+   542→  if(x.paid>0)add(x.type==='debt'?'expense':'income',
+   543→   x.type==='debt'?'Cicilan / Utang':'Piutang',
+   544→   (x.type==='debt'?'Pembayaran utang — ':'Pembayaran diterima — ')+x.name,
+   545→   x.paid,addDays(now,-9),'settlement',id);});
+   546→ d.budgets={'Makanan & Minuman':1500000,'Transportasi':500000,'Hiburan':300000};
+   547→ d.transactions=T;d.debts=D;return d;
+   548→}
+   549→function migrateOld(o){
+   550→ o.version=3;o.profile=Object.assign({name:'Saya'},o.profile||{});
+   551→ o.profile.pin=null;o.profile.pinEnabled=false;
+   552→ o.settings=Object.assign({lastBackup:null,onboarded:true},o.settings||{});
+   553→ const w={id:uid(),name:'Dompet Utama',color:'#C9A962',initial:0};
+   554→ o.wallets=[w];o.budgets=o.budgets||{};o.customCats=o.customCats||[];o.demo=false;
+   555→ o.transactions.forEach(t=>{if(!t.wallet_id)t.wallet_id=w.id;
+   556→  if(!t.recur)t.recur='none';if(!t.recur_parent)t.recur_parent=null;});
+   557→ return o;
+   558→}
+   559→function load(){
+   560→ let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
+   561→ if(raw){try{db=JSON.parse(raw);}catch(e){db=null;}
+   562→  if(db&&db.version!==3){db=migrateOld(db);save();}}
+   563→ if(!db){try{raw=localStorage.getItem(KEY_OLD);}catch(e){}
+   564→  if(raw){try{db=migrateOld(JSON.parse(raw));save();}catch(e){db=null;}}}
+   565→ if(!db||!Array.isArray(db.transactions)){db=seed();save();}
+   566→ if(db.debts)db.debts.forEach(d=>{if(!d.note)d.note='';});
+   567→}
+   568→function save(){try{localStorage.setItem(KEY,JSON.stringify(db));
+   569→ // Auto-sync disabled (R2 not bound)
+   570→ }catch(e){
+   571→ toast('Gagal menyimpan — penyimpanan browser penuh?','error');}}
+   572→function syncTop(){const el=$('#top-bal');if(el)el.textContent=money(totals().balance);}
+   573→
+   574→/* ── CRUD ── */
+   575→function addTransaction(o){
+   576→ o.id=uid();o.created_at=new Date().toISOString();
+   577→ if(!o.source)o.source='manual';if(o.ref_id===undefined)o.ref_id=null;
+   578→ if(!o.recur)o.recur='none';if(!o.recur_parent)o.recur_parent=null;
+   579→ if(!o.wallet_id)o.wallet_id=(db.wallets[0]||{}).id;
+   580→ db.transactions.push(o);save();syncTop();return o;}
+   581→function recomputeDebt(ref){
+   582→ if(!ref)return;const d=db.debts.find(x=>x.id===ref);if(!d)return;
+   583→ let paid=0;db.transactions.forEach(t=>{if(t.ref_id===ref)paid+=t.amount;});
+   584→ d.paid_amount=Math.min(d.amount,paid);
+   585→ d.status=d.paid_amount>=d.amount?'paid':(d.paid_amount>0?'partially_paid':'unpaid');
+   586→ if(d.status==='paid'&&!d.settled_at)d.settled_at=new Date().toISOString();
+   587→ if(d.status!=='paid')d.settled_at=null;}
+   588→function deleteTransaction(id){
+   589→ const t=db.transactions.find(x=>x.id===id);if(!t)return;
+   590→ const ref=t.ref_id;
+   591→ db.transactions=db.transactions.filter(x=>x.id!==id);
+   592→ recomputeDebt(ref);
+   593→ save();syncTop();
+   594→ stashUndo('txn',[t]);}
+   595→function updateTransaction(id,patch){
+   596→ const t=db.transactions.find(x=>x.id===id);if(!t)return;
+   597→ const oldRef=t.ref_id;
+   598→ Object.assign(t,patch);save();syncTop();
+   599→ recomputeDebt(oldRef);
+
+[showing lines 200-599 of 2625; use offset=600 with limit to continue reading]

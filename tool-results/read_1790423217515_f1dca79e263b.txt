@@ -1,0 +1,784 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useRef, useCallback } from 'react';
+     4→
+     5→/* ═══════════════════════════════════════════════════
+     6→   Arus Landing — $150k Agency Build
+     7→   ═══════════════════════════════════════════════════ */
+     8→
+     9→interface LandingPageProps {
+    10→  onOpenApp?: () => void;
+    11→}
+    12→
+    13→/* ── Keyword DB for demo ── */
+    14→const KW: Record<string, { c: string; k: string[]; inc?: boolean }> = {
+    15→  'Makanan & Minuman': { c: '#C7723B', k: ['kopi', 'makan', 'gofood', 'grabfood', 'bakso', 'nasi', 'cafe', 'kafe', 'lunch', 'dinner', 'susu', 'warteg', 'resto', 'snack', 'pizza', 'burger', 'sarapan'] },
+    16→  'Transportasi': { c: '#3E8FA8', k: ['gojek', 'grab', 'uber', 'ojek', 'bensin', 'pertamax', 'parkir', 'tol', 'krl', 'mrt', 'bus', 'taksi', 'commuter'] },
+    17→  'Belanja': { c: '#A75686', k: ['shopee', 'tokopedia', 'baju', 'uniqlo', 'sepatu', 'belanja', 'mall', 'tas', 'skincare'] },
+    18→  'Tagihan': { c: '#B8862F', k: ['listrik', 'pln', 'token', 'internet', 'wifi', 'indihome', 'pulsa', 'pdam', 'bpjs'] },
+    19→  'Hiburan': { c: '#7A6BC9', k: ['netflix', 'spotify', 'bioskop', 'game', 'steam', 'konser', 'tiket', 'disney'] },
+    20→  'Kesehatan': { c: '#4E9B6E', k: ['apotek', 'obat', 'dokter', 'klinik', 'vitamin', 'gym'] },
+    21→  'Pendidikan': { c: '#5A72B8', k: ['kursus', 'les', 'buku', 'spp', 'kuliah', 'kelas'] },
+    22→  'Gaji': { c: '#0E7C55', k: ['gaji', 'salary', 'thr', 'upah'], inc: true },
+    23→  'Freelance': { c: '#2F9E77', k: ['proyek', 'freelance', 'klien', 'client', 'invoice', 'jasa'], inc: true },
+    24→  'Piutang': { c: '#0E7C55', k: ['piutang', 'diterima dari'], inc: true },
+    25→  'Cicilan / Utang': { c: '#C14E33', k: ['utang', 'cicilan', 'angsuran', 'pinjam'] },
+    26→};
+    27→
+    28→function parseAmt(s: string): number {
+    29→  const m = s.toLowerCase().replace(/\s/g, '').match(/(\d+(?:[.,]\d{3})*(?:[.,]\d{1,2})?)(rb|k|jt|juta)?/);
+    30→  if (!m) return 0;
+    31→  let n = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+    32→  if (m[2] === 'rb' || m[2] === 'k') n *= 1e3;
+    33→  if (m[2] === 'jt' || m[2] === 'juta') n *= 1e6;
+    34→  return Math.round(n);
+    35→}
+    36→
+    37→const FMT = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+    38→
+    39→interface DemoResult {
+    40→  cat: string;
+    41→  catColor: string;
+    42→  inc: boolean;
+    43→  amt: number;
+    44→}
+    45→
+    46→function scanDemo(s: string): DemoResult {
+    47→  const sl = s.toLowerCase();
+    48→  let cat: string | null = null;
+    49→  let catColor = '#6E6757';
+    50→  let inc = false;
+    51→  for (const [c, v] of Object.entries(KW)) {
+    52→    if (v.k.some(k => sl.includes(k))) {
+    53→      cat = c;
+    54→      catColor = v.c;
+    55→      inc = !!v.inc;
+    56→      break;
+    57→    }
+    58→  }
+    59→  const amt = parseAmt(s);
+    60→  return { cat: cat || (inc ? 'Pemasukan Lain' : 'Lainnya'), catColor, inc, amt };
+    61→}
+    62→
+    63→/* ── Premium SVG Line Icons (Phosphor Light style) ── */
+    64→const ArrowIcon = () => (
+    65→  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    66→    <path d="M5 12h14M13 6l6 6-6 6" />
+    67→  </svg>
+    68→);
+    69→
+    70→const IconPencil = () => (
+    71→  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    72→    <path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17v3z" />
+    73→    <path d="M14.5 7.5l3 3" />
+    74→  </svg>
+    75→);
+    76→
+    77→const IconTag = () => (
+    78→  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    79→    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+    80→    <circle cx="7" cy="7" r="1.5" />
+    81→  </svg>
+    82→);
+    83→
+    84→const IconCheck = () => (
+    85→  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    86→    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    87→    <path d="M22 4L12 14.01l-3-3" />
+    88→  </svg>
+    89→);
+    90→
+    91→const IconShield = () => (
+    92→  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    93→    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    94→  </svg>
+    95→);
+    96→
+    97→const IconUser = () => (
+    98→  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    99→    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+   100→    <circle cx="12" cy="7" r="3.5" />
+   101→  </svg>
+   102→);
+   103→
+   104→const IconBox = () => (
+   105→  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+   106→    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+   107→    <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
+   108→  </svg>
+   109→);
+   110→
+   111→/* ── FAQ data ── */
+   112→const FAQ_DATA = [
+   113→  {
+   114→    q: 'Gratis sampai kapan?',
+   115→    a: 'Paket Gratis gratis selamanya. Kalau butuh lebih — unlimited dompet, cloud sync, laporan branded — ada Paket Pro Rp 29.000/bulan.',
+   116→  },
+   117→  {
+   118→    q: 'Data saya dikirim ke internet?',
+   119→    a: 'Paket Gratis: data hanya di browsermu. Paket Pro: data bisa disinkronkan ke cloud via Supabase (terenkripsi, aman). Kamu pilih sendiri.',
+   120→  },
+   121→  {
+   122→    q: 'Kalau hapus cache browser, datanya hilang?',
+   123→    a: 'Paket Gratis: ya, makanya ada backup JSON. Paket Pro: data tersinkron ke cloud, bisa dipulihkan dari perangkat lain.',
+   124→  },
+   125→  {
+   126→    q: 'Bisa dipakai di HP?',
+   127→    a: 'Bisa banget. Semua halaman responsif, menu samping otomatis jadi layar geser di layar kecil. Tidak perlu install apa-apa.',
+   128→  },
+   129→  {
+   130→    q: 'Kenapa Rp 29.000/bulan?',
+   131→    a: 'Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya lengkap untuk kelola keuangan usaha kecil-menengah. Bayar tahunan hemat 20%.',
+   132→  },
+   133→  {
+   134→    q: 'Bisa pindah paket?',
+   135→    a: 'Bisa. Upgrade atau downgrade kapan aja. Kalau downgrade ke Gratis, data Pro-mu tetap ada, cuma akses fitur unlimited yang hilang.',
+   136→  },
+   137→];
+   138→
+   139→/* ── Examples data ── */
+   140→const EXAMPLES = [
+   141→  { input: 'kopi susu 35rb', cat: 'Makanan & Minuman', catColor: '#C7723B', amt: 'Rp 35.000', type: 'Pengeluaran', inc: false, style: 'wide' as const },
+   142→  { input: 'gojek ke kantor 28rb', cat: 'Transportasi', catColor: '#3E8FA8', amt: 'Rp 28.000', type: 'Pengeluaran', inc: false, style: 'flat' as const },
+   143→  { input: 'gaji bulanan 8,5jt', cat: 'Gaji', catColor: '#0E7C55', amt: 'Rp 8.500.000', type: 'Pemasukan', inc: true, style: 'highlight' as const },
+   144→  { input: 'token listrik pln 100rb', cat: 'Tagihan', catColor: '#B8862F', amt: 'Rp 100.000', type: 'Pengeluaran', inc: false, style: '' as const },
+   145→  { input: 'netflix 186rb', cat: 'Hiburan', catColor: '#7A6BC9', amt: 'Rp 186.000', type: 'Pengeluaran', inc: false, style: 'minimal' as const },
+   146→  { input: 'beli baju uniqlo 250rb', cat: 'Belanja', catColor: '#A75686', amt: 'Rp 250.000', type: 'Pengeluaran', inc: false, style: '' as const },
+   147→];
+   148→
+   149→/* ═══════════════════════════════════════════════════
+   150→   Main Component
+   151→   ═══════════════════════════════════════════════════ */
+   152→export default function LandingPage({ onOpenApp }: LandingPageProps) {
+   153→  const [scrolled, setScrolled] = useState(false);
+   154→  const [menuOpen, setMenuOpen] = useState(false);
+   155→  const [openFaq, setOpenFaq] = useState<number | null>(null);
+   156→  const [demoInput, setDemoInput] = useState('');
+   157→  const [userTyped, setUserTyped] = useState(false);
+   158→  const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
+   159→  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+   160→
+   161→  const demoInputRef = useRef<HTMLInputElement>(null);
+   162→  const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   163→  const heroRef = useRef<HTMLElement>(null);
+   164→
+   165→  useEffect(() => {
+   166→    const onScroll = () => setScrolled(window.scrollY > 24);
+   167→    window.addEventListener('scroll', onScroll, { passive: true });
+   168→    return () => window.removeEventListener('scroll', onScroll);
+   169→  }, []);
+   170→
+   171→  /* ── Cursor glow tracking ── */
+   172→  useEffect(() => {
+   173→    const hero = heroRef.current;
+   174→    if (!hero) return;
+   175→    const onMove = (e: MouseEvent) => {
+   176→      const rect = hero.getBoundingClientRect();
+   177→      setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+   178→    };
+   179→    hero.addEventListener('mousemove', onMove, { passive: true });
+   180→    return () => hero.removeEventListener('mousemove', onMove);
+   181→  }, []);
+   182→
+   183→  /* ── Tilt effect on app preview ── */
+   184→  useEffect(() => {
+   185→    const shell = document.querySelector('.appwin-shell');
+   186→    if (!shell) return;
+   187→    const onMove = (e: MouseEvent) => {
+   188→      const rect = shell.getBoundingClientRect();
+   189→      const x = (e.clientX - rect.left) / rect.width - .5;
+   190→      const y = (e.clientY - rect.top) / rect.height - .5;
+   191→      (shell as HTMLElement).style.transform = `perspective(800px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+   192→    };
+   193→    const onLeave = () => {
+   194→      (shell as HTMLElement).style.transform = 'perspective(800px) rotateY(0) rotateX(0)';
+   195→      (shell as HTMLElement).style.transition = 'transform .6s cubic-bezier(.32,.72,0,1)';
+   196→    };
+   197→    const onEnter = () => {
+   198→      (shell as HTMLElement).style.transition = 'transform .1s ease-out';
+   199→    };
+   200→    shell.addEventListener('mousemove', onMove, { passive: true });
+   201→    shell.addEventListener('mouseleave', onLeave);
+   202→    shell.addEventListener('mouseenter', onEnter);
+   203→    return () => {
+   204→      shell.removeEventListener('mousemove', onMove);
+   205→      shell.removeEventListener('mouseleave', onLeave);
+   206→      shell.removeEventListener('mouseenter', onEnter);
+   207→    };
+   208→  }, []);
+   209→
+   210→  useEffect(() => {
+   211→    const io = new IntersectionObserver(
+   212→      (entries) => entries.forEach((x) => {
+   213→        if (x.isIntersecting) {
+   214→          x.target.classList.add('in');
+   215→          io.unobserve(x.target);
+   216→        }
+   217→      }),
+   218→      { threshold: 0.1 }
+   219→    );
+   220→    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+   221→    return () => io.disconnect();
+   222→  }, []);
+   223→
+   224→  /* ── Demo typing animation ── */
+   225→  const demoExamples = ['kopi susu 35rb', 'gojek ke kantor 28rb', 'gaji bulanan 8,5jt', 'token listrik 100rb', 'bayar utang budi 500rb'];
+   226→  const exampleIdxRef = useRef(0);
+   227→
+   228→  const runDemoResult = useCallback((s: string) => {
+   229→    if (s.trim()) {
+   230→      setDemoResult(scanDemo(s));
+   231→    } else {
+   232→      setDemoResult(null);
+   233→    }
+   234→  }, []);
+   235→
+   236→  useEffect(() => {
+   237→    if (userTyped) return;
+   238→
+   239→    const typeLoop = () => {
+   240→      if (userTyped) return;
+   241→      const s = demoExamples[exampleIdxRef.current];
+   242→      let i = 0;
+   243→
+   244→      const type = () => {
+   245→        if (userTyped) return;
+   246→        i++;
+   247→        const val = s.slice(0, i);
+   248→        setDemoInput(val);
+   249→        runDemoResult(val);
+   250→        if (i < s.length) {
+   251→          typeTimerRef.current = setTimeout(type, 55 + Math.random() * 50);
+   252→        } else {
+   253→          typeTimerRef.current = setTimeout(() => {
+   254→            if (userTyped) return;
+   255→            const del = () => {
+   256→              if (userTyped) return;
+   257→              i--;
+   258→              const val2 = s.slice(0, i);
+   259→              setDemoInput(val2);
+   260→              runDemoResult(val2);
+   261→              if (i > 0) {
+   262→                typeTimerRef.current = setTimeout(del, 22);
+   263→              } else {
+   264→                exampleIdxRef.current = (exampleIdxRef.current + 1) % demoExamples.length;
+   265→                typeTimerRef.current = setTimeout(typeLoop, 450);
+   266→              }
+   267→            };
+   268→            del();
+   269→          }, 2100);
+   270→        }
+   271→      };
+   272→      type();
+   273→    };
+   274→
+   275→    typeTimerRef.current = setTimeout(typeLoop, 1600);
+   276→
+   277→    return () => {
+   278→      if (typeTimerRef.current) clearTimeout(typeTimerRef.current);
+   279→    };
+   280→  }, [userTyped, runDemoResult]);
+   281→
+   282→  const handleDemoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+   283→    const val = e.target.value;
+   284→    setUserTyped(true);
+   285→    setDemoInput(val);
+   286→    runDemoResult(val);
+   287→  };
+   288→
+   289→  const toggleFaq = (idx: number) => {
+   290→    setOpenFaq(openFaq === idx ? null : idx);
+   291→  };
+   292→
+   293→  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+   294→    if (href.startsWith('#')) {
+   295→      e.preventDefault();
+   296→      setMenuOpen(false);
+   297→      const el = document.querySelector(href);
+   298→      if (el) el.scrollIntoView({ behavior: 'smooth' });
+   299→    }
+   300→  };
+   301→
+   302→  return (
+   303→    <>
+   304→      {/* ═══ NAV — Floating Glass Pill ═══ */}
+   305→      <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`}>
+   306→        <div className="nav-pill">
+   307→          <div className="navin">
+   308→            <a className="logo" href="#top" onClick={(e) => handleNavClick(e, '#top')}>
+   309→              <span className="logomark"><i /></span>Arus
+   310→            </a>
+   311→            <div className={`nlinks${menuOpen ? ' open' : ''}`}>
+   312→              <a href="#cara" onClick={(e) => handleNavClick(e, '#cara')}>Cara kerja</a>
+   313→              <a href="#contoh" onClick={(e) => handleNavClick(e, '#contoh')}>Contoh</a>
+   314→              <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')}>FAQ</a>
+   315→            </div>
+   316→            <a
+   317→              className="btn btn-accent nav-cta"
+   318→              href="#"
+   319→              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   320→            >
+   321→              Buka
+   322→              <span className="btn-icon"><ArrowIcon /></span>
+   323→            </a>
+   324→            <button
+   325→              className="menu-btn"
+   326→              aria-label="Menu"
+   327→              onClick={() => setMenuOpen(!menuOpen)}
+   328→            >
+   329→              ≡
+   330→            </button>
+   331→          </div>
+   332→        </div>
+   333→      </nav>
+   334→
+   335→      {/* ═══ HERO ═══ */}
+   336→      <header className="hero" id="top" ref={heroRef}>
+   337→        <div className="hero-glow" style={{ left: glowPos.x, top: glowPos.y }} />
+   338→
+   339→        {/* 3D Geometric Shapes */}
+   340→        <div className="geo-3d" style={{ top: '18%', left: '5%' }}>
+   341→          <div className="geo-ring" />
+   342→        </div>
+   343→        <div className="geo-3d" style={{ top: '60%', right: '8%' }}>
+   344→          <div className="geo-ring-2" />
+   345→        </div>
+   346→        <div className="geo-3d" style={{ top: '35%', right: '3%' }}>
+   347→          <div className="geo-diamond" />
+   348→        </div>
+   349→
+   350→        {/* 3D Parallax Orbs */}
+   351→        <div className="parallax-orb orb-float-1" style={{ top: '10%', left: '60%' }} />
+   352→        <div className="parallax-orb orb-float-2" style={{ bottom: '20%', left: '15%' }} />
+   353→
+   354→        {/* 3D Perspective Grid */}
+   355→        <div className="perspective-grid" />
+   356→
+   357→        <div className="wrap">
+   358→          <div className="hero-grid">
+   359→            {/* Left: Name, tagline, demo */}
+   360→            <div className="hero-text">
+   361→              <div className="eyebrow" style={{ opacity: 0, animation: 'heroRise 1s .05s cubic-bezier(.16,1,.3,1) forwards', transform: 'translateY(20px)', filter: 'blur(6px)' }}>
+   362→                Buku Kas Pribadi
+   363→              </div>
+   364→              <h1 className="hero-name">
+   365→                <span className="line">Arus.</span>
+   366→                <span className="line" style={{ color: 'var(--accent)', fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 500, letterSpacing: '-.01em', lineHeight: 1.4, marginTop: 12 }}>
+   367→                  Buku kas pribadi & UMKM.<br />Gratis untuk mulai, Pro untuk tumbuh.
+   368→                </span>
+   369→              </h1>
+   370→              <p className="hero-tagline">
+   371→                Ketik <span className="mono" style={{ color: 'var(--accent2)' }}>kopi 35rb</span>, langsung kecatat. Catat keuanganmu dengan mudah. Gratis untuk pemula, Pro untuk UMKM yang serius.
+   372→              </p>
+   373→              <div className="hero-cta">
+   374→                <a
+   375→                  className="btn btn-accent"
+   376→                  href="#"
+   377→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   378→                >
+   379→                  Coba sekarang
+   380→                  <span className="btn-icon"><ArrowIcon /></span>
+   381→                </a>
+   382→                <a className="btn btn-ghost" href="#cara" onClick={(e) => handleNavClick(e, '#cara')}>
+   383→                  Lihat cara kerjanya
+   384→                </a>
+   385→              </div>
+   386→
+   387→              {/* Trust badges */}
+   388→              <div className="hero-trust">
+   389→                <div className="trust-item">
+   390→                  <span className="trust-dot" style={{ background: 'var(--pos)' }} />
+   391→                  <span>Data di perangkatmu</span>
+   392→                </div>
+   393→                <div className="trust-item">
+   394→                  <span className="trust-dot" style={{ background: 'var(--accent)' }} />
+   395→                  <span>Privasi utama</span>
+   396→                </div>
+   397→                <div className="trust-item">
+   398→                  <span className="trust-dot" style={{ background: '#7A6BC9' }} />
+   399→                  <span>Mulai gratis</span>
+   400→                </div>
+   401→              </div>
+   402→
+   403→              {/* Demo input */}
+   404→              <div className="hero-demo">
+   405→                <div className="demo-in">
+   406→                  <span className="caret" />
+   407→                  <input
+   408→                    ref={demoInputRef}
+   409→                    type="text"
+   410→                    value={demoInput}
+   411→                    onChange={handleDemoInput}
+   412→                    placeholder="coba ketik: kopi 35rb"
+   413→                    maxLength={60}
+   414→                    aria-label="Coba input pintar"
+   415→                  />
+   416→                </div>
+   417→                <div className="demo-res">
+   418→                  {demoResult && demoInput.trim() && (
+   419→                    <>
+   420→                      <span className="chip">
+   421→                        <i className="cdot" style={{ background: demoResult.catColor }} />
+   422→                        {demoResult.cat}
+   423→                      </span>
+   424→                      <span className="chip type">
+   425→                        {demoResult.inc ? 'Pemasukan ↑' : 'Pengeluaran ↓'}
+   426→                      </span>
+   427→                      {demoResult.amt > 0 && (
+   428→                        <span className="chip amt">{FMT.format(demoResult.amt)}</span>
+   429→                      )}
+   430→                    </>
+   431→                  )}
+   432→                </div>
+   433→                <div className="demo-hint">ketik di atas, atau biarkan kami mendemokan</div>
+   434→              </div>
+   435→            </div>
+   436→
+   437→            {/* Right: App preview — Double-Bezel with 3D depth */}
+   438→            <div className="hero-preview">
+   439→              <div className="hero-depth-stack">
+   440→                <div className="depth-card depth-card-2" />
+   441→                <div className="depth-card depth-card-1" />
+   442→              </div>
+   443→              <div className="appwin-shell">
+   444→                <div className="appwin">
+   445→                  <div className="appbar"><i /><i /><i /></div>
+   446→                  <div className="appbody">
+   447→                    <div className="bal-lbl">Saldo</div>
+   448→                    <div className="bal" style={{ color: 'var(--ink)' }}>
+   449→                      <span style={{ color: 'var(--accent)' }}>—</span> tersimpan lokal
+   450→                    </div>
+   451→                    <div className="trows">
+   452→                      <div className="trow">
+   453→                        <i className="tdot" style={{ background: '#0E7C55' }} />
+   454→                        <span className="n">gaji bulanan 8,5jt</span>
+   455→                        <span className="d">Hari ini</span>
+   456→                        <span className="amt-p mono">+Rp 8.500.000</span>
+   457→                      </div>
+   458→                      <div className="trow">
+   459→                        <i className="tdot" style={{ background: '#C7723B' }} />
+   460→                        <span className="n">kopi susu 35rb</span>
+   461→                        <span className="d">Hari ini</span>
+   462→                        <span className="amt-n mono">−Rp 35.000</span>
+   463→                      </div>
+   464→                      <div className="trow">
+   465→                        <i className="tdot" style={{ background: '#3E8FA8' }} />
+   466→                        <span className="n">gojek ke kantor 28rb</span>
+   467→                        <span className="d">Kemarin</span>
+   468→                        <span className="amt-n mono">−Rp 28.000</span>
+   469→                      </div>
+   470→                      <div className="trow">
+   471→                        <i className="tdot" style={{ background: '#B8862F' }} />
+   472→                        <span className="n">token listrik pln 100rb</span>
+   473→                        <span className="d">2 hari lalu</span>
+   474→                        <span className="amt-n mono">−Rp 100.000</span>
+   475→                      </div>
+   476→                      <div className="trow">
+   477→                        <i className="tdot" style={{ background: '#C14E33' }} />
+   478→                        <span className="n">bayar utang budi 500rb</span>
+   479→                        <span className="d">3 hari</span>
+   480→                        <span className="amt-n mono">−Rp 500.000</span>
+   481→                      </div>
+   482→                    </div>
+   483→                  </div>
+   484→                </div>
+   485→              </div>
+   486→            </div>
+   487→          </div>
+   488→        </div>
+   489→      </header>
+   490→
+   491→      {/* ═══ HOW IT WORKS — Bento Steps ═══ */}
+   492→      <section id="cara" className="lp-section" style={{ borderBottom: '1px solid var(--line)' }}>
+   493→        <div className="wrap">
+   494→          <div className="reveal">
+   495→            <div className="eyebrow">Cara Kerja</div>
+   496→            <h2 style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>
+   497→              Tiga langkah. Nggak lebih.
+   498→            </h2>
+   499→            <p style={{ color: 'var(--mut)', fontSize: 15, marginTop: 12, fontWeight: 500 }}>
+   500→              Nggak perlu setting apa-apa. Tulis, simpan, selesai.
+   501→            </p>
+   502→          </div>
+   503→          <div className="how-grid">
+   504→            <div className="how-step reveal">
+   505→              <div className="inner">
+   506→                <div className="how-num">01</div>
+   507→                <div className="how-icon"><IconPencil /></div>
+   508→                <h3>Tulis</h3>
+   509→                <p>Ketik aja apa yang kamu beli atau terima. <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>kopi 35rb</span>, <span className="mono" style={{ fontSize: 12, color: 'var(--accent2)' }}>gaji 8,5jt</span> — natural.</p>
+   510→              </div>
+   511→            </div>
+   512→            <div className="how-step reveal" style={{ transitionDelay: '.12s' }}>
+   513→              <div className="inner">
+   514→                <div className="how-num">02</div>
+   515→                <div className="how-icon"><IconTag /></div>
+   516→                <h3>Kategori otomatis</h3>
+   517→                <p>Arus baca kata kuncinya, langsung masukin ke kategori yang pas. Makanan, transportasi, tagihan — semua ke-handle.</p>
+   518→              </div>
+   519→            </div>
+   520→            <div className="how-step reveal" style={{ transitionDelay: '.24s' }}>
+   521→              <div className="inner">
+   522→                <div className="how-num">03</div>
+   523→                <div className="how-icon"><IconCheck /></div>
+   524→                <h3>Simpan</h3>
+   525→                <p>Sudah. Nggak ada tombol "simpan", nggak ada form panjang. Satu baris, selesai. Data tinggal di perangkatmu.</p>
+   526→              </div>
+   527→            </div>
+   528→          </div>
+   529→        </div>
+   530→      </section>
+   531→
+   532→      {/* ═══ EXAMPLES — Asymmetrical Bento ═══ */}
+   533→      <section id="contoh" className="lp-section examples-section">
+   534→        <div className="wrap">
+   535→          <div className="ex-header reveal">
+   536→            <div className="eyebrow">Contoh Nyata</div>
+   537→            <h2>
+   538→              Biarkan contoh yang <span style={{ color: 'var(--accent)' }}>berbicara</span>.
+   539→            </h2>
+   540→          </div>
+   541→          <div className="ex-list">
+   542→            {EXAMPLES.map((ex, idx) => (
+   543→              <div
+   544→                key={idx}
+   545→                className={`ex-card reveal${ex.style ? ` ${ex.style}` : ''}`}
+   546→                style={idx > 0 ? { transitionDelay: `${idx * 0.08}s` } : undefined}
+   547→              >
+   548→                <div className="inner">
+   549→                  <div className="ex-input">
+   550→                    <span className="prompt">{'>'}</span> {ex.input}
+   551→                  </div>
+   552→                  <div className="ex-result">
+   553→                    <span className="ex-cat">
+   554→                      <i className="cdot" style={{ background: ex.catColor, width: 6, height: 6, borderRadius: '50%', display: 'inline-block' }} />
+   555→                      {ex.cat}
+   556→                    </span>
+   557→                    <span className="ex-arrow">→</span>
+   558→                    <span className={`ex-amt ${ex.inc ? 'pos' : 'neg'}`}>
+   559→                      {ex.inc ? '+' : '−'}{ex.amt}
+   560→                    </span>
+   561→                    <span className="ex-type">{ex.type}</span>
+   562→                  </div>
+   563→                </div>
+   564→              </div>
+   565→            ))}
+   566→          </div>
+   567→        </div>
+   568→      </section>
+   569→
+   570→      {/* ═══ THE PITCH — Editorial Split ═══ */}
+   571→      <section className="lp-section">
+   572→        <div className="wrap">
+   573→          <div className="pitch-grid">
+   574→            <div className="pitch-left reveal">
+   575→              <div className="eyebrow">Kenapa Arus</div>
+   576→              <h2>
+   577→                Kenapa nggak pakai app <span style={{ color: 'var(--accent)' }}>biasa</span>?
+   578→              </h2>
+   579→              <p>
+   580→                Karena app keuangan "biasa" minta kamu daftar akun, upload KTP, sinkronisasi ke cloud — padahal kamu cuma mau catat beli kopi. Arus nggak. Ini bukan SaaS yang mau datamu. Ini alat yang kamu punya penuh.
+   581→              </p>
+   582→              <p style={{ color: 'var(--dim)', fontSize: 13.5, marginTop: 20, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.7 }}>
+   583→                Konsekuensinya: data mati sama device-nya. Kalau hapus cache tanpa backup, ya hilang. Itu bukan bug — itu pilihan desain. Makanya ada backup JSON.
+   584→              </p>
+   585→              <div className="pitch-points">
+   586→                <div className="pitch-point">
+   587→                  <span className="icon"><IconShield /></span>
+   588→                  <div>
+   589→                    <strong>Privasi diutamakan</strong>
+   590→                    <span>Data Gratis cuma di browsermu. Paket Pro bisa sync ke cloud, tapi kamu yang pegang kendali.</span>
+   591→                  </div>
+   592→                </div>
+   593→                <div className="pitch-point">
+   594→                  <span className="icon"><IconUser /></span>
+   595→                  <div>
+   596→                    <strong>Tanpa ribet</strong>
+   597→                    <span>Paket Gratis nggak perlu akun. Paket Pro bisa login untuk sinkronisasi antar perangkat.</span>
+   598→                  </div>
+   599→                </div>
+   600→                <div className="pitch-point">
+   601→                  <span className="icon"><IconBox /></span>
+   602→                  <div>
+   603→                    <strong>Backup JSON — datamu, kendalimu</strong>
+   604→                    <span>Unduh satu file, impor ke perangkat lain. Kamu yang pegang kendali.</span>
+   605→                  </div>
+   606→                </div>
+   607→              </div>
+   608→            </div>
+   609→            <div className="reveal" style={{ transitionDelay: '.15s' }}>
+   610→              <div className="pitch-right-shell">
+   611→                <div className="pitch-right">
+   612→                  <div className="label">Prinsip</div>
+   613→                  <p>
+   614→                    "Buku kas yang baik nggak nyuruh kamu bayar sebelum kamu merasakan manfaatnya. Gratis dulu, bayar kalau cocok."
+   615→                  </p>
+   616→                </div>
+   617→              </div>
+   618→            </div>
+   619→          </div>
+   620→        </div>
+   621→      </section>
+   622→
+   623→      {/* ═══ PRICING ═══ */}
+   624→      <section className="pricing-section reveal">
+   625→        <div className="wrap">
+   626→          <div className="pricing-label">Harga</div>
+   627→          <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)', marginTop: 12, fontWeight: 700 }}>
+   628→            Pilih paket yang <span style={{ color: 'var(--accent)' }}>cocok</span>
+   629→          </h2>
+   630→          <p style={{ color: 'var(--dim)', fontSize: 14, marginTop: 8, fontWeight: 500 }}>
+   631→            Gratis untuk mulai. Pro untuk UMKM yang serius.
+   632→          </p>
+   633→          <div className="pricing-grid">
+   634→            {/* GRATIS */}
+   635→            <div className="pricing-card">
+   636→              <div className="pricing-card-header">
+   637→                <h3>Gratis</h3>
+   638→                <div className="pricing-card-price">
+   639→                  <span className="pricing-card-amount">Rp 0</span>
+   640→                </div>
+   641→              </div>
+   642→              <ul className="pricing-features">
+   643→                <li className="pricing-feature"><span className="pf-check" />2 dompet</li>
+   644→                <li className="pricing-feature"><span className="pf-check" />5 utang/piutang</li>
+   645→                <li className="pricing-feature"><span className="pf-check" />3 budget</li>
+   646→                <li className="pricing-feature"><span className="pf-check" />3 kategori kustom</li>
+   647→                <li className="pricing-feature"><span className="pf-check" />Kategori otomatis</li>
+   648→                <li className="pricing-feature"><span className="pf-check" />Backup JSON</li>
+   649→                <li className="pricing-feature"><span className="pf-check" />PIN kunci</li>
+   650→                <li className="pricing-feature"><span className="pf-check" />Laporan dasar</li>
+   651→              </ul>
+   652→              <div className="pricing-card-cta">
+   653→                <a
+   654→                  className="btn btn-ghost"
+   655→                  href="#"
+   656→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   657→                >
+   658→                  Mulai Gratis
+   659→                </a>
+   660→              </div>
+   661→            </div>
+   662→            {/* PRO */}
+   663→            <div className="pricing-card recommended">
+   664→              <div className="pricing-badge">COCOK UMKM</div>
+   665→              <div className="pricing-card-header">
+   666→                <h3>Pro</h3>
+   667→                <div className="pricing-card-price">
+   668→                  <span className="pricing-card-amount">Rp 29.000</span>
+   669→                  <span className="pricing-card-per">/bln</span>
+   670→                </div>
+   671→                <div className="pricing-card-annual">Rp 278.400/thn <span className="pricing-save">hemat 20%</span></div>
+   672→              </div>
+   673→              <ul className="pricing-features">
+   674→                <li className="pricing-feature"><span className="pf-check" />Unlimited dompet</li>
+   675→                <li className="pricing-feature"><span className="pf-check" />Unlimited utang/piutang</li>
+   676→                <li className="pricing-feature"><span className="pf-check" />Unlimited budget</li>
+   677→                <li className="pricing-feature"><span className="pf-check" />Unlimited kategori</li>
+   678→                <li className="pricing-feature"><span className="pf-check" />Cloud sync</li>
+   679→                <li className="pricing-feature"><span className="pf-check" />Laporan branded PDF</li>
+   680→                <li className="pricing-feature"><span className="pf-check" />Notifikasi push</li>
+   681→                <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
+   682→                <li className="pricing-feature"><span className="pf-check" />Faktur</li>
+   683→              </ul>
+   684→              <div className="pricing-card-cta">
+   685→                <a
+   686→                  className="btn btn-accent"
+   687→                  href="#"
+   688→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   689→                >
+   690→                  Upgrade ke Pro
+   691→                  <span className="btn-icon"><ArrowIcon /></span>
+   692→                </a>
+   693→              </div>
+   694→            </div>
+   695→          </div>
+   696→        </div>
+   697→      </section>
+   698→
+   699→      {/* ═══ FAQ ═══ */}
+   700→      <section id="faq" className="lp-section" style={{ borderTop: '1px solid var(--line)' }}>
+   701→        <div className="wrap">
+   702→          <div className="reveal" style={{ marginBottom: 8 }}>
+   703→            <div className="eyebrow">FAQ</div>
+   704→            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)' }}>
+   705→              Yang biasa ditanyain
+   706→            </h2>
+   707→          </div>
+   708→          <div className="faq reveal" style={{ transitionDelay: '.1s' }}>
+   709→            {FAQ_DATA.map((item, idx) => (
+   710→              <div key={idx} className={`qa${openFaq === idx ? ' open' : ''}`}>
+   711→                <button onClick={() => toggleFaq(idx)}>
+   712→                  {item.q}
+   713→                  <span className="pm">+</span>
+   714→                </button>
+   715→                <div
+   716→                  className="ans"
+   717→                  style={{ maxHeight: openFaq === idx ? 500 : 0 }}
+   718→                >
+   719→                  <p>{item.a}</p>
+   720→                </div>
+   721→              </div>
+   722→            ))}
+   723→          </div>
+   724→        </div>
+   725→      </section>
+   726→
+   727→      {/* ═══ CTA FINAL — Cinematic ═══ */}
+   728→      <section className="lp-section final" style={{ borderTop: '1px solid var(--line)' }}>
+   729→        <div className="wrap reveal">
+   730→          <div className="final-card-shell">
+   731→            <div className="final-card">
+   732→              <h2>
+   733→                Uangmu, <span style={{ color: 'var(--accent)' }}>aturanmu</span>.
+   734→              </h2>
+   735→              <p className="sub">Buka aplikasinya, catat transaksi pertamamu. Nggak perlu daftar, nggak perlu nunggu.</p>
+   736→              <a
+   737→                className="btn btn-accent"
+   738→                href="#"
+   739→                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   740→              >
+   741→                Buka Arus
+   742→                <span className="btn-icon"><ArrowIcon /></span>
+   743→              </a>
+   744→              <span className="mini">gratis untuk mulai · pro untuk tumbuh · data tetap aman</span>
+   745→            </div>
+   746→          </div>
+   747→        </div>
+   748→      </section>
+   749→
+   750→      {/* ═══ FOOTER ═══ */}
+   751→      <footer className="lp-footer">
+   752→        <div className="wrap">
+   753→          <div className="footer-inner">
+   754→            <div>
+   755→              <div className="footer-brand">
+   756→                <span className="logomark"><i /></span>Arus
+   757→              </div>
+   758→              <div className="footer-tagline" style={{ marginTop: 6 }}>
+   759→                Buku kas pribadi & UMKM. Gratis untuk mulai.
+   760→              </div>
+   761→            </div>
+   762→            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+   763→              <a
+   764→                className="footer-link"
+   765→                href="#"
+   766→                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   767→              >
+   768→                Buka Aplikasi →
+   769→              </a>
+   770→              <a
+   771→                className="footer-link"
+   772→                href="/admin.html"
+   773→                style={{ opacity: 0.5, fontSize: 12 }}
+   774→              >
+   775→                Admin
+   776→              </a>
+   777→            </div>
+   778→          </div>
+   779→        </div>
+   780→      </footer>
+   781→    </>
+   782→  );
+   783→}
+   784→

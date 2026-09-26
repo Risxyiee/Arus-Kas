@@ -157,6 +157,10 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
   const [userTyped, setUserTyped] = useState(false);
   const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
   const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+  const [cookieConsent, setCookieConsent] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return !!localStorage.getItem('arus-cookie');
+  });
 
   const demoInputRef = useRef<HTMLInputElement>(null);
   const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -301,6 +305,26 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
 
   return (
     <>
+      {/* ═══ Cookie Consent ═══ */}
+      {!cookieConsent && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
+          background: 'var(--ink, #242019)', color: 'var(--invfg, #F4F1E8)',
+          padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12,
+          flexWrap: 'wrap', justifyContent: 'center', fontSize: 13,
+          boxShadow: '0 -4px 20px rgba(0,0,0,.2)'
+        }}>
+          <span>🍪 Kami gunakan cookie untuk preferensi & analitik. <a href="/privacy.html" style={{ color: 'var(--invpos, #63D6A0)', textDecoration: 'underline' }}>Pelajari</a></span>
+          <button onClick={() => { setCookieConsent(true); localStorage.setItem('arus-cookie', '1'); }} style={{
+            background: 'var(--pos, #0E7B4F)', color: '#fff', border: 'none',
+            borderRadius: 6, padding: '6px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+          }}>Terima</button>
+          <button onClick={() => { setCookieConsent(true); localStorage.setItem('arus-cookie', '0'); }} style={{
+            background: 'transparent', color: 'var(--invfg, #F4F1E8)', border: '1px solid var(--invmut, #9B947F)',
+            borderRadius: 6, padding: '6px 16px', fontSize: 13, cursor: 'pointer'
+          }}>Tolak</button>
+        </div>
+      )}
       {/* ═══ NAV — Floating Glass Pill ═══ */}
       <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="nav-pill">
@@ -759,21 +783,26 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 Buku kas pribadi & UMKM. Gratis untuk mulai.
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <a
-                className="footer-link"
-                href="#"
-                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-              >
-                Buka Aplikasi →
-              </a>
-              <a
-                className="footer-link"
-                href="/admin.html"
-                style={{ opacity: 0.5, fontSize: 12 }}
-              >
-                Admin
-              </a>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                <a
+                  className="footer-link"
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+                >
+                  Buka Aplikasi →
+                </a>
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <a className="footer-link" href="/terms.html" style={{ fontSize: 11, opacity: 0.7 }}>Syarat & Ketentuan</a>
+                <a className="footer-link" href="/privacy.html" style={{ fontSize: 11, opacity: 0.7 }}>Privasi</a>
+                <a className="footer-link" href="/refund.html" style={{ fontSize: 11, opacity: 0.7 }}>Refund</a>
+                <a className="footer-link" href="/contact.html" style={{ fontSize: 11, opacity: 0.7 }}>Kontak</a>
+                <a className="footer-link" href="/admin.html" style={{ fontSize: 11, opacity: 0.4 }}>Admin</a>
+              </div>
+              <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>
+                © {new Date().getFullYear()} Arus — Riski Akbar P
+              </div>
             </div>
           </div>
         </div>

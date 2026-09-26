@@ -2320,11 +2320,17 @@ render();
   if(me.data&&me.data.email){
    currentUser={id:me.data.id,email:me.data.email,name:me.data.user_metadata?.name||'Saya'};
    localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
-   // Sync subscription
+   // Sync subscription from server (critical: admin may have changed plan)
    const sub=await api('/subscription?user_id='+currentUser.id);
-   if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
+   if(sub.data){
+    const oldPlan=(db.subscription&&db.subscription.plan)||'free';
+    db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};
+    save();
+    if(oldPlan!==sub.data.plan)toast('Paket diperbarui: '+sub.data.plan.toUpperCase(),'info');
+   }
    // Pull cloud data if Pro — disabled (R2 not bound)
    // if(getPlan().id==='pro'){await syncFromCloud();}
+   renderPlanBadge();
    render();
    updateProfileUI();
   }else{
@@ -2334,7 +2340,20 @@ render();
    localStorage.removeItem('arus-current-user');
    updateProfileUI();
   }
- }catch(e){}
+ }catch(e){
+  // Auth/me failed — still try to sync subscription from server as fallback
+  try{
+   if(currentUser){
+    const sub=await api('/subscription?user_id='+currentUser.id);
+    if(sub.data){
+     const oldPlan=(db.subscription&&db.subscription.plan)||'free';
+     db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};
+     save();
+     if(oldPlan!==sub.data.plan){renderPlanBadge();render();toast('Paket diperbarui: '+sub.data.plan.toUpperCase(),'info');}
+    }
+   }
+  }catch(e2){}
+ }
 })();
 
 // Periodic subscription sync every 5 minutes (catches webhook-activated Pro)

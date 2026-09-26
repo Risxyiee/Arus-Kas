@@ -64,3 +64,23 @@ Stage Summary:
 - Cloud backup/restore UI added for Pro users in arus.html
 - Admin infra section added for KVD KV/R2 management
 - All changes documented in HANDOFF.md
+---
+Task ID: P0-fixes
+Agent: main
+Task: Fix P0 critical bugs — subscription sync, KV cache invalidation, registration flag
+
+Work Log:
+- P0-1: Enhanced init subscription sync in arus.html
+  - Added renderPlanBadge() call after sync
+  - Added toast notification when plan changes ("Paket diperbarui: PRO")
+  - Added fallback sync in catch block — if /auth/me fails, still try /subscription sync
+  - This ensures dashboard reflects admin plan changes on next page load
+- P0-2: Added invalidateSubscriptionCache(env, userId) after admin subscription upsert in worker/index.ts
+  - This clears the KV cache so isProUser() returns correct plan immediately
+  - Previously, other API calls would read stale cached plan for up to 5 minutes
+- P0-3: Verified registration flag — already correct (ff:registration = "true" in DEFAULT_FEATURE_FLAGS)
+
+Stage Summary:
+- Dashboard should now show correct plan after admin changes it (refresh or next page load)
+- KV cache properly invalidated on admin plan change
+- No new errors, landing page and dashboard verified via browser

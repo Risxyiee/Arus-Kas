@@ -229,6 +229,10 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     }
 
     if (result.error) throw result.error;
+
+    // Invalidate KV subscription cache so other API calls see the new plan immediately
+    await invalidateSubscriptionCache(env, userId);
+
     return json({ data: result.data, email, user_id: userId });
   }
 

@@ -178,6 +178,7 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
 .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
 .chk input{width:15px;height:15px;accent-color:var(--pos);cursor:pointer}
 </style>
+<script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-environment="sandbox"></script>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -244,6 +245,7 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
     <span id="avatar" style="width:32px;height:32px;border-radius:99px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">AL</span>
     <span style="min-width:0"><span id="profile-name" style="display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Alex Laurel</span>
     <span class="mono" style="display:block;font-size:8.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.12em;margin-top:1px">klik untuk ganti nama</span></span>
+    <span id="auth-indicator" style="margin-left:auto;font-size:12px;cursor:pointer" title="Login/Logout"></span>
    </button>
   </div>
  </aside>
@@ -417,18 +419,30 @@ function openUpgradeModal(feature,msg){
  $('#up-confirm').onclick=()=>{closeModal();activatePlan('pro');};
  $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
 function activatePlan(planId){
- const plan=PLANS[planId];
- if(plan.price===0){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
- /* Simulasi aktivasi — di produksi, redirect ke payment gateway (Midtrans/Xendit) */
- db.subscription={plan:planId,startedAt:new Date().toISOString(),
-  expiresAt:iso(addDays(new Date(),30)),
-  paymentMethod:'simulasi',transactionId:uid()};
- save();renderPlanBadge();render();
- toast('Paket '+plan.name+' diaktifkan! ('+money(plan.price)+'/bln) — simulasi. Di produksi: redirect ke Midtrans/Xendit.');}
+ if(planId==='free'){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
+ if(planId!=='pro')return;
+ if(!currentUser){toast('Daftar/login dulu sebelum upgrade 🔐');openAuthModal('login');return;}
+ // Create Midtrans Snap transaction
+ api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name})}).then(r=>{
+  if(r.error){toast('Gagal: '+r.error);return;}
+  // Open Midtrans Snap popup
+  if(window.snap&&r.token){
+   window.snap.pay(r.token,{
+    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:'pro',startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();render();},
+    onPending:function(result){toast('Menunggu pembayaran... ⏳');},
+    onError:function(result){toast('Pembayaran gagal 😔');},
+    onClose:function(){toast('Pembayaran dibatalkan');}
+   });
+  }else if(r.redirect_url){window.open(r.redirect_url,'_blank');}
+ });
+}
 function cancelPlan(){
- db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null,paymentMethod:null,transactionId:null};
- save();renderPlanBadge();render();
- toast('Langganan dibatalkan. Kembali ke paket Gratis.');}
+ db.subscription={plan:'free',startedAt:null,expiresAt:null};
+ save();render();
+ toast('Paket Pro dibatalkan');
+ // Server-side sync will be handled by cloud sync
+ if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'free'})});}
+}
 function renderPlanBadge(){
  const p=getPlan(),el=$('#plan-badge-top');
  if(!el)return;
@@ -437,6 +451,24 @@ function renderPlanBadge(){
 
 /* ── Store & migrasi ── */
 const KEY='arus-data-v3',KEY_OLD='arus-data-v2';
+// ─── Cloud API (Cloudflare Worker) ─────────────────────────────
+const API = location.hostname === 'localhost' ? '' : '';  // same origin
+let authToken = localStorage.getItem('arus-auth-token') || null;
+let currentUser = JSON.parse(localStorage.getItem('arus-current-user') || 'null');
+
+function apiHeaders() {
+  const h = {'Content-Type':'application/json'};
+  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+  return h;
+}
+
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch(API + '/api' + path, {headers: apiHeaders(), ...opts});
+    return await res.json();
+  } catch(e) { return {error: e.message}; }
+}
+
 let db=null;
 function defaultDb(){const w={id:uid(),name:'Dompet Utama',color:'#C9A962',initial:0};
  return {version:3,profile:{name:'Alex Laurel',pin:null,pinEnabled:false},
@@ -517,7 +549,10 @@ function load(){
  if(!db||!Array.isArray(db.transactions)){db=seed();save();}
  if(db.debts)db.debts.forEach(d=>{if(!d.note)d.note='';});
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db));
+ // Auto-sync to cloud for Pro users (debounced)
+ if(currentUser&&getPlan().id==='pro'){clearTimeout(window._syncTimer);window._syncTimer=setTimeout(syncToCloud,3000);}
+ }catch(e){
  toast('Gagal menyimpan — penyimpanan browser penuh?','error');}}
 function syncTop(){const el=$('#top-bal');if(el)el.textContent=money(totals().balance);}
 
@@ -685,6 +720,81 @@ function confirmModal(title,msg,fn,danger){
   '<button class="btn" data-close>Batal</button>'+
   '<button class="btn '+(danger?'danger':'primary')+'" id="cm-ok">Ya, lanjut</button></div>');
  $('#cm-ok').onclick=()=>{closeModal();fn();};}
+
+/* ── Auth Modal (Login/Signup) ── */
+function openAuthModal(mode='login'){
+ const isLogin=mode==='login';
+ openModal('<div style="text-align:center;padding:24px">'+
+  '<div style="font-size:28px;margin-bottom:4px">🔐</div>'+
+  '<h3 style="margin:0 0 16px;color:var(--ink)">'+(isLogin?'Masuk ke Arus':'Buat Akun Arus')+'</h3>'+
+  '<div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center">'+
+  '<button onclick="openAuthModal(\'login\')" class="btn'+(isLogin?' primary':'')+'" style="font-size:13px;padding:6px 16px">Masuk</button>'+
+  '<button onclick="openAuthModal(\'signup\')" class="btn'+(!isLogin?' primary':'')+'" style="font-size:13px;padding:6px 16px">Daftar</button>'+
+  '</div>'+
+  (!isLogin?'<input id="auth-name" placeholder="Nama kamu" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">':'')+
+  '<input id="auth-email" type="email" placeholder="Email" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<input id="auth-pass" type="password" placeholder="Password" minlength="6" style="width:100%;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<button onclick="doAuth(\''+mode+'\')" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px">'+(isLogin?'Masuk':'Daftar')+'</button>'+
+  (isLogin?'<p style="margin-top:12px;font-size:12px;color:var(--mut)">Belum punya akun? <a onclick="openAuthModal(\'signup\')" style="color:var(--pos);cursor:pointer">Daftar</a></p>':'')+
+  '</div>');
+}
+
+async function doAuth(mode){
+ const email=document.getElementById('auth-email')?.value;
+ const pass=document.getElementById('auth-pass')?.value;
+ const name=document.getElementById('auth-name')?.value;
+ if(!email||!pass){toast('Isi email & password');return;}
+ const endpoint=mode==='login'?'/auth/login':'/auth/signup';
+ const body=mode==='login'?{email,password:pass}:{email,password:pass,name:name||'Saya'};
+ const r=await api(endpoint,{method:'POST',body:JSON.stringify(body)});
+ if(r.error){toast(r.error);return;}
+ // Save auth token
+ authToken=r.access_token;
+ currentUser={id:r.user?.id,email:r.user?.email||email,name:name||'Saya'};
+ localStorage.setItem('arus-auth-token',authToken);
+ localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
+ closeModal();
+ toast(mode==='login'?'Selamat datang! 👋':'Akun dibuat! 🎉');
+ // Sync subscription from server
+ const sub=await api('/subscription?user_id='+currentUser.id);
+ if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
+ render();
+}
+
+function doLogout(){
+ api('/auth/logout',{method:'POST'});
+ authToken=null;
+ currentUser=null;
+ localStorage.removeItem('arus-auth-token');
+ localStorage.removeItem('arus-current-user');
+ toast('Sampai jumpa! 👋');
+ render();
+}
+
+/* ── Cloud Sync ── */
+async function syncToCloud(){
+ if(!currentUser||getPlan().id!=='pro')return;
+ toast('Sinkronisasi... ☁️');
+ const r=await api('/sync',{method:'POST',body:JSON.stringify({user_id:currentUser.id,data:{wallets:db.wallets,transactions:db.transactions,debts:db.debts,budgets:db.budgets,customCats:db.customCats}})});
+ if(r.ok)toast('Tersinkron ✅');
+ else if(r.error)toast(r.error);
+}
+
+async function syncFromCloud(){
+ if(!currentUser)return;
+ const r=await api('/sync?user_id='+currentUser.id);
+ if(r.error||!r.data)return r;
+ const d=r.data;
+ // Merge cloud data into local (cloud wins for conflicts)
+ if(d.wallets?.length)db.wallets=d.wallets;
+ if(d.transactions?.length)db.transactions=d.transactions;
+ if(d.debts?.length)db.debts=d.debts;
+ if(d.budgets&&Object.keys(d.budgets).length)db.budgets=d.budgets;
+ if(d.customCats?.length)db.customCats=d.customCats;
+ if(d.subscription)db.subscription={plan:d.subscription.plan,startedAt:d.subscription.started_at,expiresAt:d.subscription.expires_at};
+ save();
+ return r;
+}
 
 /* ── Komponen kecil ── */
 const STATUS={unpaid:['Belum Dibayar','b-unpaid'],partially_paid:['Sebagian','b-part'],paid:['Lunas','b-paid']};
@@ -1944,7 +2054,10 @@ function goAdd(){
 function closeNav(){$('#sidebar').classList.remove('open');$('#scrim').classList.remove('show');}
 function updateProfileUI(){
  $('#avatar').textContent=initials(db.profile.name||'Saya');
- $('#profile-name').textContent=db.profile.name||'Saya';}
+ $('#profile-name').textContent=db.profile.name||'Saya';
+ const ai=$('#auth-indicator');
+ if(ai){if(currentUser){ai.innerHTML='<span style="color:var(--pos)" title="Tersinkron ☁️">☁️</span> <span onclick="doLogout()" style="color:var(--neg);cursor:pointer;margin-left:4px" title="Keluar">⏻</span>';}else{ai.innerHTML='<a onclick="openAuthModal(\'login\')" style="color:var(--pos);font-weight:700;cursor:pointer">Masuk</a>';}}
+}
 function applyThemeUI(){
  const dk=document.documentElement.classList.contains('dark');
  $('#theme-ic').innerHTML=ic(dk?'sun':'moon');

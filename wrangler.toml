@@ -11,3 +11,8 @@ binding = "ASSETS"
 
 [vars]
 SUPABASE_URL = "https://evntvbqrprizgqogjyva.supabase.co"
+MIDTRANS_IS_PRODUCTION = "false"
+# Set these as Secrets in Cloudflare Dashboard (don't commit real keys):
+# SUPABASE_ANON_KEY
+# SUPABASE_SERVICE_KEY
+# MIDTRANS_SERVER_KEY

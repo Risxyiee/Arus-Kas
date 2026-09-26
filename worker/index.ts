@@ -15,6 +15,8 @@ interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
+  MIDTRANS_SERVER_KEY: string;
+  MIDTRANS_IS_PRODUCTION: string; // "true" or "false"
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -411,6 +413,170 @@ async function handleSync(req: Request, env: Env): Promise<Response> {
   return json({ error: "Method not allowed" }, 405);
 }
 
+// ─── API: /api/auth/me (get current user from Supabase) ──────────
+async function handleAuthMe(req: Request, env: Env): Promise<Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+  const token = authHeader.replace("Bearer ", "");
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  const data = await res.json();
+  if (!res.ok) return json({ error: data.msg || "Invalid token" }, res.status);
+  return json({ data });
+}
+
+// ─── API: /api/auth/logout ──────────────────────────────────────
+async function handleLogout(req: Request, env: Env): Promise<Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+  const token = authHeader.replace("Bearer ", "");
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/logout`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  return json({ ok: true });
+}
+
+// ─── Midtrans: Create Snap Transaction ──────────────────────────
+async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
+  const body = await getBody(req);
+  const userId = body.user_id as string;
+  const email = body.email as string;
+  const name = body.name as string || "Saya";
+
+  if (!userId) return json({ error: "user_id required" }, 400);
+
+  const isProd = env.MIDTRANS_IS_PRODUCTION === "true";
+  const baseUrl = isProd
+    ? "https://app.midtrans.com/snap/v1/transactions"
+    : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+
+  const orderId = `ARUS-PRO-${userId.slice(0, 8)}-${Date.now()}`;
+
+  const payload = {
+    transaction_details: {
+      order_id: orderId,
+      gross_amount: 29000, // Rp 29.000/bulan
+    },
+    item_details: [{
+      id: "pro-monthly",
+      price: 29000,
+      quantity: 1,
+      name: "Arus Pro — Bulanan",
+      category: "Subscription",
+    }],
+    customer_details: {
+      first_name: name,
+      email: email || undefined,
+    },
+    callbacks: {
+      finish: "?payment=done",
+      error: "?payment=error",
+      pending: "?payment=pending",
+    },
+    metadata: {
+      user_id: userId,
+      plan: "pro",
+    },
+  };
+
+  const authKey = btoa(env.MIDTRANS_SERVER_KEY + ":");
+
+  const res = await fetch(baseUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Basic ${authKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    return json({ error: data.error_messages?.[0] || "Midtrans error", details: data }, 400);
+  }
+
+  // Save pending order to Supabase
+  const admin = getAdmin(env);
+  await admin.from("subscriptions").upsert({
+    user_id: userId,
+    plan: "free",
+    payment_method: "midtrans",
+    transaction_id: orderId,
+  }, { onConflict: "user_id" });
+
+  return json({
+    token: data.token,
+    redirect_url: data.redirect_url,
+    order_id: orderId,
+  });
+}
+
+// ─── Midtrans: Webhook Handler ──────────────────────────────────
+async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> {
+  const body = await getBody(req);
+
+  const transactionStatus = body.transaction_status as string;
+  const orderId = body.order_id as string;
+  const paymentType = body.payment_type as string;
+  const metadata = body.metadata as { user_id?: string; plan?: string } | undefined;
+  const userId = metadata?.user_id || (body.custom_field1 as string);
+
+  if (!orderId || !transactionStatus) {
+    return json({ error: "Invalid webhook payload" }, 400);
+  }
+
+  // Verify signature (optional but recommended for production)
+  // const signatureKey = body.signature_key;
+  // ... verify with SHA512(order_id + status + gross_amount + server_key)
+
+  const admin = getAdmin(env);
+
+  // Determine if payment is successful
+  const isSuccess =
+    transactionStatus === "capture" ||
+    transactionStatus === "settlement";
+
+  const isPending = transactionStatus === "pending";
+  const isFailure =
+    transactionStatus === "deny" ||
+    transactionStatus === "expire" ||
+    transactionStatus === "cancel";
+
+  if (isSuccess && userId) {
+    // Activate Pro plan
+    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+    const { error } = await admin
+      .from("subscriptions")
+      .update({
+        plan: "pro",
+        started_at: new Date().toISOString(),
+        expires_at: expiresAt,
+        payment_method: `midtrans_${paymentType}`,
+        transaction_id: orderId,
+      })
+      .eq("user_id", userId);
+
+    if (error) console.error("Failed to update subscription:", error);
+  } else if (isFailure && userId) {
+    // Revert to free
+    await admin
+      .from("subscriptions")
+      .update({ plan: "free", transaction_id: orderId })
+      .eq("user_id", userId);
+  }
+
+  // Always return 200 to Midtrans
+  return json({ ok: true });
+}
+
 // ─── Router ─────────────────────────────────────────────────────
 async function handleApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -428,7 +594,11 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/categorize" || path.startsWith("/categorize")) return await handleCategorize(request);
     if (path === "/auth/login") return await handleLogin(request, env);
     if (path === "/auth/signup") return await handleSignup(request, env);
+    if (path === "/auth/me") return await handleAuthMe(request, env);
+    if (path === "/auth/logout") return await handleLogout(request, env);
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
+    if (path === "/payment/create") return await handleMidtransCreate(request, env);
+    if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
 
     return json({ error: "Not found" }, 404);
   } catch (err: unknown) {

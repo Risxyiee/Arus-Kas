@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Arus — Keuangan Pribadi",
-  description: "Buku kas pribadi: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF. Privat, gratis, tanpa akun.",
+  title: "Arus — Buku Kas Pribadi & UMKM | Gratis + Pro Rp 29.000/bln",
+  description: "Catat keuangan pribadi & UMKM: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF. Paket Gratis selamanya, Pro Rp 29.000/bulan dengan cloud sync & unlimited fitur.",
+  openGraph: {
+    title: "Arus — Buku Kas Pribadi & UMKM | Gratis + Pro Rp 29.000/bln",
+    description: "Catat keuangan pribadi & UMKM: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF. Paket Gratis selamanya, Pro Rp 29.000/bulan dengan cloud sync & unlimited fitur.",
+    type: "website",
+    locale: "id_ID",
+  },
 };
 
 export default function RootLayout({

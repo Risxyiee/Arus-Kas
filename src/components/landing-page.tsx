@@ -111,20 +111,28 @@ const IconBox = () => (
 /* ── FAQ data ── */
 const FAQ_DATA = [
   {
+    q: 'Gratis sampai kapan?',
+    a: 'Paket Gratis gratis selamanya. Kalau butuh lebih — unlimited dompet, cloud sync, laporan branded — ada Paket Pro Rp 29.000/bulan.',
+  },
+  {
     q: 'Data saya dikirim ke internet?',
-    a: 'Nggak. Arus jalan sepenuhnya di browser dan simpan data di penyimpanan lokal perangkatmu. Nggak ada server, nggak ada akun, nggak ada yang terkirim. Kamu bisa pakai dalam mode pesawat sekalipun.',
+    a: 'Paket Gratis: data hanya di browsermu. Paket Pro: data bisa disinkronkan ke cloud via Supabase (terenkripsi, aman). Kamu pilih sendiri.',
   },
   {
     q: 'Kalau hapus cache browser, datanya hilang?',
-    a: 'Betul, itu konsekuensinya kalau nggak backup. Makanya ada fitur "Unduh backup JSON" di Pengaturan — satu klik, seluruh data aman. Impor kembali kapan pun, di perangkat mana pun.',
+    a: 'Paket Gratis: ya, makanya ada backup JSON. Paket Pro: data tersinkron ke cloud, bisa dipulihkan dari perangkat lain.',
   },
   {
     q: 'Bisa dipakai di HP?',
     a: 'Bisa banget. Semua halaman responsif, menu samping otomatis jadi layar geser di layar kecil. Tidak perlu install apa-apa.',
   },
   {
-    q: 'Gratis sampai kapan?',
-    a: 'Selamanya. Nggak ada langganan, nggak ada fitur premium tersembunyi. Ini satu berkas HTML yang kamu punya penuh.',
+    q: 'Kenapa Rp 29.000/bulan?',
+    a: 'Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya lengkap untuk kelola keuangan usaha kecil-menengah. Bayar tahunan hemat 20%.',
+  },
+  {
+    q: 'Bisa pindah paket?',
+    a: 'Bisa. Upgrade atau downgrade kapan aja. Kalau downgrade ke Gratis, data Pro-mu tetap ada, cuma akses fitur unlimited yang hilang.',
   },
 ];
 
@@ -356,11 +364,11 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               <h1 className="hero-name">
                 <span className="line">Arus.</span>
                 <span className="line" style={{ color: 'var(--accent)', fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 500, letterSpacing: '-.01em', lineHeight: 1.4, marginTop: 12 }}>
-                  Catat uang di browser.<br />Hilang kalau hapus cache.
+                  Buku kas pribadi & UMKM.<br />Gratis untuk mulai, Pro untuk tumbuh.
                 </span>
               </h1>
               <p className="hero-tagline">
-                Ketik <span className="mono" style={{ color: 'var(--accent2)' }}>kopi 35rb</span>, langsung kecatat. Nggak perlu login, nggak ada cloud, nggak ada yang pegang data selain kamu.
+                Ketik <span className="mono" style={{ color: 'var(--accent2)' }}>kopi 35rb</span>, langsung kecatat. Catat keuanganmu dengan mudah. Gratis untuk pemula, Pro untuk UMKM yang serius.
               </p>
               <div className="hero-cta">
                 <a
@@ -380,15 +388,15 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
               <div className="hero-trust">
                 <div className="trust-item">
                   <span className="trust-dot" style={{ background: 'var(--pos)' }} />
-                  <span>100% offline</span>
+                  <span>Data di perangkatmu</span>
                 </div>
                 <div className="trust-item">
                   <span className="trust-dot" style={{ background: 'var(--accent)' }} />
-                  <span>Zero tracking</span>
+                  <span>Privasi utama</span>
                 </div>
                 <div className="trust-item">
                   <span className="trust-dot" style={{ background: '#7A6BC9' }} />
-                  <span>Gratis selamanya</span>
+                  <span>Mulai gratis</span>
                 </div>
               </div>
 
@@ -578,15 +586,15 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <div className="pitch-point">
                   <span className="icon"><IconShield /></span>
                   <div>
-                    <strong>Nggak ada server</strong>
-                    <span>Data cuma hidup di browsermu. Bisa dipakai mode pesawat.</span>
+                    <strong>Privasi diutamakan</strong>
+                    <span>Data Gratis cuma di browsermu. Paket Pro bisa sync ke cloud, tapi kamu yang pegang kendali.</span>
                   </div>
                 </div>
                 <div className="pitch-point">
                   <span className="icon"><IconUser /></span>
                   <div>
-                    <strong>Nggak ada akun</strong>
-                    <span>Buka, pakai, selesai. Nggak perlu email, nggak perlu password.</span>
+                    <strong>Tanpa ribet</strong>
+                    <span>Paket Gratis nggak perlu akun. Paket Pro bisa login untuk sinkronisasi antar perangkat.</span>
                   </div>
                 </div>
                 <div className="pitch-point">
@@ -603,7 +611,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <div className="pitch-right">
                   <div className="label">Prinsip</div>
                   <p>
-                    "Kalau app keuangan minta akses ke email dan lokasimu, app itu bukan buku kas — app itu data harvester."
+                    "Buku kas yang baik nggak nyuruh kamu bayar sebelum kamu merasakan manfaatnya. Gratis dulu, bayar kalau cocok."
                   </p>
                 </div>
               </div>
@@ -616,20 +624,74 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
       <section className="pricing-section reveal">
         <div className="wrap">
           <div className="pricing-label">Harga</div>
-          <div className="pricing-amount">Rp 0</div>
-          <div className="pricing-per">Selamanya.</div>
-          <div className="pricing-desc">
-            Semua fitur, semua halaman, tanpa iklan, tanpa langganan tersembunyi. Nggak ada catch — cuma alat yang kamu butuhin.
-          </div>
-          <div className="pricing-cta">
-            <a
-              className="btn btn-accent"
-              href="#"
-              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-            >
-              Buka Aplikasi
-              <span className="btn-icon"><ArrowIcon /></span>
-            </a>
+          <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)', marginTop: 12, fontWeight: 700 }}>
+            Pilih paket yang <span style={{ color: 'var(--accent)' }}>cocok</span>
+          </h2>
+          <p style={{ color: 'var(--dim)', fontSize: 14, marginTop: 8, fontWeight: 500 }}>
+            Gratis untuk mulai. Pro untuk UMKM yang serius.
+          </p>
+          <div className="pricing-grid">
+            {/* GRATIS */}
+            <div className="pricing-card">
+              <div className="pricing-card-header">
+                <h3>Gratis</h3>
+                <div className="pricing-card-price">
+                  <span className="pricing-card-amount">Rp 0</span>
+                </div>
+              </div>
+              <ul className="pricing-features">
+                <li className="pricing-feature"><span className="pf-check" />2 dompet</li>
+                <li className="pricing-feature"><span className="pf-check" />5 utang/piutang</li>
+                <li className="pricing-feature"><span className="pf-check" />3 budget</li>
+                <li className="pricing-feature"><span className="pf-check" />3 kategori kustom</li>
+                <li className="pricing-feature"><span className="pf-check" />Kategori otomatis</li>
+                <li className="pricing-feature"><span className="pf-check" />Backup JSON</li>
+                <li className="pricing-feature"><span className="pf-check" />PIN kunci</li>
+                <li className="pricing-feature"><span className="pf-check" />Laporan dasar</li>
+              </ul>
+              <div className="pricing-card-cta">
+                <a
+                  className="btn btn-ghost"
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+                >
+                  Mulai Gratis
+                </a>
+              </div>
+            </div>
+            {/* PRO */}
+            <div className="pricing-card recommended">
+              <div className="pricing-badge">COCOK UMKM</div>
+              <div className="pricing-card-header">
+                <h3>Pro</h3>
+                <div className="pricing-card-price">
+                  <span className="pricing-card-amount">Rp 29.000</span>
+                  <span className="pricing-card-per">/bln</span>
+                </div>
+                <div className="pricing-card-annual">Rp 278.400/thn <span className="pricing-save">hemat 20%</span></div>
+              </div>
+              <ul className="pricing-features">
+                <li className="pricing-feature"><span className="pf-check" />Unlimited dompet</li>
+                <li className="pricing-feature"><span className="pf-check" />Unlimited utang/piutang</li>
+                <li className="pricing-feature"><span className="pf-check" />Unlimited budget</li>
+                <li className="pricing-feature"><span className="pf-check" />Unlimited kategori</li>
+                <li className="pricing-feature"><span className="pf-check" />Cloud sync</li>
+                <li className="pricing-feature"><span className="pf-check" />Laporan branded PDF</li>
+                <li className="pricing-feature"><span className="pf-check" />Notifikasi push</li>
+                <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
+                <li className="pricing-feature"><span className="pf-check" />Faktur</li>
+              </ul>
+              <div className="pricing-card-cta">
+                <a
+                  className="btn btn-accent"
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+                >
+                  Upgrade ke Pro
+                  <span className="btn-icon"><ArrowIcon /></span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -679,7 +741,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 Buka Arus
                 <span className="btn-icon"><ArrowIcon /></span>
               </a>
-              <span className="mini">tanpa server · tanpa akun · data tetap di perangkatmu</span>
+              <span className="mini">gratis untuk mulai · pro untuk tumbuh · data tetap aman</span>
             </div>
           </div>
         </div>
@@ -694,7 +756,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <span className="logomark"><i /></span>Arus
               </div>
               <div className="footer-tagline" style={{ marginTop: 6 }}>
-                Buku kas pribadi yang nggak nyuruh kamu buat akun.
+                Buku kas pribadi & UMKM. Gratis untuk mulai.
               </div>
             </div>
             <a

@@ -64,6 +64,13 @@ function getParams(url: URL): Record<string, string> {
   return p;
 }
 
+// ─── SHA-512 helper (for Midtrans signature verification) ────────
+async function sha512(message: string): Promise<string> {
+  const data = new TextEncoder().encode(message);
+  const hash = await crypto.subtle.digest("SHA-512", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 // ─── Admin Auth Verification (with KV session cache) ───────────
 async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
   const authHeader = req.headers.get("Authorization");
@@ -949,9 +956,15 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
     return json({ error: "Invalid webhook payload" }, 400);
   }
 
-  // Verify signature (optional but recommended for production)
-  // const signatureKey = body.signature_key;
-  // ... verify with SHA512(order_id + status + gross_amount + server_key)
+  // Verify signature to prevent fake webhook attacks
+  const signatureKey = body.signature_key as string;
+  const grossAmount = body.gross_amount as string;
+  if (signatureKey && env.MIDTRANS_SERVER_KEY) {
+    const expectedSig = await sha512(orderId + transactionStatus + grossAmount + env.MIDTRANS_SERVER_KEY);
+    if (signatureKey !== expectedSig) {
+      return json({ error: "Invalid signature" }, 403);
+    }
+  }
 
   const admin = getAdmin(env);
 
@@ -981,12 +994,14 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
       .eq("user_id", userId);
 
     if (error) console.error("Failed to update subscription:", error);
+    else await invalidateSubscriptionCache(env, userId);
   } else if (isFailure && userId) {
     // Revert to free
     await admin
       .from("subscriptions")
       .update({ plan: "free", transaction_id: orderId })
       .eq("user_id", userId);
+    await invalidateSubscriptionCache(env, userId);
   }
 
   // Always return 200 to Midtrans

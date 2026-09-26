@@ -438,7 +438,7 @@ function activatePlan(planId){
   // Open Midtrans Snap popup
   if(window.snap&&r.token){
    window.snap.pay(r.token,{
-    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:'pro',startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();render();},
+    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:'pro',startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();renderPlanBadge();render();/* Sync to server so Supabase knows immediately */if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'pro'})});}},
     onPending:function(result){toast('Menunggu pembayaran... ⏳');},
     onError:function(result){toast('Pembayaran gagal 😔');},
     onClose:function(){toast('Pembayaran dibatalkan');}
@@ -780,8 +780,8 @@ async function doAuth(mode){
  // Sync subscription from server
  const sub=await api('/subscription?user_id='+currentUser.id);
  if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
- // Pull cloud data if Pro — disabled (R2 not bound)
- // if(getPlan().id==='pro'){await syncFromCloud();}
+ // Pull cloud data if Pro (sync via Supabase, not R2)
+ if(getPlan().id==='pro'){await syncFromCloud();}
  render();
  updateProfileUI();
 }
@@ -2328,8 +2328,8 @@ render();
     save();
     if(oldPlan!==sub.data.plan)toast('Paket diperbarui: '+sub.data.plan.toUpperCase(),'info');
    }
-   // Pull cloud data if Pro — disabled (R2 not bound)
-   // if(getPlan().id==='pro'){await syncFromCloud();}
+   // Pull cloud data if Pro (sync via Supabase, not R2)
+   if(getPlan().id==='pro'){await syncFromCloud();}
    renderPlanBadge();
    render();
    updateProfileUI();

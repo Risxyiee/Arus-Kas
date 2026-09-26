@@ -668,6 +668,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 </div>
               </div>
               <ul className="pricing-features">
+                <li className="pricing-feature"><span className="pf-check" />Transaksi unlimited</li>
                 <li className="pricing-feature"><span className="pf-check" />2 dompet</li>
                 <li className="pricing-feature"><span className="pf-check" />5 utang/piutang</li>
                 <li className="pricing-feature"><span className="pf-check" />3 budget</li>
@@ -699,15 +700,16 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <div className="pricing-card-annual">Rp 278.400/thn <span className="pricing-save">hemat 20%</span></div>
               </div>
               <ul className="pricing-features">
+                <li className="pricing-feature"><span className="pf-check" />Semua fitur Gratis</li>
                 <li className="pricing-feature"><span className="pf-check" />Unlimited dompet</li>
                 <li className="pricing-feature"><span className="pf-check" />Unlimited utang/piutang</li>
-                <li className="pricing-feature"><span className="pf-check" />Unlimited budget</li>
-                <li className="pricing-feature"><span className="pf-check" />Unlimited kategori</li>
+                <li className="pricing-feature"><span className="pf-check" />Unlimited budget & kategori</li>
                 <li className="pricing-feature"><span className="pf-check" />Cloud sync</li>
-                <li className="pricing-feature"><span className="pf-check" />Laporan branded PDF</li>
-                <li className="pricing-feature"><span className="pf-check" />Notifikasi push</li>
+                <li className="pricing-feature"><span className="pf-check" />Laporan P&L (laba-rugi)</li>
+                <li className="pricing-feature"><span className="pf-check" />PDF dengan logo usaha</li>
                 <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
-                <li className="pricing-feature"><span className="pf-check" />Faktur</li>
+                <li className="pricing-feature"><span className="pf-check" />Notifikasi push jatuh tempo</li>
+                <li className="pricing-feature"><span className="pf-check" />Buat & kirim invoice</li>
               </ul>
               <div className="pricing-card-cta">
                 <a

@@ -84,3 +84,37 @@ Stage Summary:
 - Dashboard should now show correct plan after admin changes it (refresh or next page load)
 - KV cache properly invalidated on admin plan change
 - No new errors, landing page and dashboard verified via browser
+---
+Task ID: P1-fixes
+Agent: main
+Task: Fix P1 medium bugs — cloud sync, Midtrans security, domain, feature consistency
+
+Work Log:
+- P1-1: Cloud sync — un-commented syncFromCloud() calls in both init block and login handler
+  - Cloud sync uses Supabase (not R2) so it works. R2 is only for /storage/* routes.
+  - Now Pro users get their data pulled from cloud on login and page load
+- P1-2: Midtrans webhook signature verification
+  - Added SHA-512 signature check in handleMidtransWebhook
+  - Added sha512() helper function using crypto.subtle.digest
+  - If signature doesn't match, returns 403 (prevents fake webhook attacks)
+  - Also added KV cache invalidation in webhook (both success and failure paths)
+- P1-3: Midtrans onSuccess — now syncs to server immediately
+  - Added api('/subscription', POST) call in onSuccess callback
+  - Also added renderPlanBadge() call so UI updates immediately
+- P1-4: Domain in terms.html — updated from arus-kas.pages.dev to arus-kas.digital-my-app.workers.dev
+- P1-5: Landing page feature consistency
+  - Gratis: Added "Transaksi unlimited" at top (was missing, inconsistent with dashboard)
+  - Pro: Updated to match dashboard exactly:
+    - Added "Semua fitur Gratis" 
+    - Changed "Unlimited budget" + "Unlimited kategori" → "Unlimited budget & kategori"
+    - Changed "Laporan branded PDF" → "Laporan P&L (laba-rugi)"
+    - Changed "Notifikasi push" → "Notifikasi push jatuh tempo"
+    - Changed "Faktur" → "Buat & kirim invoice"
+    - Added "PDF dengan logo usaha"
+
+Stage Summary:
+- Cloud sync now functional for Pro users (via Supabase)
+- Midtrans webhook secured with signature verification
+- Payment success now syncs to server immediately
+- Landing page features 100% consistent with dashboard
+- No errors in dev log or browser

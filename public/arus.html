@@ -382,12 +382,8 @@ const PLANS={
  pro:{id:'pro',name:'Pro',price:29000,period:'/bln',color:'plan-pro',
   wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
   customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
-  notifPush:true},
- pro_unlimited:{id:'pro_unlimited',name:'Pro Unlimited',price:99000,period:'/bln',color:'plan-pro',
-  wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
-  customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
-  notifPush:true,apiAccess:true,multiBiz:true,auditLog:true,customBranding:true,prioritySupport:true,exportBatch:true,ssoSaml:true}};
-const PLAN_ORDER=['free','pro','pro_unlimited'];
+  notifPush:true}};
+const PLAN_ORDER=['free','pro'];
 function getPlan(){return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
 function planName(){const p=getPlan();return p.id==='free'?'Gratis':p.name;}
 function planBadge(){const p=getPlan();return '<span class="plan-pill '+p.color+'">'+p.name.toUpperCase()+'</span>';}
@@ -434,15 +430,15 @@ function openUpgradeModal(feature,msg){
  $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
 function activatePlan(planId){
  if(planId==='free'){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
- if(planId!=='pro'&&planId!=='pro_unlimited')return;
+ if(planId!=='pro')return;
  if(!currentUser){toast('Daftar/login dulu sebelum upgrade 🔐');openAuthModal('login');return;}
  // Create Midtrans Snap transaction
- api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name,plan:planId})}).then(r=>{
+ api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name})}).then(r=>{
   if(r.error){toast('Gagal: '+r.error);return;}
   // Open Midtrans Snap popup
   if(window.snap&&r.token){
    window.snap.pay(r.token,{
-    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:planId,startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();render();},
+    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');db.subscription={plan:'pro',startedAt:new Date().toISOString(),paymentMethod:'midtrans',transactionId:r.order_id};save();render();},
     onPending:function(result){toast('Menunggu pembayaran... ⏳');},
     onError:function(result){toast('Pembayaran gagal 😔');},
     onClose:function(){toast('Pembayaran dibatalkan');}
@@ -461,7 +457,7 @@ function renderPlanBadge(){
  const p=getPlan(),el=$('#plan-badge-top');
  if(!el)return;
  el.className='plan-pill '+p.color;
- el.textContent=p.id==='free'?'GRATIS':p.id==='pro_unlimited'?'UNLIMITED':p.name.toUpperCase();}
+ el.textContent=p.id==='free'?'GRATIS':p.name.toUpperCase();}
 
 /* ── Store & migrasi ── */
 const KEY='arus-data-v3',KEY_OLD='arus-data-v2';
@@ -1971,20 +1967,14 @@ function pageLangganan(){
   featRow('PDF dengan logo usaha',false,true),
   featRow('Notifikasi push jatuh tempo',false,true),
   featRow('Buat & kirim invoice',false,true)];
- const isPro=curPlan.id==='pro'||curPlan.id==='pro_unlimited';
- const isProUnlimited=curPlan.id==='pro_unlimited';
+ const isPro=curPlan.id==='pro';
  const proAnnual=Math.round(29000*12*0.8);
- const proUnltdAnnual=Math.round(99000*12*0.8);
  const proFeatures=[
   'Semua fitur Gratis','Dompet unlimited','Utang & piutang unlimited',
   'Budget & kategori unlimited','Transaksi berulang otomatis',
   'Sinkronisasi cloud (multi-device)','Laporan P&L laba-rugi',
   'PDF dengan logo usaha sendiri','Notifikasi push jatuh tempo',
   'Buat & kirim invoice ke klien'];
- const proUnltdFeatures=[
-  'Semua fitur Pro','Multi-bisnis / tim','API akses untuk integrasi',
-  'Branding kustom (logo di laporan)','Prioritas support 24/7',
-  'Audit log','Export batch','SSO / SAML'];
  const freeFeatures=[
   'Transaksi unlimited','2 dompet','5 utang/piutang aktif',
   '3 budget per kategori','3 kategori kustom','Laporan dasar','Ekspor PDF/CSV'];
@@ -1996,7 +1986,7 @@ function pageLangganan(){
   /* Current plan banner */
   (isPro?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
    '<div class="row between wrap" style="gap:8px">'+
-   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket '+(isProUnlimited?'Pro Unlimited':'Pro')+' aktif</span></div>'+
+   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket Pro aktif</span></div>'+
    '<div class="row" style="gap:8px">'+
    (db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
    '<button class="btn mini danger" id="cancel-sub">Batalkan</button></div></div></div>':'')+
@@ -2023,22 +2013,9 @@ function pageLangganan(){
    '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
    proFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
    '</div></div>'+
-   (isPro&&!isProUnlimited?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
-   isProUnlimited?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Aktif (Unlimited)</button>':
+   (isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
     '<button class="btn primary" style="width:100%;margin-top:16px;justify-content:center;gap:8px" data-upgrade="pro">'+ic('crown','w14')+' Upgrade ke Pro</button>')+
   '</div>'+
-  /* PRO UNLIMITED */
-  '<div class="price-card" style="display:flex;flex-direction:column;border:1px solid var(--pos)">'+
-   (isProUnlimited?'<div style="position:absolute;top:12px;right:12px"><span class="plan-pill plan-pro">AKTIF</span></div>':'')+
-   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Pro Unlimited</div>'+
-   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px;color:var(--pos)">Rp 99.000</div>'+
-   '<div class="xs muted" style="margin-top:2px">per bulan</div>'+
-   '<div class="xs" style="color:var(--pos);margin-top:3px">'+money(proUnltdAnnual)+'/thn — hemat 20%</div>'+
-   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
-   proUnltdFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
-   '</div></div>'+
-   (isProUnlimited?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
-    '<button class="btn primary" style="width:100%;margin-top:16px;justify-content:center;gap:8px;background:var(--pos)" data-upgrade="pro_unlimited">'+ic('crown','w14')+' Upgrade ke Unlimited</button>')+
   '</div>'+
   '</div>'+
   /* Feature comparison table */
@@ -2047,8 +2024,7 @@ function pageLangganan(){
    '<div class="row" style="gap:0;margin-bottom:4px;padding:0 0 4px;border-bottom:1px solid var(--line)">'+
    '<span class="grow"></span>'+
    '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)">Gratis</span>'+
-   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Pro</span>'+
-   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Unlimited</span></div>'+
+   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Pro</span></div>'+
    featureRows.join('')+
   '</div>'+
   /* FAQ */
@@ -2065,9 +2041,7 @@ function afterLangganan(){
  const cb=$('#cancel-sub');
  if(cb)cb.onclick=()=>{confirmModal('Batalkan langganan?','Data tetap aman, tapi fitur Pro akan terkunci. Entri di atas limit gratis tetap bisa dilihat.',cancelPlan);};
  $$('[data-upgrade]').forEach(b=>b.onclick=()=>{
-  const plan=b.getAttribute('data-upgrade');
-  const label=plan==='pro_unlimited'?'Pro Unlimited (Rp 99.000/bln)':'Pro (Rp 29.000/bln)';
-  confirmModal('Upgrade ke '+(plan==='pro_unlimited'?'Pro Unlimited':'Pro')+'?',label+'. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans untuk pembayaran.',()=>activatePlan(plan));});
+  confirmModal('Upgrade ke Pro?','Paket Pro Rp 29.000/bulannya. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans untuk pembayaran.',()=>activatePlan('pro'));});
  $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur Pro akan terkunci. Data tetap aman.',cancelPlan);});}
 
 /* ══════ Router & init ══════ */
@@ -2224,27 +2198,24 @@ async function loadAdminUsers(c){
 
 function adminUserCard(u){
  const isPro=u.plan==='pro';
- const isProUnlimited=u.plan==='pro_unlimited';
  const s=u.name+' '+u.email+' '+u.user_id;
  return '<div class="admin-user-card" data-search="'+esc(s.toLowerCase())+'" style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft)">'+
   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
   '<div style="width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--invfg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">'+esc((u.name||'?')[0].toUpperCase())+'</div>'+
   '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(u.name)+'</div><div class="xs muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(u.email)+'</div></div>'+
-  '<span class="badge '+(isProUnlimited?'b-paid':isPro?'b-paid':'b-unpaid')+'" style="font-size:10px;padding:2px 8px;border-radius:4px">'+(isProUnlimited?'UNLIMITED':isPro?'PRO':'Free')+'</span>'+
+  '<span class="badge '+(isPro?'b-paid':'b-unpaid')+'" style="font-size:10px;padding:2px 8px;border-radius:4px">'+(isPro?'PRO':'Free')+'</span>'+
   '</div>'+
   '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
-  '<button class="btn mini" onclick="adminTogglePlan(\''+esc(u.user_id)+'\',\''+esc(u.plan)+'\')" style="font-size:10px">'+(isProUnlimited?'↓ Pro':isPro?'↑ Unlimited':'↑ Pro')+'</button>'+
+  '<button class="btn mini" onclick="adminTogglePlan(\''+esc(u.user_id)+'\',\''+esc(u.plan)+'\')" style="font-size:10px">'+(isPro?'↓ Free':'↑ Pro')+'</button>'+
   '<button class="btn mini" onclick="adminResetPw(\''+esc(u.user_id)+'\')" style="font-size:10px">Reset PW</button>'+
   '<button class="btn mini danger" onclick="adminDeleteUser(\''+esc(u.user_id)+'\',\''+esc(u.name)+'\')" style="font-size:10px">Hapus</button>'+
   '</div></div>';
 }
 
 async function adminTogglePlan(uid,currentPlan){
- const nextPlans={free:'pro',pro:'pro_unlimited',pro_unlimited:'free'};
- const newPlan=nextPlans[currentPlan]||'pro';
- const label={free:'Free',pro:'Pro',pro_unlimited:'Pro Unlimited'}[newPlan]||newPlan;
+ const newPlan=currentPlan==='pro'?'free':'pro';
  const r=await api('/admin/subscription/update',{method:'POST',body:JSON.stringify({user_id:uid,plan:newPlan})});
- if(r.data)toast('Plan diubah ke '+label);
+ if(r.data)toast('Plan diubah ke '+newPlan);
  else toast(r.error||'Gagal','error');
  loadAdminTab('users');
 }

@@ -112,7 +112,7 @@ const IconBox = () => (
 const FAQ_DATA = [
   {
     q: 'Gratis sampai kapan?',
-    a: 'Paket Gratis gratis selamanya. Kalau butuh lebih — unlimited dompet, cloud sync, laporan branded — ada Paket Pro Rp 29.000/bulan. Untuk bisnis yang butuh lebih lagi, ada Pro Unlimited Rp 99.000/bulan.',
+    a: 'Paket Gratis gratis selamanya. Kalau butuh lebih — unlimited dompet, cloud sync, laporan branded — ada Paket Pro Rp 29.000/bulan.',
   },
   {
     q: 'Data saya dikirim ke internet?',
@@ -131,12 +131,8 @@ const FAQ_DATA = [
     a: 'Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya lengkap untuk kelola keuangan usaha kecil-menengah. Bayar tahunan hemat 20%.',
   },
   {
-    q: 'Apa bedanya Pro dan Pro Unlimited?',
-    a: 'Pro cocok untuk UMKM satu bisnis. Pro Unlimited untuk yang jalan beberapa bisnis atau butuh integrasi API — semua Pro plus multi-bisnis, API akses, prioritas support, dan branding kustom.',
-  },
-  {
     q: 'Bisa pindah paket?',
-    a: 'Bisa. Upgrade atau downgrade kapan aja. Gratis → Pro → Pro Unlimited, atau sebaliknya. Data tetap ada, cuma akses fitur yang berubah.'
+    a: 'Bisa. Upgrade atau downgrade kapan aja. Kalau downgrade ke Gratis, data Pro-mu tetap ada, cuma akses fitur unlimited yang hilang.',
   },
 ];
 
@@ -660,7 +656,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
             Pilih paket yang <span style={{ color: 'var(--accent)' }}>cocok</span>
           </h2>
           <p style={{ color: 'var(--dim)', fontSize: 14, marginTop: 8, fontWeight: 500 }}>
-            Gratis untuk mulai. Pro untuk UMKM. Unlimited untuk bisnis serius.
+            Gratis untuk mulai. Pro untuk UMKM yang serius.
           </p>
           <div className="pricing-grid">
             {/* GRATIS */}
@@ -724,39 +720,6 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 </a>
               </div>
             </div>
-            {/* PRO UNLIMITED */}
-            <div className="pricing-card">
-              <div className="pricing-badge" style={{ background: 'var(--pos)', color: '#fff' }}>MAXIMUM</div>
-              <div className="pricing-card-header">
-                <h3>Pro Unlimited</h3>
-                <div className="pricing-card-price">
-                  <span className="pricing-card-amount">Rp 99.000</span>
-                  <span className="pricing-card-per">/bln</span>
-                </div>
-                <div className="pricing-card-annual">Rp 948.000/thn <span className="pricing-save">hemat 20%</span></div>
-              </div>
-              <ul className="pricing-features">
-                <li className="pricing-feature"><span className="pf-check" />Semua fitur Pro</li>
-                <li className="pricing-feature"><span className="pf-check" />Multi-bisnis / tim</li>
-                <li className="pricing-feature"><span className="pf-check" />API akses</li>
-                <li className="pricing-feature"><span className="pf-check" />Branding kustom (logo)</li>
-                <li className="pricing-feature"><span className="pf-check" />Prioritas support 24/7</li>
-                <li className="pricing-feature"><span className="pf-check" />Audit log</li>
-                <li className="pricing-feature"><span className="pf-check" />Export batch</li>
-                <li className="pricing-feature"><span className="pf-check" />SSO / SAML</li>
-              </ul>
-              <div className="pricing-card-cta">
-                <a
-                  className="btn btn-ghost"
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-                  style={{ borderColor: 'var(--pos)', color: 'var(--pos)' }}
-                >
-                  Upgrade ke Unlimited
-                  <span className="btn-icon"><ArrowIcon /></span>
-                </a>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -806,7 +769,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 Buka Arus
                 <span className="btn-icon"><ArrowIcon /></span>
               </a>
-              <span className="mini">gratis untuk mulai · pro untuk tumbuh · unlimited untuk scale · data tetap aman</span>
+              <span className="mini">gratis untuk mulai · pro untuk tumbuh · data tetap aman</span>
             </div>
           </div>
         </div>

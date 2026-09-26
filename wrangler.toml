@@ -22,6 +22,11 @@ id = "b16a988d730c4dddb15621fa3a8f492f"
 [triggers]
 crons = ["0 2 * * *"]
 
+# ── Routes (deploy target) ──
+routes = [
+  { pattern = "arus-kas.riskiakbarp123-a03.workers.dev", custom_domain = true }
+]
+
 # ── Secrets (set via: npx wrangler secret put NAME) ──
 # SUPABASE_ANON_KEY
 # SUPABASE_SERVICE_KEY

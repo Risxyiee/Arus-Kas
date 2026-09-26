@@ -8,3 +8,6 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./out"
 binding = "ASSETS"
+
+[vars]
+SUPABASE_URL = "https://evntvbqrprizgqogjyva.supabase.co"

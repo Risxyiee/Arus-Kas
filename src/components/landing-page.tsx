@@ -309,18 +309,18 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
       {!cookieConsent && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
-          background: 'var(--ink, #242019)', color: 'var(--invfg, #F4F1E8)',
+          background: '#242019', color: '#F4F1E8',
           padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12,
           flexWrap: 'wrap', justifyContent: 'center', fontSize: 13,
-          boxShadow: '0 -4px 20px rgba(0,0,0,.2)'
+          boxShadow: '0 -4px 20px rgba(0,0,0,.3)'
         }}>
-          <span>🍪 Kami gunakan cookie untuk preferensi & analitik. <a href="/privacy.html" style={{ color: 'var(--invpos, #63D6A0)', textDecoration: 'underline' }}>Pelajari</a></span>
+          <span>🍪 Kami gunakan cookie untuk preferensi & analitik. <a href="/privacy.html" style={{ color: '#63D6A0', textDecoration: 'underline' }}>Pelajari</a></span>
           <button onClick={() => { setCookieConsent(true); localStorage.setItem('arus-cookie', '1'); }} style={{
-            background: 'var(--pos, #0E7B4F)', color: '#fff', border: 'none',
+            background: '#0E7B4F', color: '#fff', border: 'none',
             borderRadius: 6, padding: '6px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer'
           }}>Terima</button>
           <button onClick={() => { setCookieConsent(true); localStorage.setItem('arus-cookie', '0'); }} style={{
-            background: 'transparent', color: 'var(--invfg, #F4F1E8)', border: '1px solid var(--invmut, #9B947F)',
+            background: 'transparent', color: '#F4F1E8', border: '1px solid #9B947F',
             borderRadius: 6, padding: '6px 16px', fontSize: 13, cursor: 'pointer'
           }}>Tolak</button>
         </div>

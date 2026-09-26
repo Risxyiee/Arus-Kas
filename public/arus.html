@@ -2206,16 +2206,16 @@ function adminUserCard(u){
   '<span class="badge '+(isPro?'b-paid':'b-unpaid')+'" style="font-size:10px;padding:2px 8px;border-radius:4px">'+(isPro?'PRO':'Free')+'</span>'+
   '</div>'+
   '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
-  '<button class="btn mini" onclick="adminTogglePlan(\''+esc(u.user_id)+'\',\''+esc(u.plan)+'\')" style="font-size:10px">'+(isPro?'↓ Free':'↑ Pro')+'</button>'+
+  '<button class="btn mini" onclick="adminTogglePlan(\''+esc(u.email)+'\',\''+esc(u.plan)+'\')" style="font-size:10px">'+(isPro?'↓ Free':'↑ Pro')+'</button>'+
   '<button class="btn mini" onclick="adminResetPw(\''+esc(u.user_id)+'\')" style="font-size:10px">Reset PW</button>'+
   '<button class="btn mini danger" onclick="adminDeleteUser(\''+esc(u.user_id)+'\',\''+esc(u.name)+'\')" style="font-size:10px">Hapus</button>'+
   '</div></div>';
 }
 
-async function adminTogglePlan(uid,currentPlan){
+async function adminTogglePlan(email,currentPlan){
  const newPlan=currentPlan==='pro'?'free':'pro';
- const r=await api('/admin/subscription/update',{method:'POST',body:JSON.stringify({user_id:uid,plan:newPlan})});
- if(r.data)toast('Plan diubah ke '+newPlan);
+ const r=await api('/admin/subscription/update',{method:'POST',body:JSON.stringify({email,plan:newPlan})});
+ if(r.data)toast('Plan diubah ke '+newPlan+' ('+email+')');
  else toast(r.error||'Gagal','error');
  loadAdminTab('users');
 }

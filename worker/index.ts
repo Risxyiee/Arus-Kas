@@ -182,15 +182,31 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
   }
 
   // GET /api/admin/subscriptions/update — should be POST, reject GET
-  // POST /api/admin/subscription/update — Manually update a user's plan
+  // POST /api/admin/subscription/update — Manually update a user's plan by email
   if (path === "/admin/subscription/update" && req.method === "POST") {
     const body = await getBody(req);
-    const userId = body.user_id as string;
+    const email = (body.email as string || "").trim().toLowerCase();
     const plan = body.plan as string;
     const expiresAt = body.expires_at as string | undefined;
 
-    if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
+    if (!email || !plan) return json({ error: "email dan plan required" }, 400);
     if (plan !== "free" && plan !== "pro") return json({ error: "Plan harus 'free' atau 'pro'" }, 400);
+
+    // Resolve user_id from email via Supabase Auth admin API
+    let userId = body.user_id as string | undefined; // optional override
+    if (!userId) {
+      try {
+        const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json() as { users: { id: string; email: string }[] };
+          const found = (authData.users || []).find(u => u.email.toLowerCase() === email);
+          if (found) userId = found.id;
+        }
+      } catch {}
+    }
+    if (!userId) return json({ error: `User dengan email "${email}" tidak ditemukan` }, 404);
 
     // Check if subscription exists
     const { data: existing } = await sb.from("subscriptions").select("id").eq("user_id", userId).single();
@@ -213,7 +229,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     }
 
     if (result.error) throw result.error;
-    return json({ data: result.data });
+    return json({ data: result.data, email, user_id: userId });
   }
 
   // GET /api/admin/subscriptions/update — method not allowed

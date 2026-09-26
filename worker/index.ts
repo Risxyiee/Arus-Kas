@@ -852,6 +852,19 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   const path = url.pathname.replace("/api", "").replace("//", "/");
 
   try {
+    // Check critical env vars are set
+    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_SERVICE_KEY) {
+      const missing: string[] = [];
+      if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
+      if (!env.SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
+      if (!env.SUPABASE_SERVICE_KEY) missing.push("SUPABASE_SERVICE_KEY");
+      return json({
+        error: `Worker secrets belum dikonfigurasi: ${missing.join(", ")}. Set via dashboard → Worker → Settings → Variables and Secrets.`,
+        missing,
+        hint: "Pastikan nama secret persis: SUPABASE_ANON_KEY dan SUPABASE_SERVICE_KEY (bukan NEXT_PUBLIC_...)",
+      }, 503);
+    }
+
     // Route matching
     if (path === "/" || path === "") return json({ message: "Arus Kas API v3.1", status: "ok" });
 

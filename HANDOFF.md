@@ -229,7 +229,7 @@ PLANS.pro  = { wallets:∞, debts:∞, budgets:∞, customCats:∞, recurring:tr
 | `[assets]` | ✅ Aktif | Serve static files dari /out |
 | `[triggers]` Cron | ✅ Aktif | Daily 09:00 WIB — cek Pro expired → downgrade + invalidate KV cache |
 | **KV** (`ARUS_KV`) | ✅ Aktif | Rate limiting, session cache, feature flags, subscription cache |
-| **R2** (`ARUS_STORAGE`) | ✅ Aktif | Pro: backup JSON, PDF reports, invoices, file storage |
+| **R2** (`ARUS_STORAGE`) | ⏳ Optional | Pro: backup JSON, PDF reports, invoices — bind when ready |
 
 ### KV Usage Details
 | Key Pattern | TTL | Fungsi |
@@ -390,7 +390,7 @@ git push origin main
 ### ⏳ Belum / Perlu Dilakukan
 - [ ] **Midtrans production** — Ganti `MIDTRANS_IS_PRODUCTION` ke `"true"` + set production server key
 - [ ] **Supabase email templates** — Customize email konfirmasi/reset pakai branding Arus
-- [ ] **KV namespace ID** — Paste real IDs dari dashboard ke wrangler.toml (currently `PASTE_KV_ID_HERE`)
+- [ ] **R2 bucket setup** — Kalau butuh cloud storage: buat R2 bucket di dashboard, bind `ARUS_STORAGE` ke worker
 - [ ] **Email transaksional** — Daftar Resend/SendGrid → set `RESEND_API_KEY` secret → implement welcome email, payment receipt
 - [ ] **Landing page OG image** — Buat gambar 1200×630 untuk share di social media
 - [ ] **Favicon proper** — Sekarang pakai inline SVG data-URI, ganti dengan .ico file

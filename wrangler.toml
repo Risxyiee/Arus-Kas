@@ -14,18 +14,9 @@ MIDTRANS_IS_PRODUCTION = "false"
 ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 
 # ── KV Namespace (rate limiting, session cache, feature flags) ──
-# Created via: npx wrangler kv namespace create "ARUS_KV"
-# Then paste the returned id below.
 [[kv_namespaces]]
 binding = "ARUS_KV"
-id = "PASTE_KV_ID_HERE"
-preview_id = "PASTE_KV_PREVIEW_ID_HERE"
-
-# ── R2 Bucket (Pro: backup, PDF, invoices) ──
-# Created via: npx wrangler r2 bucket create "arus-storage"
-[[r2_buckets]]
-binding = "ARUS_STORAGE"
-bucket_name = "arus-storage"
+id = "b16a988d730c4dddb15621fa3a8f492f"
 
 # ── Cron Triggers ──
 [triggers]

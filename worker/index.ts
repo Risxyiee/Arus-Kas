@@ -13,7 +13,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 interface Env {
   ASSETS: Fetcher;
   ARUS_KV: KVNamespace;            // Rate limiting, session cache, feature flags
-  ARUS_STORAGE: R2Bucket;          // Pro: backup JSON, PDF reports, invoices
+  ARUS_STORAGE?: R2Bucket;         // Optional: Pro backup, PDF, invoices (bind later)
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -1020,6 +1020,7 @@ async function isProUser(env: Env, userId: string): Promise<boolean> {
 // ─── API: /api/storage — R2 File Storage ──────────────────────
 // Pro users: backup JSON, PDF reports, invoice attachments
 async function handleStorage(req: Request, env: Env): Promise<Response> {
+  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
   const url = new URL(req.url);
   const userId = url.searchParams.get("user_id");
   const fileId = url.searchParams.get("id");
@@ -1106,6 +1107,7 @@ async function handleStorage(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/storage/backup — Full Data Backup to R2 ──────────
 async function handleBackup(req: Request, env: Env): Promise<Response> {
+  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
   const url = new URL(req.url);
   const userId = url.searchParams.get("user_id");
   if (!userId) return json({ error: "user_id required" }, 400);
@@ -1184,6 +1186,7 @@ async function handleBackup(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/storage/restore — Restore from R2 Backup ─────────
 async function handleRestore(req: Request, env: Env): Promise<Response> {
+  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const body = await getBody(req);

@@ -797,6 +797,17 @@ function doLogout(){
 }
 
 /* ── Cloud Sync ── */
+async function syncSubscription(){
+ if(!currentUser)return;
+ const sub=await api('/subscription?user_id='+currentUser.id);
+ if(sub.data){
+  const oldPlan=(db.subscription&&db.subscription.plan)||'free';
+  const newPlan=sub.data.plan;
+  db.subscription={plan:newPlan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};
+  save();
+  if(oldPlan!==newPlan){renderPlanBadge();render();toast('Paket diperbarui: '+newPlan.toUpperCase(),'info');}
+ }
+}
 async function syncToCloud(){
  if(!currentUser||getPlan().id!=='pro')return;
  toast('Sinkronisasi... ☁️');
@@ -894,7 +905,9 @@ function pageDashboard(){
  const bar=(l,v,c)=>'<div class="hbar"><span>'+l+'</span><div class="prog"><i style="width:'+Math.max(3,v/mx*100)+'%;background:'+c+'"></i></div><b class="mono">'+money(v)+'</b></div>';
  return '<div style="margin-bottom:16px">'+
   '<div style="font-size:21px;font-weight:800;letter-spacing:-.02em">'+greet+', '+esc((db.profile.name||'Saya').split(' ')[0])+'</div>'+
-  '<div class="small muted" style="margin-top:2px">Berikut posisi keuanganmu saat ini.</div></div>'+
+  '<div class="row" style="gap:8px;margin-top:4px;align-items:center"><span class="small muted">Posisi keuanganmu saat ini.</span>'+planBadge()+
+  (getPlan().id==='pro'?'<span class="xs muted">· berlaku hingga '+(db.subscription.expiresAt?fmtDate(db.subscription.expiresAt):'-')+'</span>':'')+
+  '</div></div>'+
   backupBanner()+budgetBanner()+
   '<div class="grid dashgrid">'+
    '<div class="hero">'+
@@ -2215,9 +2228,15 @@ function adminUserCard(u){
 async function adminTogglePlan(email,currentPlan){
  const newPlan=currentPlan==='pro'?'free':'pro';
  const r=await api('/admin/subscription/update',{method:'POST',body:JSON.stringify({email,plan:newPlan})});
- if(r.data)toast('Plan diubah ke '+newPlan+' ('+email+')');
- else toast(r.error||'Gagal','error');
- loadAdminTab('users');
+ if(r.data){
+  toast('Plan diubah ke '+newPlan+' ('+email+')');
+  // If admin changed own plan, update local db too
+  if(currentUser&&currentUser.email===email){
+   db.subscription={plan:newPlan,startedAt:new Date().toISOString(),expiresAt:newPlan==='pro'?new Date(Date.now()+30*864e5).toISOString():null};
+   save();renderPlanBadge();
+  }
+  loadAdminTab('users');
+ }else toast(r.error||'Gagal','error');
 }
 
 async function adminResetPw(uid){
@@ -2305,7 +2324,8 @@ render();
    const sub=await api('/subscription?user_id='+currentUser.id);
    if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
    // Pull cloud data if Pro — disabled (R2 not bound)
-   // if(getPlan().id==='pro'){await syncFromCloud();render();}
+   // if(getPlan().id==='pro'){await syncFromCloud();}
+   render();
    updateProfileUI();
   }else{
    // Token expired — clear
@@ -2316,6 +2336,9 @@ render();
   }
  }catch(e){}
 })();
+
+// Periodic subscription sync every 5 minutes (catches webhook-activated Pro)
+setInterval(()=>{if(currentUser)syncSubscription();},5*60*1000);
 
 if(!db.settings.onboarded)setTimeout(onboardModal,db.profile.pinEnabled?900:400);
 window.addEventListener('hashchange',render);

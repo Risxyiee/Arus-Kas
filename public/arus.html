@@ -181,6 +181,9 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
 @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
 .chk input{width:15px;height:15px;accent-color:var(--pos);cursor:pointer}
+.admin-tab{padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-size:12px;font-weight:600;cursor:pointer}
+.admin-tab.active{background:var(--ink);color:var(--invfg);border-color:var(--ink)}
+.admin-tab:hover{opacity:.85}
 </style>
 <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-environment="sandbox"></script>
 </head>
@@ -269,6 +272,7 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
    <button class="btn icon" id="bell-btn" aria-label="Notifikasi jatuh tempo"><svg class="w16"><use href="#i-bell"/></svg><span id="bell-badge" style="display:none" class="bellb">0</span></button>
    <span id="plan-badge-top" class="plan-pill plan-free" style="cursor:pointer" title="Paket langganan">GRATIS</span>
    <button class="btn icon" id="theme-top" aria-label="Ganti tema"><span id="theme-ic"></span></button>
+   <button class="btn icon" id="admin-btn" style="display:none" onclick="openAdmin()" aria-label="Admin panel">🛡️</button>
    <button class="btn primary" id="add-btn"><svg class="w16"><use href="#i-plus"/></svg><span class="hide-sm">Transaksi baru</span></button>
   </header>
   <main id="view"></main>
@@ -741,7 +745,8 @@ function openAuthModal(mode='login'){
   '</div>'+
   (!isLogin?'<input id="auth-name" placeholder="Nama kamu" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">':'')+
   '<input id="auth-email" type="email" placeholder="Email" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
-  '<input id="auth-pass" type="password" placeholder="Password" minlength="6" style="width:100%;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<input id="auth-pass" type="password" placeholder="Password" minlength="6" style="width:100%;padding:10px;margin-bottom:4px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  (isLogin?'<p style="margin-top:4px;margin-bottom:12px;font-size:12px;text-align:right"><a onclick="openForgotModal()" style="color:var(--mut);cursor:pointer">Lupa password?</a></p>':'<div style="margin-bottom:12px"></div>')+
   '<button onclick="doAuth(\''+mode+'\')" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px">'+(isLogin?'Masuk':'Daftar')+'</button>'+
   (isLogin?'<p style="margin-top:12px;font-size:12px;color:var(--mut)">Belum punya akun? <a onclick="openAuthModal(\'signup\')" style="color:var(--pos);cursor:pointer">Daftar</a></p>':'')+
   '</div>');
@@ -769,7 +774,8 @@ async function doAuth(mode){
  localStorage.setItem('arus-auth-token',authToken);
  localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
  closeModal();
- db.settings.onboarded=true;save();
+ if(db.demo)db.settings.onboarded=true;
+ save();
  toast(mode==='login'?'Selamat datang! 👋':'Akun dibuat! 🎉');
  // Sync subscription from server
  const sub=await api('/subscription?user_id='+currentUser.id);
@@ -2060,7 +2066,8 @@ function render(){
  $('#bell-badge').textContent=due.length;
  renderFlags();
  renderPlanBadge();
- syncTop();closeNav();}
+ syncTop();closeNav();
+ if(currentUser&&!db.settings.onboarded&&!db.demo)showOnboarding();}
 function renderFlags(){
  $('#demo-flag').innerHTML=db.demo
   ?'<div class="alert info" style="padding:8px 10px;font-size:11px;margin-bottom:8px">'+ic('info','w12')+'<span class="grow">Data contoh aktif.</span><button class="btn mini" id="demo-clean">Mulai bersih</button></div>':'';
@@ -2081,6 +2088,8 @@ function updateProfileUI(){
  $('#profile-name').textContent=db.profile.name||'Saya';
  const ai=$('#auth-indicator');
  if(ai){if(currentUser){ai.innerHTML='<span style="color:var(--pos)" title="Tersinkron ☁️">☁️</span> <span onclick="doLogout()" style="color:var(--neg);cursor:pointer;margin-left:4px" title="Keluar">⏻</span>';}else{ai.innerHTML='<a onclick="openAuthModal(\'login\')" style="color:var(--pos);font-weight:700;cursor:pointer">Masuk</a>';}}
+ const ab=$('#admin-btn');
+ if(ab)ab.style.display=isAdmin()?'inline-flex':'none';
 }
 function applyThemeUI(){
  const dk=document.documentElement.classList.contains('dark');
@@ -2091,6 +2100,188 @@ function toggleTheme(){
  document.documentElement.classList.toggle('dark');
  try{localStorage.setItem('arus-theme',document.documentElement.classList.contains('dark')?'dark':'light');}catch(e){}
  applyThemeUI();render();}
+
+/* ══════ Forgot Password ══════ */
+function openForgotModal(){
+ openModal('<div style="text-align:center;padding:24px">'+
+  '<div style="font-size:28px;margin-bottom:4px">🔑</div>'+
+  '<h3 style="margin:0 0 8px;color:var(--ink)">Reset Password</h3>'+
+  '<p class="muted" style="margin-bottom:16px;font-size:13px">Masukkan email untuk link reset password.</p>'+
+  '<input id="forgot-email" type="email" placeholder="Email" style="width:100%;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<button onclick="doForgotPassword()" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px">Kirim Link Reset</button>'+
+  '</div>');
+}
+async function doForgotPassword(){
+ const email=document.getElementById('forgot-email')?.value;
+ if(!email){toast('Masukkan email');return;}
+ const r=await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})});
+ closeModal();
+ if(r.ok)toast('Cek email untuk link reset password 📧','info');
+ else toast(r.error||'Gagal');
+}
+
+/* ══════ Admin Panel ══════ */
+function isAdmin(){return currentUser&&currentUser.email==='riskiakbarp123@gmail.com';}
+
+function openAdmin(){
+ if(!isAdmin()){toast('Hanya admin yang bisa akses');return;}
+ let p=document.getElementById('admin-panel');
+ if(!p){
+  p=document.createElement('div');
+  p.id='admin-panel';
+  p.style.cssText='display:none;position:fixed;top:0;right:0;width:min(420px,90vw);height:100vh;background:var(--card);border-left:1px solid var(--line);z-index:9999;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.15)';
+  p.innerHTML=
+   '<div style="padding:16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">'+
+   '<span style="font-size:18px">🛡️</span>'+
+   '<span style="font-weight:700;flex:1">Admin Panel</span>'+
+   '<button onclick="closeAdmin()" style="border:none;background:var(--soft);color:var(--ink);font-size:16px;cursor:pointer;border-radius:8px;padding:4px 10px">✕</button></div>'+
+   '<div style="padding:12px;display:flex;gap:6px;border-bottom:1px solid var(--line)">'+
+   '<button class="admin-tab active" data-atab="dashboard">Dashboard</button>'+
+   '<button class="admin-tab" data-atab="users">Users</button>'+
+   '<button class="admin-tab" data-atab="txns">Transaksi</button></div>'+
+   '<div id="admin-content" style="padding:16px"></div>';
+  document.body.appendChild(p);
+  p.querySelectorAll('.admin-tab').forEach(b=>b.onclick=()=>loadAdminTab(b.dataset.atab));
+ }
+ p.style.display='block';
+ loadAdminTab('dashboard');
+}
+function closeAdmin(){const p=document.getElementById('admin-panel');if(p)p.style.display='none';}
+
+function loadAdminTab(tab){
+ document.querySelectorAll('.admin-tab').forEach(b=>{b.classList.toggle('active',b.dataset.atab===tab);});
+ const c=document.getElementById('admin-content');
+ if(!c)return;
+ c.innerHTML='<div style="text-align:center;padding:32px;color:var(--mut)">Memuat...</div>';
+ if(tab==='dashboard')loadAdminDashboard(c);
+ else if(tab==='users')loadAdminUsers(c);
+ else if(tab==='txns')loadAdminTransactions(c);
+}
+
+async function loadAdminDashboard(c){
+ const r=await api('/admin/stats');
+ if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ const d=r.data||{};
+ c.innerHTML=
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'+
+  statBox('👥','Total User',d.totalUsers||0)+
+  statBox('⭐','Pro',d.proCount||0)+
+  statBox('💰','Revenue',(d.monthlyRevenue||0).toLocaleString('id-ID'))+
+  statBox('🆕','7d Signup',d.recentSignups||0)+
+  '</div>'+
+  '<div class="xs muted">Active Pro: '+(d.activePro||0)+' · Expired: '+(d.expiredPro||0)+'</div>';
+}
+
+function statBox(icon,label,value){
+ return '<div style="padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--soft)">'+
+  '<div class="xs muted">'+icon+' '+label+'</div>'+
+  '<div style="font-size:18px;font-weight:700;margin-top:4px">'+value+'</div></div>';
+}
+
+async function loadAdminUsers(c){
+ const r=await api('/admin/users');
+ if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ const users=r.data||[];
+ c.innerHTML=
+  '<input id="admin-user-search" placeholder="Cari nama/email..." style="width:100%;padding:8px 10px;margin-bottom:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<div style="font-size:11px;color:var(--mut);margin-bottom:8px">'+users.length+' user terdaftar</div>'+
+  '<div id="admin-user-list" style="display:flex;flex-direction:column;gap:8px">'+
+  users.map(u=>adminUserCard(u)).join('')+'</div>';
+ document.getElementById('admin-user-search')?.addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.admin-user-card').forEach(el=>{
+   el.style.display=el.dataset.search.includes(q)?'block':'none';
+  });
+ });
+}
+
+function adminUserCard(u){
+ const isPro=u.plan==='pro';
+ const s=u.name+' '+u.email+' '+u.user_id;
+ return '<div class="admin-user-card" data-search="'+esc(s.toLowerCase())+'" style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft)">'+
+  '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+  '<div style="width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--invfg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">'+esc((u.name||'?')[0].toUpperCase())+'</div>'+
+  '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(u.name)+'</div><div class="xs muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(u.email)+'</div></div>'+
+  '<span class="badge '+(isPro?'b-paid':'b-unpaid')+'" style="font-size:10px;padding:2px 8px;border-radius:4px">'+(isPro?'PRO':'Free')+'</span>'+
+  '</div>'+
+  '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
+  '<button class="btn mini" onclick="adminTogglePlan(\''+esc(u.user_id)+'\',\''+esc(u.plan)+'\')" style="font-size:10px">'+(isPro?'↓ Free':'↑ Pro')+'</button>'+
+  '<button class="btn mini" onclick="adminResetPw(\''+esc(u.user_id)+'\')" style="font-size:10px">Reset PW</button>'+
+  '<button class="btn mini danger" onclick="adminDeleteUser(\''+esc(u.user_id)+'\',\''+esc(u.name)+'\')" style="font-size:10px">Hapus</button>'+
+  '</div></div>';
+}
+
+async function adminTogglePlan(uid,currentPlan){
+ const newPlan=currentPlan==='pro'?'free':'pro';
+ const r=await api('/admin/subscription/update',{method:'POST',body:JSON.stringify({user_id:uid,plan:newPlan})});
+ if(r.data)toast('Plan diubah ke '+newPlan);
+ else toast(r.error||'Gagal','error');
+ loadAdminTab('users');
+}
+
+async function adminResetPw(uid){
+ const r=await api('/admin/user/reset-password',{method:'POST',body:JSON.stringify({user_id:uid})});
+ toast(r.ok?r.message:(r.error||'Gagal'),r.ok?'info':'error');
+}
+
+async function adminDeleteUser(uid,name){
+ if(!confirm('Hapus user "'+name+'" permanen? Semua data akan hilang.'))return;
+ const r=await api('/admin/user',{method:'DELETE',body:JSON.stringify({user_id:uid})});
+ if(r.ok)toast('User dihapus');
+ else toast(r.error||'Gagal','error');
+ loadAdminTab('users');
+}
+
+async function loadAdminTransactions(c){
+ const r=await api('/admin/transactions?limit=30');
+ if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ const txns=r.data||[];
+ if(!txns.length){c.innerHTML='<div class="muted" style="padding:20px;text-align:center">Belum ada transaksi</div>';return;}
+ c.innerHTML=txns.map(t=>
+  '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:12px">'+
+  '<div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+esc(t.category||t.description||'-')+'</span><span class="mono" style="color:'+(t.type==='income'?'var(--pos)':'var(--neg)')+'">'+(t.type==='income'?'+':'-')+money(t.amount)+'</span></div>'+
+  '<div class="xs muted">'+esc(t.user_email||t.user_id?.slice(0,8)||'')+' · '+fmtDate(t.occurred_at)+'</div></div>'
+ ).join('');
+}
+
+/* ══════ Onboarding Dashboard ══════ */
+function showOnboarding(){
+ const name=db.profile.name||'Saya';
+ openModal(
+  '<div style="text-align:center;padding:20px">'+
+  '<div style="font-size:48px;margin-bottom:12px">👋</div>'+
+  '<h3 style="margin:0 0 8px;color:var(--ink)">Selamat datang, '+esc(name)+'!</h3>'+
+  '<p class="muted" style="margin-bottom:20px;font-size:13px">Ayo siapkan buku kas kamu dalam 3 langkah.</p>'+
+  '<div id="ob-steps">'+
+  '<div class="ob-step" style="margin-bottom:16px;padding:12px;border:1px solid var(--line);border-radius:10px;text-align:left">'+
+  '<div style="font-weight:700;font-size:13px;margin-bottom:6px">1️⃣  Dompet Utama</div>'+
+  '<input id="ob-wallet" value="'+esc(db.wallets[0]?.name||'Dompet Utama')+'" placeholder="Nama dompet" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<div class="xs muted" style="margin-top:4px">Tempat kamu catat semua pemasukan & pengeluaran.</div>'+
+  '</div>'+
+  '<div class="ob-step" style="margin-bottom:16px;padding:12px;border:1px solid var(--line);border-radius:10px;text-align:left">'+
+  '<div style="font-weight:700;font-size:13px;margin-bottom:6px">2️⃣  Saldo Awal</div>'+
+  '<input id="ob-balance" type="number" placeholder="0" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  '<div class="xs muted" style="margin-top:4px">Isi saldo dompet sekarang (boleh 0).</div>'+
+  '</div>'+
+  '<div class="ob-step" style="margin-bottom:16px;padding:12px;border:1px solid var(--line);border-radius:10px;text-align:left">'+
+  '<div style="font-weight:700;font-size:13px;margin-bottom:6px">3️⃣  Mulai Catat! 🎉</div>'+
+  '<div class="muted" style="font-size:13px">Ketik transaksi pertama kamu di halaman utama. Arus akan otomatis kategorikan dari deskripsi — coba ketik "makan bakso 15rb" 😉</div>'+
+  '</div>'+
+  '</div>'+
+  '<button onclick="finishOnboarding()" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px;margin-top:4px">Mulai! 🚀</button>'+
+  '</div>'
+ );
+}
+
+function finishOnboarding(){
+ const wName=document.getElementById('ob-wallet')?.value||'Dompet Utama';
+ const bal=parseAmt(document.getElementById('ob-balance')?.value||'0');
+ if(db.wallets.length>0){db.wallets[0].name=wName;db.wallets[0].initial=bal;}
+ else{db.wallets.push({id:uid(),name:wName,color:'#C9A962',initial:bal});}
+ db.settings.onboarded=true;
+ save();closeModal();render();
+ toast('Selamat mencatat! 🎉');
+}
 
 /* Init */
 load();

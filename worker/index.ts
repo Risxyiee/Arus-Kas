@@ -302,6 +302,90 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     return json({ data: txns });
   }
 
+  // DELETE /api/admin/user — Delete a user (auth + profile + subscriptions)
+  if (path === "/admin/user" && req.method === "DELETE") {
+    const body = await getBody(req);
+    const userId = body.user_id as string;
+    if (!userId) return json({ error: "user_id required" }, 400);
+    // Prevent admin from deleting themselves
+    if (userId === admin.userId) return json({ error: "Tidak bisa hapus akun admin sendiri" }, 400);
+
+    // Delete from auth.users via admin API
+    try {
+      await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+      });
+    } catch { /* continue even if auth delete fails */ }
+
+    // Delete profile, subscription, and user data
+    await Promise.all([
+      sb.from("profiles").delete().eq("user_id", userId),
+      sb.from("subscriptions").delete().eq("user_id", userId),
+      sb.from("wallets").delete().eq("user_id", userId),
+      sb.from("transactions").delete().eq("user_id", userId),
+      sb.from("debts").delete().eq("user_id", userId),
+      sb.from("budgets").delete().eq("user_id", userId),
+      sb.from("custom_categories").delete().eq("user_id", userId),
+    ]);
+
+    // Invalidate caches
+    await invalidateSubscriptionCache(env, userId);
+    try { await env.arus_kv.delete(`last-backup:${userId}`); } catch {}
+
+    return json({ ok: true, deleted: userId });
+  }
+
+  // POST /api/admin/user/ban — Ban/unban a user (disable their access)
+  if (path === "/admin/user/ban" && req.method === "POST") {
+    const body = await getBody(req);
+    const userId = body.user_id as string;
+    const ban = body.ban as boolean;
+    if (!userId) return json({ error: "user_id required" }, 400);
+    if (userId === admin.userId) return json({ error: "Tidak bisa ban akun admin sendiri" }, 400);
+
+    // Update user's app_metadata to ban them
+    const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ app_metadata: { banned: ban } }),
+    });
+    if (!authRes.ok) {
+      const data = await authRes.json();
+      return json({ error: data.msg || "Gagal update user" }, authRes.status);
+    }
+
+    // Also invalidate their session cache
+    await invalidateSubscriptionCache(env, userId);
+
+    return json({ ok: true, user_id: userId, banned: ban });
+  }
+
+  // POST /api/admin/user/reset-password — Admin resets a user's password
+  if (path === "/admin/user/reset-password" && req.method === "POST") {
+    const body = await getBody(req);
+    const userId = body.user_id as string;
+    if (!userId) return json({ error: "user_id required" }, 400);
+
+    // Send password reset email via Supabase
+    // First get the user's email
+    const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+    });
+    if (!authRes.ok) return json({ error: "User tidak ditemukan" }, 404);
+    const userData = await authRes.json() as { email: string };
+    if (!userData.email) return json({ error: "User tidak punya email" }, 400);
+
+    // Send recovery email
+    await fetch(`${env.SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: userData.email }),
+    });
+
+    return json({ ok: true, message: `Link reset password dikirim ke ${userData.email}` });
+  }
+
   return json({ error: "Not found" }, 404);
 }
 
@@ -711,6 +795,49 @@ async function handleLogout(req: Request, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
+// ─── API: /api/auth/forgot-password ────────────────────────────
+async function handleForgotPassword(req: Request, env: Env): Promise<Response> {
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const body = await getBody(req);
+  const email = body.email as string;
+  if (!email) return json({ error: "Email wajib diisi" }, 400);
+
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/recover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+    body: JSON.stringify({ email }),
+  });
+  // Supabase always returns 200 for password reset (security: don't reveal if email exists)
+  return json({ ok: true, message: "Kalau email terdaftar, link reset password sudah dikirim." });
+}
+
+// ─── API: /api/auth/reset-password ─────────────────────────────
+async function handleResetPassword(req: Request, env: Env): Promise<Response> {
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const body = await getBody(req);
+  const token = body.token as string;
+  const newPassword = body.password as string;
+  if (!token || !newPassword) return json({ error: "Token dan password baru wajib diisi" }, 400);
+  if (newPassword.length < 6) return json({ error: "Password minimal 6 karakter" }, 400);
+
+  // Verify the recovery token and update password
+  const verifyRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  if (!verifyRes.ok) return json({ error: "Token tidak valid atau sudah kadaluarsa" }, 401);
+
+  const updateRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  if (!updateRes.ok) {
+    const data = await updateRes.json();
+    return json({ error: data.msg || data.error_description || "Gagal mengubah password" }, updateRes.status);
+  }
+  return json({ ok: true, message: "Password berhasil diubah!" });
+}
+
 // ─── Midtrans: Create Snap Transaction ──────────────────────────
 async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
   const body = await getBody(req);
@@ -878,6 +1005,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/auth/signup") return await handleSignup(request, env);
     if (path === "/auth/me") return await handleAuthMe(request, env);
     if (path === "/auth/logout") return await handleLogout(request, env);
+    if (path === "/auth/forgot-password") return await handleForgotPassword(request, env);
+    if (path === "/auth/reset-password") return await handleResetPassword(request, env);
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);

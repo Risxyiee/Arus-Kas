@@ -1,0 +1,1621 @@
+     1→/* ═══════════════════════════════════════════════════
+     2→   Arus Landing — $150k Agency Build
+     3→   Ethereal Glass × Asymmetrical Bento
+     4→   ═══════════════════════════════════════════════════ */
+     5→
+     6→*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+     7→
+     8→:root {
+     9→  /* OLED deep black palette */
+    10→  --bg:   #070605;
+    11→  --bg2:  #0C0B09;
+    12→  --card: #111010;
+    13→  --card2:#161514;
+    14→  --card3:#1C1B19;
+    15→
+    16→  /* Hairlines — never 1px solid gray */
+    17→  --line:  rgba(180,140,90,.08);
+    18→  --line2: rgba(180,140,90,.16);
+    19→  --line3: rgba(180,140,90,.28);
+    20→
+    21→  /* Ink — warm off-white */
+    22→  --ink:  #F5F0E5;
+    23→  --ink2: #E8E2D4;
+    24→  --mut:  #B0A898;
+    25→  --dim:  #8C8474;
+    26→
+    27→  /* Accent — warm copper/amber */
+    28→  --accent:  #D4845A;
+    29→  --accent2: #E8986A;
+    30→  --accent3: #F0B088;
+    31→
+    32→  /* Semantic */
+    33→  --pos: #5DAE6A;
+    34→  --neg: #D45A5A;
+    35→
+    36→  /* Glass */
+    37→  --glass:  rgba(17,16,16,.72);
+    38→  --glass2: rgba(17,16,16,.52);
+    39→  --glass-border: rgba(255,240,220,.06);
+    40→
+    41→  /* Mesh gradient colors */
+    42→  --orb1: rgba(212,132,90,.18);
+    43→  --orb2: rgba(180,100,60,.14);
+    44→  --orb3: rgba(93,174,106,.10);
+    45→
+    46→  /* Elevation shadows — soft, diffused */
+    47→  --shadow-sm:  0 2px 8px rgba(0,0,0,.3);
+    48→  --shadow-md:  0 8px 32px rgba(0,0,0,.4);
+    49→  --shadow-lg:  0 24px 80px rgba(0,0,0,.5);
+    50→  --shadow-xl:  0 40px 120px rgba(0,0,0,.6);
+    51→  --shadow-glow: 0 0 80px rgba(212,132,90,.15);
+    52→
+    53→  /* Motion — spring physics */
+    54→  --ease-out-expo: cubic-bezier(.16,1,.3,1);
+    55→  --ease-out-quint: cubic-bezier(.22,1,.36,1);
+    56→  --ease-spring:    cubic-bezier(.32,.72,0,1);
+    57→  --dur:  .7s;
+    58→  --dur2: 1s;
+    59→}
+    60→
+    61→html { scroll-behavior: smooth; }
+    62→
+    63→/* ─── Base ─── */
+    64→.lp {
+    65→  background: var(--bg);
+    66→  color: var(--ink);
+    67→  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    68→  font-size: 16px;
+    69→  line-height: 1.6;
+    70→  overflow-x: hidden;
+    71→  -webkit-font-smoothing: antialiased;
+    72→  -moz-osx-font-smoothing: grayscale;
+    73→  position: relative;
+    74→}
+    75→
+    76→/* Mesh gradient background orbs */
+    77→.lp::before {
+    78→  content: '';
+    79→  position: fixed;
+    80→  inset: 0;
+    81→  z-index: 0;
+    82→  pointer-events: none;
+    83→  background:
+    84→    radial-gradient(ellipse 80% 60% at 15% 15%, var(--orb1), transparent),
+    85→    radial-gradient(ellipse 60% 70% at 85% 55%, var(--orb2), transparent),
+    86→    radial-gradient(ellipse 80% 50% at 50% 95%, var(--orb3), transparent),
+    87→    radial-gradient(ellipse 40% 40% at 60% 20%, rgba(212,132,90,.06), transparent);
+    88→}
+    89→
+    90→/* Noise texture overlay — physical grain */
+    91→.lp::after {
+    92→  content: '';
+    93→  position: fixed;
+    94→  inset: 0;
+    95→  z-index: 1;
+    96→  pointer-events: none;
+    97→  opacity: .025;
+    98→  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    99→  background-size: 128px;
+   100→}
+   101→
+   102→/* All content above orbs */
+   103→.lp > * { position: relative; z-index: 2; }
+   104→
+   105→.serif { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+   106→.mono  { font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+   107→a { color: inherit; text-decoration: none; }
+   108→.wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+   109→.lp-section { padding: 100px 0; position: relative; }
+   110→
+   111→/* ─── Reveal — blur-to-clear cinematic ─── */
+   112→.reveal {
+   113→  opacity: 0;
+   114→  transform: translateY(20px);
+   115→  filter: blur(6px);
+   116→  transition:
+   117→    opacity var(--dur2) var(--ease-out-expo),
+   118→    transform var(--dur2) var(--ease-out-expo),
+   119→    filter var(--dur2) var(--ease-out-expo);
+   120→}
+   121→.reveal.in {
+   122→  opacity: 1;
+   123→  transform: none;
+   124→  filter: none;
+   125→}
+   126→@media (prefers-reduced-motion: reduce) {
+   127→  .reveal { opacity: 1; transform: none; filter: none; transition: none; }
+   128→}
+   129→
+   130→/* ─── Eyebrow badge ─── */
+   131→.eyebrow {
+   132→  display: inline-flex;
+   133→  align-items: center;
+   134→  gap: 6px;
+   135→  font-size: 10px;
+   136→  letter-spacing: .2em;
+   137→  text-transform: uppercase;
+   138→  font-weight: 700;
+   139→  color: var(--accent);
+   140→  padding: 5px 14px;
+   141→  border-radius: 99px;
+   142→  border: 1px solid rgba(212,132,90,.25);
+   143→  background: rgba(212,132,90,.06);
+   144→  margin-bottom: 20px;
+   145→}
+   146→
+   147→/* ─── Buttons — pill architecture ─── */
+   148→.btn {
+   149→  display: inline-flex;
+   150→  align-items: center;
+   151→  gap: 10px;
+   152→  border-radius: 99px;
+   153→  padding: 14px 28px;
+   154→  font-size: 14px;
+   155→  font-weight: 700;
+   156→  cursor: pointer;
+   157→  transition: all .35s var(--ease-spring);
+   158→  border: 1px solid transparent;
+   159→  font-family: inherit;
+   160→  letter-spacing: .01em;
+   161→  position: relative;
+   162→}
+   163→
+   164→.btn-accent {
+   165→  background: var(--accent);
+   166→  color: #0A0806;
+   167→  font-weight: 800;
+   168→  box-shadow: 0 0 0 0 rgba(212,132,90,0), var(--shadow-sm);
+   169→  transition: all .4s var(--ease-spring);
+   170→}
+   171→.btn-accent:hover {
+   172→  background: var(--accent2);
+   173→  transform: translateY(-3px) scale(1.02);
+   174→  box-shadow: 0 0 40px rgba(212,132,90,.3), var(--shadow-lg);
+   175→}
+   176→.btn-accent:active {
+   177→  transform: translateY(0) scale(.97);
+   178→  transition-duration: .1s;
+   179→}
+   180→
+   181→/* Trailing icon wrapper — button-in-button */
+   182→.btn .btn-icon {
+   183→  display: flex;
+   184→  align-items: center;
+   185→  justify-content: center;
+   186→  width: 26px;
+   187→  height: 26px;
+   188→  border-radius: 50%;
+   189→  background: rgba(10,8,6,.12);
+   190→  margin-right: -6px;
+   191→  transition: all .35s var(--ease-spring);
+   192→}
+   193→.btn:hover .btn-icon {
+   194→  transform: translate(2px, -1px) scale(1.08);
+   195→}
+   196→
+   197→.btn-ghost {
+   198→  border-color: var(--line2);
+   199→  color: var(--ink);
+   200→  background: var(--glass2);
+   201→  backdrop-filter: blur(8px);
+   202→}
+   203→.btn-ghost:hover {
+   204→  border-color: var(--line3);
+   205→  color: var(--accent2);
+   206→  transform: translateY(-3px);
+   207→  box-shadow: var(--shadow-md);
+   208→  background: rgba(212,132,90,.04);
+   209→}
+   210→
+   211→/* ─── Double-Bezel Card ─── */
+   212→.dbl-bezel {
+   213→  border-radius: 20px;
+   214→  background: rgba(255,240,220,.02);
+   215→  border: 1px solid var(--glass-border);
+   216→  padding: 1.5px;
+   217→  box-shadow: var(--shadow-md);
+   218→}
+   219→.dbl-bezel > .inner {
+   220→  border-radius: calc(20px - 1.5px);
+   221→  background: var(--card);
+   222→  box-shadow: inset 0 1px 1px rgba(255,255,255,.03);
+   223→  overflow: hidden;
+   224→}
+   225→
+   226→/* ─────────────────────────────────────
+   227→   NAV — Floating Glass Pill
+   228→   ───────────────────────────────────── */
+   229→.lp-nav {
+   230→  position: fixed;
+   231→  top: 16px;
+   232→  left: 50%;
+   233→  transform: translateX(-50%);
+   234→  z-index: 100;
+   235→  transition: all .4s var(--ease-spring);
+   236→  width: auto;
+   237→  max-width: calc(100% - 32px);
+   238→}
+   239→
+   240→.lp-nav .nav-pill {
+   241→  display: flex;
+   242→  align-items: center;
+   243→  gap: 8px;
+   244→  padding: 8px 12px 8px 16px;
+   245→  background: var(--glass);
+   246→  backdrop-filter: blur(24px) saturate(1.4);
+   247→  border: 1px solid var(--glass-border);
+   248→  border-radius: 99px;
+   249→  box-shadow: var(--shadow-md);
+   250→  transition: all .4s var(--ease-spring);
+   251→}
+   252→
+   253→.lp-nav.scrolled .nav-pill {
+   254→  background: rgba(7,6,5,.92);
+   255→  box-shadow: var(--shadow-lg);
+   256→}
+   257→
+   258→.navin {
+   259→  display: flex;
+   260→  align-items: center;
+   261→  gap: 0;
+   262→  width: 100%;
+   263→}
+   264→
+   265→.logo {
+   266→  display: flex;
+   267→  align-items: center;
+   268→  gap: 10px;
+   269→  font-weight: 800;
+   270→  font-size: 16px;
+   271→  letter-spacing: -.03em;
+   272→  white-space: nowrap;
+   273→  padding-right: 16px;
+   274→}
+   275→
+   276→.logomark {
+   277→  width: 30px; height: 30px; border-radius: 8px;
+   278→  background: var(--card2);
+   279→  border: 1px solid rgba(212,132,90,.2);
+   280→  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+   281→}
+   282→.logomark i {
+   283→  display: block; width: 12px; height: 2px;
+   284→  background: var(--accent);
+   285→  border-radius: 2px;
+   286→  box-shadow: 0 -3.5px 0 -0.5px rgba(212,132,90,.5), 0 3.5px 0 -0.5px rgba(212,132,90,.3);
+   287→}
+   288→
+   289→.nlinks { display: flex; gap: 4px; margin: 0 auto; }
+   290→.nlinks a {
+   291→  font-size: 13px;
+   292→  font-weight: 600;
+   293→  color: var(--ink);
+   294→  opacity: .65;
+   295→  transition: all .25s var(--ease-spring);
+   296→  padding: 6px 14px;
+   297→  border-radius: 99px;
+   298→}
+   299→.nlinks a:hover { opacity: 1; color: var(--accent2); background: rgba(212,132,90,.08); }
+   300→
+   301→.nav-cta {
+   302→  font-size: 12px !important;
+   303→  padding: 8px 18px !important;
+   304→  border-radius: 99px !important;
+   305→  font-weight: 800 !important;
+   306→  letter-spacing: .02em;
+   307→}
+   308→
+   309→.menu-btn {
+   310→  display: none;
+   311→  margin-left: auto;
+   312→  background: none;
+   313→  border: 1px solid var(--line2);
+   314→  color: var(--ink);
+   315→  border-radius: 99px;
+   316→  width: 36px;
+   317→  height: 36px;
+   318→  cursor: pointer;
+   319→  font-size: 16px;
+   320→  transition: all .25s var(--ease-spring);
+   321→}
+   322→.menu-btn:hover { border-color: var(--accent); color: var(--accent2); }
+   323→
+   324→@media (max-width: 840px) {
+   325→  .lp-nav { top: 12px; }
+   326→  .lp-nav .nav-pill { padding: 8px 10px 8px 14px; }
+   327→  .nlinks {
+   328→    display: none;
+   329→    position: fixed;
+   330→    top: 72px;
+   331→    left: 16px;
+   332→    right: 16px;
+   333→    background: rgba(17,16,16,.96);
+   334→    backdrop-filter: blur(24px);
+   335→    border: 1px solid var(--glass-border);
+   336→    border-radius: 20px;
+   337→    flex-direction: column;
+   338→    padding: 8px;
+   339→    gap: 2px;
+   340→    box-shadow: var(--shadow-xl);
+   341→  }
+   342→  .nlinks.open { display: flex; }
+   343→  .nlinks a { padding: 12px 16px; border-radius: 12px; }
+   344→  .nlinks a:hover { background: rgba(212,132,90,.08); }
+   345→  .menu-btn { display: block; }
+   346→}
+   347→@media (min-width: 841px) {
+   348→  .menu-btn { display: none; }
+   349→}
+   350→
+   351→/* ─────────────────────────────────────
+   352→   HERO
+   353→   ───────────────────────────────────── */
+   354→.hero {
+   355→  padding: 160px 0 120px;
+   356→  position: relative;
+   357→}
+   358→
+   359→/* Hero glow orb */
+   360→.hero::before {
+   361→  content: '';
+   362→  position: absolute;
+   363→  top: -10%;
+   364→  left: -5%;
+   365→  width: 60%;
+   366→  height: 70%;
+   367→  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(212,132,90,.1), transparent 70%);
+   368→  pointer-events: none;
+   369→  z-index: -1;
+   370→}
+   371→
+   372→.hero-grid {
+   373→  display: grid;
+   374→  grid-template-columns: 1fr 1fr;
+   375→  gap: 80px;
+   376→  align-items: start;
+   377→}
+   378→
+   379→.hero-text { padding-top: 20px; }
+   380→
+   381→.hero-name {
+   382→  font-family: 'Fraunces', Georgia, serif;
+   383→  font-weight: 400;
+   384→  font-size: clamp(64px, 9.5vw, 110px);
+   385→  line-height: .95;
+   386→  letter-spacing: -.04em;
+   387→  color: var(--ink);
+   388→}
+   389→
+   390→.hero-name .line {
+   391→  display: block;
+   392→  opacity: 0;
+   393→  transform: translateY(32px);
+   394→  filter: blur(8px);
+   395→  animation: heroRise 1s var(--ease-out-expo) forwards;
+   396→}
+   397→.hero-name .line:nth-child(2) { animation-delay: .12s; }
+   398→
+   399→@keyframes heroRise {
+   400→  to { opacity: 1; transform: none; filter: none; }
+   401→}
+   402→
+   403→.hero-tagline {
+   404→  margin-top: 28px;
+   405→  color: var(--mut);
+   406→  font-size: 17px;
+   407→  line-height: 1.75;
+   408→  max-width: 440px;
+   409→  font-weight: 500;
+   410→  opacity: 0;
+   411→  animation: heroRise 1s .25s var(--ease-out-expo) forwards;
+   412→  transform: translateY(20px);
+   413→  filter: blur(6px);
+   414→}
+   415→
+   416→.hero-cta {
+   417→  display: flex;
+   418→  gap: 12px;
+   419→  margin-top: 36px;
+   420→  flex-wrap: wrap;
+   421→  opacity: 0;
+   422→  animation: heroRise 1s .4s var(--ease-out-expo) forwards;
+   423→  transform: translateY(20px);
+   424→  filter: blur(6px);
+   425→}
+   426→
+   427→/* ─── Trust badges ─── */
+   428→.hero-trust {
+   429→  display: flex;
+   430→  gap: 20px;
+   431→  margin-top: 28px;
+   432→  opacity: 0;
+   433→  animation: heroRise 1s .48s var(--ease-out-expo) forwards;
+   434→  transform: translateY(20px);
+   435→  filter: blur(6px);
+   436→}
+   437→
+   438→.trust-item {
+   439→  display: flex;
+   440→  align-items: center;
+   441→  gap: 7px;
+   442→  font-size: 12px;
+   443→  font-weight: 600;
+   444→  color: var(--mut);
+   445→  letter-spacing: .02em;
+   446→}
+   447→
+   448→.trust-dot {
+   449→  width: 6px;
+   450→  height: 6px;
+   451→  border-radius: 50%;
+   452→  flex-shrink: 0;
+   453→  box-shadow: 0 0 8px currentColor;
+   454→}
+   455→
+   456→/* ─── Demo input (in hero) ─── */
+   457→.hero-demo {
+   458→  margin-top: 48px;
+   459→  max-width: 440px;
+   460→  opacity: 0;
+   461→  animation: heroRise 1s .55s var(--ease-out-expo) forwards;
+   462→  transform: translateY(20px);
+   463→  filter: blur(6px);
+   464→}
+   465→
+   466→.demo-in {
+   467→  display: flex;
+   468→  align-items: center;
+   469→  gap: 10px;
+   470→  background: var(--glass2);
+   471→  backdrop-filter: blur(16px);
+   472→  border: 1px solid var(--glass-border);
+   473→  border-radius: 16px;
+   474→  padding: 16px 18px;
+   475→  transition: all .3s var(--ease-spring);
+   476→  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), var(--shadow-sm);
+   477→}
+   478→.demo-in:focus-within {
+   479→  border-color: rgba(212,132,90,.3);
+   480→  box-shadow: 0 0 0 3px rgba(212,132,90,.08), var(--shadow-sm);
+   481→}
+   482→.demo-in .caret { width: 2px; height: 20px; background: var(--accent); flex-shrink: 0; animation: blink 1.1s steps(1) infinite; border-radius: 1px; }
+   483→@keyframes blink { 50% { opacity: 0; } }
+   484→.demo-in input {
+   485→  flex: 1; background: none; border: none; outline: none;
+   486→  color: var(--ink); font-family: inherit; font-size: 15px;
+   487→  font-weight: 600; min-width: 0;
+   488→}
+   489→.demo-in input::placeholder { color: var(--dim); font-weight: 500; }
+   490→
+   491→.demo-res { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; min-height: 36px; }
+   492→
+   493→.chip {
+   494→  display: inline-flex;
+   495→  align-items: center;
+   496→  gap: 7px;
+   497→  font-size: 12px;
+   498→  font-weight: 700;
+   499→  border: 1px solid var(--line2);
+   500→  border-radius: 99px;
+   501→  padding: 7px 14px;
+   502→  animation: chipIn .4s var(--ease-spring);
+   503→  background: var(--card);
+   504→}
+   505→@keyframes chipIn { from { opacity: 0; transform: translateY(5px) scale(.96); } }
+   506→.chip .cdot { width: 7px; height: 7px; border-radius: 50%; }
+   507→.chip.amt { color: var(--accent2); border-color: rgba(212,132,90,.35); font-family: 'JetBrains Mono', monospace; }
+   508→.chip.type { color: var(--mut); }
+   509→.demo-hint { color: var(--mut); font-size: 12px; margin-top: 14px; font-weight: 500; letter-spacing: .02em; opacity: .7; }
+   510→
+   511→/* ─── App preview — double-bezel ─── */
+   512→.hero-preview { padding-top: 0; position: relative; }
+   513→
+   514→/* ─── Animated gradient border (Stripe-style signature) ─── */
+   515→@keyframes borderRotate {
+   516→  to { --angle: 360deg; }
+   517→}
+   518→
+   519→@property --angle {
+   520→  syntax: '<angle>';
+   521→  initial-value: 0deg;
+   522→  inherits: false;
+   523→}
+   524→
+   525→.appwin-shell {
+   526→  border-radius: 24px;
+   527→  background: conic-gradient(from var(--angle, 0deg), rgba(212,132,90,.45), rgba(93,174,106,.25), rgba(122,107,201,.2), rgba(232,152,106,.35), rgba(212,132,90,.45));
+   528→  padding: 1.5px;
+   529→  box-shadow: var(--shadow-xl), var(--shadow-glow);
+   530→  animation: borderRotate 4s linear infinite;
+   531→  position: relative;
+   532→  will-change: transform;
+   533→  transition: transform .6s var(--ease-spring);
+   534→}
+   535→
+   536→/* Fallback for browsers without @property */
+   537→@supports not (background: conic-gradient(from 0deg, red, blue)) {
+   538→  .appwin-shell {
+   539→    background: rgba(255,240,220,.03);
+   540→    border: 1px solid var(--glass-border);
+   541→    padding: 2px;
+   542→    box-shadow: var(--shadow-xl), var(--shadow-glow);
+   543→    animation: none;
+   544→  }
+   545→}
+   546→
+   547→.appwin {
+   548→  background: var(--card);
+   549→  border-radius: calc(24px - 2px);
+   550→  overflow: hidden;
+   551→  box-shadow: inset 0 1px 1px rgba(255,255,255,.03);
+   552→}
+   553→
+   554→.appbar {
+   555→  display: flex;
+   556→  align-items: center;
+   557→  gap: 7px;
+   558→  padding: 16px 20px;
+   559→  border-bottom: 1px solid var(--line);
+   560→}
+   561→.appbar i { width: 8px; height: 8px; border-radius: 50%; background: var(--card3); }
+   562→.appbar i:first-child { background: var(--accent); opacity: .5; }
+   563→.appbar i:nth-child(2) { background: var(--pos); opacity: .35; }
+   564→
+   565→.appbody { padding: 24px; }
+   566→
+   567→.bal-lbl {
+   568→  font-size: 10px;
+   569→  letter-spacing: .22em;
+   570→  color: var(--dim);
+   571→  text-transform: uppercase;
+   572→  font-weight: 700;
+   573→}
+   574→.bal {
+   575→  font-family: 'Fraunces', Georgia, serif;
+   576→  font-weight: 400;
+   577→  font-size: clamp(28px, 3.2vw, 40px);
+   578→  letter-spacing: -.02em;
+   579→  margin-top: 8px;
+   580→}
+   581→
+   582→.trows { margin-top: 18px; border-top: 1px solid var(--line); }
+   583→.trow {
+   584→  display: flex;
+   585→  align-items: center;
+   586→  gap: 10px;
+   587→  padding: 12px 0;
+   588→  border-bottom: 1px solid var(--line);
+   589→  font-size: 13px;
+   590→  transition: background .2s;
+   591→}
+   592→.trow:last-child { border-bottom: none; }
+   593→.trow:hover { background: rgba(255,240,220,.015); }
+   594→.tdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+   595→.trow .n { flex: 1; color: var(--ink); font-weight: 600; }
+   596→.trow .d { color: var(--mut); font-size: 11px; font-weight: 500; }
+   597→.amt-p { color: var(--pos); font-weight: 700; }
+   598→.amt-n { color: var(--neg); font-weight: 700; }
+   599→
+   600→@media (max-width: 960px) {
+   601→  .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+   602→  .hero-preview { order: -1; }
+   603→  .appwin-shell { max-width: 420px; }
+   604→  .hero { padding: 140px 0 80px; }
+   605→}
+   606→@media (max-width: 540px) {
+   607→  .hero { padding: 120px 0 60px; }
+   608→  .wrap { padding: 0 20px; }
+   609→}
+   610→
+   611→/* ─────────────────────────────────────
+   612→   HOW IT WORKS — Bento Steps
+   613→   ───────────────────────────────────── */
+   614→.how-grid {
+   615→  display: grid;
+   616→  grid-template-columns: 1.2fr .8fr 1fr;
+   617→  gap: 20px;
+   618→  margin-top: 56px;
+   619→}
+   620→
+   621→.how-step {
+   622→  border-radius: 20px;
+   623→  background: rgba(255,240,220,.02);
+   624→  border: 1px solid var(--glass-border);
+   625→  padding: 2px;
+   626→  transition: all .4s var(--ease-spring);
+   627→}
+   628→
+   629→.how-step > .inner {
+   630→  border-radius: calc(20px - 2px);
+   631→  background: var(--card);
+   632→  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+   633→  padding: 36px 28px;
+   634→  text-align: center;
+   635→  height: 100%;
+   636→  transition: all .35s var(--ease-spring);
+   637→}
+   638→
+   639→.how-step:hover > .inner {
+   640→  background: linear-gradient(180deg, var(--card), rgba(212,132,90,.02));
+   641→}
+   642→
+   643→.how-step:hover {
+   644→  border-color: rgba(212,132,90,.15);
+   645→  box-shadow: var(--shadow-md);
+   646→  transform: translateY(-4px);
+   647→}
+   648→
+   649→.how-num {
+   650→  font-family: 'Fraunces', Georgia, serif;
+   651→  font-style: italic;
+   652→  font-size: 12px;
+   653→  color: var(--accent);
+   654→  letter-spacing: .06em;
+   655→  margin-bottom: 16px;
+   656→}
+   657→
+   658→.how-icon {
+   659→  width: 56px; height: 56px;
+   660→  border-radius: 16px;
+   661→  background: var(--bg2);
+   662→  border: 1px solid var(--line2);
+   663→  display: flex; align-items: center; justify-content: center;
+   664→  margin: 0 auto 18px;
+   665→  color: var(--accent);
+   666→  transition: all .35s var(--ease-spring);
+   667→}
+   668→
+   669→.how-step:hover .how-icon {
+   670→  border-color: rgba(212,132,90,.3);
+   671→  background: rgba(212,132,90,.06);
+   672→  transform: scale(1.08);
+   673→}
+   674→
+   675→.how-step h3 {
+   676→  font-family: 'Fraunces', Georgia, serif;
+   677→  font-weight: 500;
+   678→  font-size: 20px;
+   679→  letter-spacing: -.01em;
+   680→  margin-bottom: 10px;
+   681→}
+   682→
+   683→.how-step p {
+   684→  color: var(--mut);
+   685→  font-size: 14px;
+   686→  line-height: 1.7;
+   687→  font-weight: 500;
+   688→  max-width: 240px;
+   689→  margin: 0 auto;
+   690→}
+   691→
+   692→/* Arrow connectors */
+   693→.how-arrow-wrap {
+   694→  display: flex;
+   695→  align-items: center;
+   696→  justify-content: center;
+   697→}
+   698→.how-arrow {
+   699→  color: var(--accent);
+   700→  font-size: 18px;
+   701→  opacity: .3;
+   702→}
+   703→
+   704→@media (max-width: 760px) {
+   705→  .how-grid {
+   706→    grid-template-columns: 1fr;
+   707→    gap: 16px;
+   708→  }
+   709→  .how-arrow-wrap { display: none; }
+   710→}
+   711→
+   712→/* ─────────────────────────────────────
+   713→   EXAMPLES — Asymmetrical Bento
+   714→   ───────────────────────────────────── */
+   715→.examples-section {
+   716→  background: var(--bg2);
+   717→  border-top: 1px solid var(--line);
+   718→  border-bottom: 1px solid var(--line);
+   719→}
+   720→
+   721→.ex-header {
+   722→  display: flex;
+   723→  align-items: baseline;
+   724→  gap: 16px;
+   725→  margin-bottom: 48px;
+   726→  flex-wrap: wrap;
+   727→}
+   728→
+   729→.ex-header h2 {
+   730→  font-family: 'Fraunces', Georgia, serif;
+   731→  font-weight: 400;
+   732→  font-size: clamp(28px, 4vw, 42px);
+   733→  line-height: 1.1;
+   734→  letter-spacing: -.025em;
+   735→}
+   736→
+   737→.ex-list {
+   738→  display: grid;
+   739→  grid-template-columns: repeat(3, 1fr);
+   740→  gap: 16px;
+   741→}
+   742→
+   743→.ex-card {
+   744→  border-radius: 20px;
+   745→  background: rgba(255,240,220,.02);
+   746→  border: 1px solid var(--glass-border);
+   747→  padding: 2px;
+   748→  transition: all .4s var(--ease-spring);
+   749→}
+   750→
+   751→.ex-card > .inner {
+   752→  border-radius: calc(20px - 2px);
+   753→  background: var(--card);
+   754→  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+   755→  padding: 24px 26px;
+   756→  overflow: hidden;
+   757→  transition: all .35s var(--ease-spring);
+   758→}
+   759→
+   760→.ex-card:hover > .inner {
+   761→  background: linear-gradient(180deg, var(--card), rgba(212,132,90,.015));
+   762→}
+   763→
+   764→.ex-card:hover {
+   765→  border-color: rgba(212,132,90,.15);
+   766→  transform: translateY(-4px);
+   767→  box-shadow: var(--shadow-md);
+   768→}
+   769→
+   770→/* Varying card treatments */
+   771→.ex-card.wide {
+   772→  grid-column: span 2;
+   773→}
+   774→.ex-card.wide > .inner {
+   775→  border-left: 3px solid var(--accent);
+   776→  border-radius: 4px calc(20px - 2px) calc(20px - 2px) 4px;
+   777→}
+   778→
+   779→.ex-card.flat > .inner {
+   780→  border-radius: 6px;
+   781→  border-left: 3px solid var(--pos);
+   782→}
+   783→
+   784→.ex-card.minimal {
+   785→  background: none;
+   786→  border: none;
+   787→  padding: 0;
+   788→}
+   789→.ex-card.minimal > .inner {
+   790→  background: none;
+   791→  border: none;
+   792→  border-bottom: 1px solid var(--line);
+   793→  border-radius: 0;
+   794→  box-shadow: none;
+   795→  padding: 20px 14px;
+   796→}
+   797→
+   798→.ex-card.highlight > .inner {
+   799→  background: linear-gradient(135deg, var(--card), rgba(212,132,90,.04));
+   800→  border: 1px solid rgba(212,132,90,.15);
+   801→}
+   802→
+   803→.ex-input {
+   804→  font-family: 'JetBrains Mono', monospace;
+   805→  font-size: 14px;
+   806→  font-weight: 600;
+   807→  color: var(--ink);
+   808→  margin-bottom: 16px;
+   809→  display: flex;
+   810→  align-items: center;
+   811→  gap: 8px;
+   812→}
+   813→
+   814→.ex-input .prompt { color: var(--accent); font-weight: 700; }
+   815→
+   816→.ex-result {
+   817→  display: flex;
+   818→  align-items: center;
+   819→  gap: 10px;
+   820→  flex-wrap: wrap;
+   821→}
+   822→
+   823→.ex-cat {
+   824→  display: inline-flex;
+   825→  align-items: center;
+   826→  gap: 6px;
+   827→  font-size: 11px;
+   828→  font-weight: 700;
+   829→  padding: 4px 12px;
+   830→  border-radius: 99px;
+   831→  background: rgba(212,132,90,.06);
+   832→  border: 1px solid rgba(212,132,90,.15);
+   833→  letter-spacing: .02em;
+   834→}
+   835→
+   836→.ex-amt { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+   837→.ex-amt.neg { color: var(--neg); }
+   838→.ex-amt.pos { color: var(--pos); }
+   839→
+   840→.ex-type {
+   841→  font-size: 10px;
+   842→  color: var(--dim);
+   843→  font-weight: 700;
+   844→  letter-spacing: .08em;
+   845→  text-transform: uppercase;
+   846→}
+   847→
+   848→.ex-arrow { color: var(--accent); font-size: 13px; opacity: .4; margin: 0 2px; }
+   849→
+   850→@media (max-width: 760px) {
+   851→  .ex-list { grid-template-columns: 1fr; }
+   852→  .ex-card.wide { grid-column: span 1; }
+   853→}
+   854→@media (min-width: 761px) and (max-width: 960px) {
+   855→  .ex-list { grid-template-columns: 1fr 1fr; }
+   856→  .ex-card.wide { grid-column: span 2; }
+   857→}
+   858→
+   859→/* ─────────────────────────────────────
+   860→   THE PITCH — Editorial Split
+   861→   ───────────────────────────────────── */
+   862→.pitch-grid {
+   863→  display: grid;
+   864→  grid-template-columns: 1.3fr .7fr;
+   865→  gap: 80px;
+   866→  align-items: center;
+   867→}
+   868→
+   869→.pitch-left h2 {
+   870→  font-family: 'Fraunces', Georgia, serif;
+   871→  font-weight: 400;
+   872→  font-size: clamp(32px, 4.5vw, 48px);
+   873→  line-height: 1.1;
+   874→  letter-spacing: -.03em;
+   875→}
+   876→
+   877→.pitch-left p {
+   878→  color: var(--mut);
+   879→  font-size: 16px;
+   880→  line-height: 1.8;
+   881→  margin-top: 20px;
+   882→  font-weight: 500;
+   883→  max-width: 540px;
+   884→}
+   885→
+   886→.pitch-points {
+   887→  margin-top: 36px;
+   888→  display: flex;
+   889→  flex-direction: column;
+   890→  gap: 16px;
+   891→}
+   892→
+   893→.pitch-point {
+   894→  display: flex;
+   895→  gap: 14px;
+   896→  align-items: flex-start;
+   897→  padding: 12px 16px;
+   898→  border-radius: 14px;
+   899→  border: 1px solid transparent;
+   900→  transition: all .3s var(--ease-spring);
+   901→}
+   902→.pitch-point:hover {
+   903→  background: rgba(255,240,220,.015);
+   904→  border-color: var(--glass-border);
+   905→}
+   906→
+   907→.pitch-point .icon {
+   908→  width: 40px; height: 40px;
+   909→  border-radius: 12px;
+   910→  background: var(--card2);
+   911→  border: 1px solid var(--line2);
+   912→  display: flex; align-items: center; justify-content: center;
+   913→  color: var(--accent);
+   914→  flex-shrink: 0;
+   915→}
+   916→
+   917→.pitch-point strong { display: block; font-size: 14.5px; margin-bottom: 3px; }
+   918→.pitch-point span { display: block; color: var(--mut); font-size: 13px; font-weight: 500; line-height: 1.6; }
+   919→
+   920→/* Quote card — double bezel */
+   921→.pitch-right-shell {
+   922→  border-radius: 20px;
+   923→  background: rgba(255,240,220,.025);
+   924→  border: 1px solid var(--glass-border);
+   925→  padding: 2px;
+   926→  box-shadow: var(--shadow-md);
+   927→}
+   928→
+   929→.pitch-right {
+   930→  border-radius: calc(20px - 2px);
+   931→  background: var(--card);
+   932→  box-shadow: inset 0 1px 1px rgba(255,255,255,.03);
+   933→  padding: 32px;
+   934→  border-left: 3px solid var(--accent);
+   935→}
+   936→
+   937→.pitch-right .label {
+   938→  font-size: 10px;
+   939→  letter-spacing: .22em;
+   940→  text-transform: uppercase;
+   941→  color: var(--accent);
+   942→  font-weight: 700;
+   943→  margin-bottom: 14px;
+   944→}
+   945→
+   946→.pitch-right p {
+   947→  font-family: 'Fraunces', Georgia, serif;
+   948→  font-weight: 400;
+   949→  font-size: 18px;
+   950→  line-height: 1.65;
+   951→  color: var(--ink2);
+   952→  font-style: italic;
+   953→}
+   954→
+   955→@media (max-width: 760px) {
+   956→  .pitch-grid { grid-template-columns: 1fr; gap: 40px; }
+   957→}
+   958→
+   959→/* ─────────────────────────────────────
+   960→   PRICING
+   961→   ───────────────────────────────────── */
+   962→.pricing-section {
+   963→  text-align: center;
+   964→  padding: 100px 0;
+   965→  border-top: 1px solid var(--line);
+   966→}
+   967→
+   968→.pricing-label {
+   969→  font-size: 10px;
+   970→  letter-spacing: .22em;
+   971→  text-transform: uppercase;
+   972→  color: var(--accent);
+   973→  font-weight: 700;
+   974→}
+   975→
+   976→/* ── Two-tier pricing grid ── */
+   977→.pricing-grid {
+   978→  display: grid;
+   979→  grid-template-columns: 1fr 1fr;
+   980→  gap: 24px;
+   981→  max-width: 720px;
+   982→  margin: 40px auto 0;
+   983→  text-align: left;
+   984→}
+   985→
+   986→.pricing-card {
+   987→  background: var(--card);
+   988→  border: 1px solid var(--line2);
+   989→  border-radius: 16px;
+   990→  padding: 32px 28px;
+   991→  display: flex;
+   992→  flex-direction: column;
+   993→  position: relative;
+   994→  transition: border-color .3s var(--ease-spring), box-shadow .3s var(--ease-spring);
+   995→}
+   996→
+   997→.pricing-card:hover {
+   998→  border-color: var(--line3);
+   999→  box-shadow: var(--shadow-sm);
+  1000→}
+  1001→
+  1002→.pricing-card.recommended {
+  1003→  border-color: var(--accent);
+  1004→  box-shadow: 0 0 40px rgba(212,132,90,.12), var(--shadow-sm);
+  1005→  background: var(--card2);
+  1006→}
+  1007→
+  1008→.pricing-card.recommended:hover {
+  1009→  border-color: var(--accent2);
+  1010→  box-shadow: 0 0 60px rgba(212,132,90,.18), var(--shadow-md);
+  1011→}
+  1012→
+  1013→.pricing-badge {
+  1014→  position: absolute;
+  1015→  top: -12px;
+  1016→  left: 50%;
+  1017→  transform: translateX(-50%);
+  1018→  background: var(--accent);
+  1019→  color: #0A0806;
+  1020→  font-size: 10px;
+  1021→  font-weight: 800;
+  1022→  letter-spacing: .15em;
+  1023→  text-transform: uppercase;
+  1024→  padding: 4px 16px;
+  1025→  border-radius: 99px;
+  1026→  white-space: nowrap;
+  1027→}
+  1028→
+  1029→.pricing-card-header {
+  1030→  margin-bottom: 24px;
+  1031→}
+  1032→
+  1033→.pricing-card-header h3 {
+  1034→  font-size: 18px;
+  1035→  font-weight: 700;
+  1036→  color: var(--ink);
+  1037→  margin: 0 0 8px;
+  1038→}
+  1039→
+  1040→.pricing-card-price {
+  1041→  display: flex;
+  1042→  align-items: baseline;
+  1043→  gap: 4px;
+  1044→}
+  1045→
+  1046→.pricing-card-amount {
+  1047→  font-family: 'Fraunces', Georgia, serif;
+  1048→  font-weight: 600;
+  1049→  font-size: 32px;
+  1050→  letter-spacing: -.02em;
+  1051→  color: var(--ink);
+  1052→}
+  1053→
+  1054→.pricing-card-per {
+  1055→  font-size: 14px;
+  1056→  color: var(--mut);
+  1057→  font-weight: 500;
+  1058→}
+  1059→
+  1060→.pricing-card-annual {
+  1061→  font-size: 12px;
+  1062→  color: var(--dim);
+  1063→  margin-top: 4px;
+  1064→  font-weight: 500;
+  1065→}
+  1066→
+  1067→.pricing-save {
+  1068→  display: inline-block;
+  1069→  background: rgba(93,174,106,.12);
+  1070→  color: var(--pos);
+  1071→  font-size: 10px;
+  1072→  font-weight: 700;
+  1073→  padding: 2px 8px;
+  1074→  border-radius: 99px;
+  1075→  margin-left: 6px;
+  1076→  letter-spacing: .03em;
+  1077→}
+  1078→
+  1079→/* Feature list */
+  1080→.pricing-features {
+  1081→  list-style: none;
+  1082→  padding: 0;
+  1083→  margin: 0 0 28px;
+  1084→  flex: 1;
+  1085→}
+  1086→
+  1087→.pricing-feature {
+  1088→  display: flex;
+  1089→  align-items: center;
+  1090→  gap: 10px;
+  1091→  font-size: 13.5px;
+  1092→  color: var(--ink2);
+  1093→  font-weight: 500;
+  1094→  padding: 6px 0;
+  1095→  line-height: 1.4;
+  1096→}
+  1097→
+  1098→.pf-check {
+  1099→  width: 16px;
+  1100→  height: 16px;
+  1101→  flex-shrink: 0;
+  1102→  border-radius: 50%;
+  1103→  background: rgba(212,132,90,.15);
+  1104→  display: flex;
+  1105→  align-items: center;
+  1106→  justify-content: center;
+  1107→}
+  1108→
+  1109→.pf-check::after {
+  1110→  content: '✓';
+  1111→  font-size: 10px;
+  1112→  color: var(--accent);
+  1113→  font-weight: 700;
+  1114→}
+  1115→
+  1116→.pricing-card.recommended .pf-check {
+  1117→  background: rgba(212,132,90,.22);
+  1118→}
+  1119→
+  1120→.pricing-card-cta {
+  1121→  margin-top: auto;
+  1122→  text-align: center;
+  1123→}
+  1124→
+  1125→.pricing-card-cta .btn {
+  1126→  width: 100%;
+  1127→  justify-content: center;
+  1128→}
+  1129→
+  1130→@media (max-width: 640px) {
+  1131→  .pricing-grid {
+  1132→    grid-template-columns: 1fr;
+  1133→    max-width: 400px;
+  1134→  }
+  1135→}
+  1136→
+  1137→/* ─────────────────────────────────────
+  1138→   FAQ
+  1139→   ───────────────────────────────────── */
+  1140→.faq { max-width: 660px; margin: 48px auto 0; }
+  1141→.qa { border-bottom: 1px solid var(--line); }
+  1142→.qa:first-child { border-top: 1px solid var(--line); }
+  1143→.qa button {
+  1144→  width: 100%; background: none; border: none; color: var(--ink); font-family: inherit;
+  1145→  font-size: 15.5px; font-weight: 600; text-align: left; padding: 24px 8px;
+  1146→  cursor: pointer; display: flex; align-items: center; gap: 14px;
+  1147→  transition: all .3s var(--ease-spring);
+  1148→}
+  1149→.qa button:hover { color: var(--accent2); }
+  1150→.qa .pm {
+  1151→  margin-left: auto; width: 28px; height: 28px; border-radius: 8px;
+  1152→  border: 1px solid var(--line3); display: flex; align-items: center; justify-content: center;
+  1153→  font-size: 13px; color: var(--accent); flex-shrink: 0;
+  1154→  transition: all .35s var(--ease-spring);
+  1155→}
+  1156→.qa.open .pm {
+  1157→  transform: rotate(45deg);
+  1158→  background: rgba(212,132,90,.1);
+  1159→  border-color: rgba(212,132,90,.35);
+  1160→}
+  1161→.qa .ans { overflow: hidden; transition: max-height .5s var(--ease-spring); }
+  1162→.qa .ans p { color: var(--mut); font-size: 14px; line-height: 1.8; padding: 0 8px 28px; max-width: 600px; font-weight: 500; }
+  1163→
+  1164→/* ─────────────────────────────────────
+  1165→   CTA FINAL — Cinematic
+  1166→   ───────────────────────────────────── */
+  1167→.final {
+  1168→  text-align: center;
+  1169→  padding: 120px 0;
+  1170→  position: relative;
+  1171→  overflow: hidden;
+  1172→}
+  1173→
+  1174→.final::before {
+  1175→  content: '';
+  1176→  position: absolute;
+  1177→  top: 50%;
+  1178→  left: 50%;
+  1179→  transform: translate(-50%, -50%);
+  1180→  width: 80%;
+  1181→  height: 80%;
+  1182→  background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(212,132,90,.1), transparent 70%);
+  1183→  pointer-events: none;
+  1184→}
+  1185→
+  1186→/* CTA card with animated gradient border */
+  1187→.final-card-shell {
+  1188→  display: inline-block;
+  1189→  border-radius: 28px;
+  1190→  background: conic-gradient(from var(--angle, 0deg), rgba(212,132,90,.35), rgba(93,174,106,.2), rgba(122,107,201,.18), rgba(232,152,106,.3), rgba(212,132,90,.35));
+  1191→  padding: 1.5px;
+  1192→  animation: borderRotate 6s linear infinite;
+  1193→  margin-top: 40px;
+  1194→}
+  1195→
+  1196→.final-card {
+  1197→  border-radius: calc(28px - 1.5px);
+  1198→  background: var(--bg);
+  1199→  padding: 48px 56px;
+  1200→  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  1201→}
+  1202→
+  1203→.final h2 {
+  1204→  font-family: 'Fraunces', Georgia, serif;
+  1205→  font-weight: 400;
+  1206→  font-size: clamp(36px, 5.5vw, 64px);
+  1207→  letter-spacing: -.035em;
+  1208→  line-height: 1.08;
+  1209→  max-width: 640px;
+  1210→  margin: 16px auto 0;
+  1211→  position: relative;
+  1212→}
+  1213→.final .sub {
+  1214→  color: var(--mut);
+  1215→  font-size: 16px;
+  1216→  max-width: 480px;
+  1217→  margin: 20px auto 0;
+  1218→  font-weight: 500;
+  1219→  line-height: 1.75;
+  1220→}
+  1221→.final .btn { margin-top: 36px; }
+  1222→.final .mini {
+  1223→  display: block;
+  1224→  margin-top: 16px;
+  1225→  color: var(--dim);
+  1226→  font-size: 12px;
+  1227→  font-weight: 500;
+  1228→  letter-spacing: .06em;
+  1229→}
+  1230→
+  1231→/* ─────────────────────────────────────
+  1232→   FOOTER
+  1233→   ───────────────────────────────────── */
+  1234→.lp-footer {
+  1235→  border-top: 1px solid var(--line);
+  1236→  padding: 48px 0 40px;
+  1237→}
+  1238→
+  1239→.footer-inner {
+  1240→  display: flex;
+  1241→  justify-content: space-between;
+  1242→  align-items: center;
+  1243→  gap: 20px;
+  1244→  flex-wrap: wrap;
+  1245→}
+  1246→
+  1247→.footer-brand {
+  1248→  display: flex;
+  1249→  align-items: center;
+  1250→  gap: 8px;
+  1251→  font-weight: 800;
+  1252→  font-size: 15px;
+  1253→  letter-spacing: -.02em;
+  1254→}
+  1255→
+  1256→.footer-tagline {
+  1257→  color: var(--dim);
+  1258→  font-size: 13px;
+  1259→  font-weight: 500;
+  1260→}
+  1261→
+  1262→.footer-link {
+  1263→  color: var(--dim);
+  1264→  font-size: 13px;
+  1265→  font-weight: 600;
+  1266→  transition: all .25s var(--ease-spring);
+  1267→  letter-spacing: .02em;
+  1268→}
+  1269→.footer-link:hover { color: var(--accent2); }
+  1270→
+  1271→@media (max-width: 540px) {
+  1272→  .footer-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
+  1273→}
+  1274→
+  1275→/* ─────────────────────────────────────
+  1276→   Utility & Overrides
+  1277→   ───────────────────────────────────── */
+  1278→.lp h2 {
+  1279→  font-family: 'Fraunces', Georgia, serif;
+  1280→  font-weight: 400;
+  1281→  letter-spacing: -.025em;
+  1282→  line-height: 1.12;
+  1283→}
+  1284→
+  1285→/* ─────────────────────────────────────
+  1286→   Micro-Interactions & Premium Polish
+  1287→   ───────────────────────────────────── */
+  1288→
+  1289→/* Cursor-following glow in hero */
+  1290→.hero-glow {
+  1291→  position: absolute;
+  1292→  width: 500px;
+  1293→  height: 500px;
+  1294→  border-radius: 50%;
+  1295→  background: radial-gradient(circle, rgba(212,132,90,.08) 0%, transparent 70%);
+  1296→  pointer-events: none;
+  1297→  transform: translate(-50%, -50%);
+  1298→  transition: left .6s var(--ease-out-expo), top .6s var(--ease-out-expo);
+  1299→  z-index: 0;
+  1300→  mix-blend-mode: screen;
+  1301→}
+  1302→
+  1303→/* Accent button glow pulse */
+  1304→.btn-accent::before {
+  1305→  content: '';
+  1306→  position: absolute;
+  1307→  inset: -2px;
+  1308→  border-radius: 99px;
+  1309→  background: linear-gradient(135deg, rgba(212,132,90,.3), rgba(232,152,106,.1));
+  1310→  opacity: 0;
+  1311→  transition: opacity .4s var(--ease-spring);
+  1312→  z-index: -1;
+  1313→}
+  1314→.btn-accent:hover::before { opacity: 1; }
+  1315→
+  1316→/* Premium card interactive glow on hover */
+  1317→.how-step::after,
+  1318→.ex-card::after {
+  1319→  content: '';
+  1320→  position: absolute;
+  1321→  inset: 0;
+  1322→  border-radius: inherit;
+  1323→  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(212,132,90,.06), transparent 60%);
+  1324→  pointer-events: none;
+  1325→  opacity: 0;
+  1326→  transition: opacity .4s var(--ease-spring);
+  1327→}
+  1328→.how-step:hover::after,
+  1329→.ex-card:hover::after { opacity: 1; }
+  1330→.how-step,
+  1331→.ex-card { position: relative; }
+  1332→
+  1333→/* Subtle text shimmer on hero name */
+  1334→.hero-name .line:first-child {
+  1335→  background: linear-gradient(
+  1336→    105deg,
+  1337→    var(--ink) 0%,
+  1338→    var(--ink) 40%,
+  1339→    var(--accent3) 50%,
+  1340→    var(--ink) 60%,
+  1341→    var(--ink) 100%
+  1342→  );
+  1343→  background-size: 250% 100%;
+  1344→  -webkit-background-clip: text;
+  1345→  background-clip: text;
+  1346→  -webkit-text-fill-color: transparent;
+  1347→  animation: shimmer 6s 1.2s var(--ease-out-expo) infinite;
+  1348→}
+  1349→
+  1350→@keyframes shimmer {
+  1351→  0%, 100% { background-position: 250% center; }
+  1352→  50% { background-position: -250% center; }
+  1353→}
+  1354→
+  1355→/* Trow subtle slide-in on hover */
+  1356→.trow {
+  1357→  transition: all .25s var(--ease-spring);
+  1358→}
+  1359→.trow:hover {
+  1360→  padding-left: 6px;
+  1361→}
+  1362→
+  1363→/* Smooth link underline animation */
+  1364→.nlinks a::after {
+  1365→  content: '';
+  1366→  position: absolute;
+  1367→  bottom: 2px;
+  1368→  left: 14px;
+  1369→  right: 14px;
+  1370→  height: 1px;
+  1371→  background: var(--accent);
+  1372→  transform: scaleX(0);
+  1373→  transform-origin: left;
+  1374→  transition: transform .3s var(--ease-spring);
+  1375→}
+  1376→.nlinks a { position: relative; }
+  1377→.nlinks a:hover::after { transform: scaleX(1); }
+  1378→
+  1379→/* Footer link arrow slide */
+  1380→.footer-link::after {
+  1381→  content: '';
+  1382→  display: inline-block;
+  1383→  width: 0;
+  1384→  transition: width .3s var(--ease-spring);
+  1385→  margin-left: 0;
+  1386→}
+  1387→.footer-link:hover::after {
+  1388→  width: 6px;
+  1389→  margin-left: 4px;
+  1390→}
+  1391→
+  1392→/* ═══════════════════════════════════════════════════
+  1393→   3D ANIMATIONS — The Signature Moments
+  1394→   ═══════════════════════════════════════════════════ */
+  1395→
+  1396→/* ─── 3D Floating App Preview Card ─── */
+  1397→.appwin-shell {
+  1398→  animation: borderRotate 4s linear infinite, float3d 6s var(--ease-out-expo) infinite;
+  1399→}
+  1400→
+  1401→@keyframes float3d {
+  1402→  0%, 100% {
+  1403→    transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) translateY(0);
+  1404→  }
+  1405→  25% {
+  1406→    transform: perspective(1200px) rotateY(1deg) rotateX(-0.5deg) translateY(-8px);
+  1407→  }
+  1408→  50% {
+  1409→    transform: perspective(1200px) rotateY(2deg) rotateX(0.5deg) translateY(-4px);
+  1410→  }
+  1411→  75% {
+  1412→    transform: perspective(1200px) rotateY(-1deg) rotateX(-1deg) translateY(-10px);
+  1413→  }
+  1414→}
+  1415→
+  1416→/* ─── 3D Stacked Depth Cards behind preview ─── */
+  1417→.hero-depth-stack {
+  1418→  position: absolute;
+  1419→  top: 20px;
+  1420→  right: 0;
+  1421→  width: 100%;
+  1422→  height: 100%;
+  1423→  pointer-events: none;
+  1424→  perspective: 1200px;
+  1425→}
+  1426→
+  1427→.depth-card {
+  1428→  position: absolute;
+  1429→  border-radius: 24px;
+  1430→  background: var(--card);
+  1431→  border: 1px solid var(--line);
+  1432→  right: -20px;
+  1433→  animation: depthFloat 8s var(--ease-out-expo) infinite;
+  1434→}
+  1435→
+  1436→.depth-card-1 {
+  1437→  width: 85%;
+  1438→  height: 90%;
+  1439→  top: 30px;
+  1440→  opacity: .25;
+  1441→  transform: translateZ(-40px) rotateY(3deg) rotateX(-2deg);
+  1442→  animation-delay: 0s;
+  1443→}
+  1444→
+  1445→.depth-card-2 {
+  1446→  width: 90%;
+  1447→  height: 92%;
+  1448→  top: 15px;
+  1449→  opacity: .15;
+  1450→  transform: translateZ(-80px) rotateY(5deg) rotateX(-4deg);
+  1451→  animation-delay: -2s;
+  1452→}
+  1453→
+  1454→@keyframes depthFloat {
+  1455→  0%, 100% { transform: translateZ(-40px) rotateY(3deg) rotateX(-2deg); }
+  1456→  50% { transform: translateZ(-50px) rotateY(2deg) rotateX(-1deg) translateY(-6px); }
+  1457→}
+  1458→
+  1459→/* ─── 3D Rotating Geometric Shapes ─── */
+  1460→.geo-3d {
+  1461→  position: absolute;
+  1462→  pointer-events: none;
+  1463→  will-change: transform;
+  1464→}
+  1465→
+  1466→.geo-ring {
+  1467→  width: 120px;
+  1468→  height: 120px;
+  1469→  border: 1.5px solid rgba(212,132,90,.12);
+  1470→  border-radius: 50%;
+  1471→  animation: rotateRing 20s linear infinite;
+  1472→}
+  1473→
+  1474→@keyframes rotateRing {
+  1475→  to { transform: rotateX(70deg) rotateZ(360deg); }
+  1476→}
+  1477→
+  1478→.geo-ring-2 {
+  1479→  width: 80px;
+  1480→  height: 80px;
+  1481→  border: 1px solid rgba(93,174,106,.1);
+  1482→  border-radius: 50%;
+  1483→  animation: rotateRing2 15s linear infinite reverse;
+  1484→}
+  1485→
+  1486→@keyframes rotateRing2 {
+  1487→  to { transform: rotateX(50deg) rotateY(30deg) rotateZ(360deg); }
+  1488→}
+  1489→
+  1490→.geo-diamond {
+  1491→  width: 40px;
+  1492→  height: 40px;
+  1493→  border: 1px solid rgba(212,132,90,.1);
+  1494→  transform: rotate(45deg);
+  1495→  animation: rotateDiamond 12s linear infinite;
+  1496→}
+  1497→
+  1498→@keyframes rotateDiamond {
+  1499→  0% { transform: rotate(45deg) rotateX(0deg); }
+  1500→  100% { transform: rotate(45deg) rotateX(360deg); }
+  1501→}
+  1502→
+  1503→/* ─── 3D Perspective Grid ─── */
+  1504→.perspective-grid {
+  1505→  position: absolute;
+  1506→  bottom: -60px;
+  1507→  left: -10%;
+  1508→  width: 120%;
+  1509→  height: 200px;
+  1510→  pointer-events: none;
+  1511→  opacity: .04;
+  1512→  transform: perspective(400px) rotateX(60deg);
+  1513→  background-image:
+  1514→    linear-gradient(var(--accent) 1px, transparent 1px),
+  1515→    linear-gradient(90deg, var(--accent) 1px, transparent 1px);
+  1516→  background-size: 60px 60px;
+  1517→  mask-image: linear-gradient(to top, black, transparent 80%);
+  1518→  -webkit-mask-image: linear-gradient(to top, black, transparent 80%);
+  1519→  animation: gridScroll 8s linear infinite;
+  1520→}
+  1521→
+  1522→@keyframes gridScroll {
+  1523→  to { background-position: 0 60px; }
+  1524→}
+  1525→
+  1526→/* ─── 3D Parallax Orbs ─── */
+  1527→.parallax-orb {
+  1528→  position: absolute;
+  1529→  border-radius: 50%;
+  1530→  pointer-events: none;
+  1531→  will-change: transform;
+  1532→  filter: blur(40px);
+  1533→}
+  1534→
+  1535→.orb-float-1 {
+  1536→  width: 300px;
+  1537→  height: 300px;
+  1538→  background: radial-gradient(circle, rgba(212,132,90,.15), transparent 70%);
+  1539→  animation: orbDrift1 12s var(--ease-out-expo) infinite;
+  1540→}
+  1541→
+  1542→@keyframes orbDrift1 {
+  1543→  0%, 100% { transform: translate3d(0, 0, 0); }
+  1544→  33% { transform: translate3d(30px, -20px, 10px); }
+  1545→  66% { transform: translate3d(-15px, 15px, -5px); }
+  1546→}
+  1547→
+  1548→.orb-float-2 {
+  1549→  width: 200px;
+  1550→  height: 200px;
+  1551→  background: radial-gradient(circle, rgba(93,174,106,.1), transparent 70%);
+  1552→  animation: orbDrift2 16s var(--ease-out-expo) infinite;
+  1553→}
+  1554→
+  1555→@keyframes orbDrift2 {
+  1556→  0%, 100% { transform: translate3d(0, 0, 0); }
+  1557→  50% { transform: translate3d(-25px, 25px, 15px); }
+  1558→}
+  1559→
+  1560→/* ─── 3D Card entrance (how-step) ─── */
+  1561→.how-step.reveal.in > .inner {
+  1562→  animation: cardEntrance3d .8s var(--ease-out-expo) both;
+  1563→}
+  1564→
+  1565→@keyframes cardEntrance3d {
+  1566→  from {
+  1567→    transform: perspective(600px) rotateY(-8deg) rotateX(5deg) translateZ(-30px);
+  1568→    opacity: 0;
+  1569→  }
+  1570→  to {
+  1571→    transform: perspective(600px) rotateY(0) rotateX(0) translateZ(0);
+  1572→    opacity: 1;
+  1573→  }
+  1574→}
+  1575→
+  1576→/* ─── 3D Hover on how-step ─── */
+  1577→.how-step {
+  1578→  transform-style: preserve-3d;
+  1579→  perspective: 800px;
+  1580→}
+  1581→
+  1582→.how-step:hover {
+  1583→  transform: perspective(800px) rotateY(0deg) rotateX(0deg) translateZ(8px);
+  1584→}
+  1585→
+  1586→/* ─── 3D Floating Trust Dots ─── */
+  1587→.trust-dot {
+  1588→  animation: dotPulse3d 3s var(--ease-out-expo) infinite;
+  1589→}
+  1590→
+  1591→@keyframes dotPulse3d {
+  1592→  0%, 100% { transform: translateZ(0) scale(1); box-shadow: 0 0 6px currentColor; }
+  1593→  50% { transform: translateZ(10px) scale(1.3); box-shadow: 0 0 16px currentColor; }
+  1594→}
+  1595→
+  1596→/* ─── 3D Perspective on Example Cards ─── */
+  1597→.ex-card.reveal.in {
+  1598→  animation: exCard3d .7s var(--ease-out-expo) both;
+  1599→}
+  1600→
+  1601→@keyframes exCard3d {
+  1602→  from {
+  1603→    transform: perspective(800px) rotateX(4deg) translateY(16px) translateZ(-20px);
+  1604→    opacity: 0;
+  1605→  }
+  1606→  to {
+  1607→    transform: perspective(800px) rotateX(0) translateY(0) translateZ(0);
+  1608→    opacity: 1;
+  1609→  }
+  1610→}
+  1611→
+  1612→/* ─── Mobile: reduce 3D for performance ─── */
+  1613→@media (max-width: 768px) {
+  1614→  .appwin-shell {
+  1615→    animation: borderRotate 4s linear infinite;
+  1616→  }
+  1617→  .depth-card, .geo-3d, .perspective-grid, .parallax-orb { display: none; }
+  1618→  .how-step.reveal.in > .inner { animation: none; }
+  1619→  .ex-card.reveal.in { animation: none; }
+  1620→}
+  1621→

@@ -15,33 +15,22 @@ MIDTRANS_IS_PRODUCTION = "false"
 ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 
 # ── KV Namespace: rate limiting, session cache, feature flags ──
-# Create first: npx wrangler kv namespace create "ARUS_KV"
-# Then paste the preview_id below
-# [[kv_namespaces]]
-# binding = "ARUS_KV"
-# id = ""           # production namespace ID (from wrangler output)
-# preview_id = ""   # dev/preview namespace ID
+# RUN: npx wrangler kv namespace create "ARUS_KV"
+# Then paste the id + preview_id from the output below
+[[kv_namespaces]]
+binding = "ARUS_KV"
+id = "PASTE_KV_ID_HERE"
+preview_id = "PASTE_KV_PREVIEW_ID_HERE"
 
 # ── R2 Bucket: PDF backups, invoice attachments, exported reports ──
-# Create first: npx wrangler r2 bucket create "arus-storage"
-# [[r2_buckets]]
-# binding = "ARUS_STORAGE"
-# bucket_name = "arus-storage"
+# RUN: npx wrangler r2 bucket create "arus-storage"
+[[r2_buckets]]
+binding = "ARUS_STORAGE"
+bucket_name = "arus-storage"
 
-# ── Cron Triggers: subscription expiry check, payment reminders ──
+# ── Cron Triggers: subscription expiry check ──
 [triggers]
 crons = ["0 2 * * *"]   # Run daily at 02:00 UTC (09:00 WIB)
-
-# ── Queues: async payment processing, email notifications ──
-# [[queues.producers]]
-# binding = "EMAIL_QUEUE"
-# queue = "arus-emails"
-#
-# [[queues.consumers]]
-# queue = "arus-emails"
-# max_batch_size = 10
-# max_batch_timeout = 30
-# max_retries = 3
 
 # Set these as Secrets in Cloudflare Dashboard (don't commit real keys):
 # SUPABASE_ANON_KEY

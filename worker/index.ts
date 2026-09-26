@@ -12,6 +12,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // ─── Env bindings ───────────────────────────────────────────────
 interface Env {
   ASSETS: Fetcher;
+  ARUS_KV: KVNamespace;          // Rate limiting, cache, feature flags
+  ARUS_STORAGE: R2Bucket;        // Backup files, PDF reports, invoices
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -830,6 +832,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
+    if (path === "/storage" || path.startsWith("/storage")) return await handleStorage(request, env);
+    if (path === "/cache" || path.startsWith("/cache")) return await handleCache(request, env);
 
     // Admin routes
     if (path.startsWith("/admin")) return await handleAdmin(request, env, path);
@@ -885,18 +889,116 @@ function getClientIp(request: Request): string {
 }
 
 async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<boolean> {
-  // If ARUS_KV is not bound, skip rate limiting
-  if (!("ARUS_KV" in env)) return true;
+  try {
+    const ip = getClientIp(request);
+    const key = `rl:${ip}`;
 
-  const kv = (env as unknown as { ARUS_KV: KVNamespace }).ARUS_KV;
-  const ip = getClientIp(request);
-  const key = `rl:${ip}`;
+    const current = parseInt(await env.ARUS_KV.get(key) || "0", 10);
+    if (current >= limit) return false; // Rate limited
 
-  const current = parseInt(await kv.get(key) || "0", 10);
-  if (current >= limit) return false; // Rate limited
+    await env.ARUS_KV.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
+    return true;
+  } catch {
+    // KV not available — skip rate limiting
+    return true;
+  }
+}
 
-  await kv.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
-  return true;
+// ─── API: /api/storage — R2 File Storage ──────────────────────
+// Pro users: backup JSON, PDF reports, invoice attachments
+async function handleStorage(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const userId = url.searchParams.get("user_id");
+  const fileId = url.searchParams.get("id");
+
+  if (!userId) return json({ error: "user_id required" }, 400);
+
+  // Check Pro plan
+  const admin = getAdmin(env);
+  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
+  if (sub?.plan !== "pro") return json({ error: "Storage cloud cuma untuk paket Pro." }, 403);
+
+  const prefix = `users/${userId}/`;
+
+  if (req.method === "GET") {
+    // List files or get single file
+    if (fileId) {
+      const obj = await env.ARUS_STORAGE.get(prefix + fileId);
+      if (!obj) return json({ error: "File tidak ditemukan" }, 404);
+      return new Response(obj.body, {
+        headers: {
+          "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
+          "Content-Disposition": obj.httpMetadata?.contentDisposition || "",
+        },
+      });
+    }
+
+    // List all files for this user
+    const listed = await env.ARUS_STORAGE.list({ prefix });
+    const files = listed.objects.map((o) => ({
+      key: o.key.replace(prefix, ""),
+      size: o.size,
+      uploaded: o.uploaded.toISOString(),
+      type: o.httpMetadata?.contentType || "",
+    }));
+    return json({ data: files });
+  }
+
+  if (req.method === "PUT") {
+    // Upload file
+    if (!fileId) return json({ error: "id (filename) required" }, 400);
+    const contentType = req.headers.get("Content-Type") || "application/json";
+    await env.ARUS_STORAGE.put(prefix + fileId, req.body, {
+      httpMetadata: { contentType },
+    });
+    return json({ ok: true, key: fileId });
+  }
+
+  if (req.method === "DELETE") {
+    if (!fileId) return json({ error: "id (filename) required" }, 400);
+    await env.ARUS_STORAGE.delete(prefix + fileId);
+    return json({ ok: true });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
+}
+
+// ─── API: /api/cache — KV Feature Flags & Cache ───────────────
+async function handleCache(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+
+  if (req.method === "GET") {
+    // Get a cached value or feature flag
+    const key = url.searchParams.get("key");
+    if (key) {
+      const value = await env.ARUS_KV.get(key);
+      return json({ key, value });
+    }
+    // List all keys with prefix
+    const prefix = url.searchParams.get("prefix") || "";
+    const list = await env.ARUS_KV.list({ prefix });
+    return json({ keys: list.keys.map((k) => ({ name: k.name, expiration: k.expiration })) });
+  }
+
+  if (req.method === "PUT") {
+    const body = await getBody(req);
+    const key = body.key as string;
+    const value = body.value as string;
+    const ttl = body.ttl as number | undefined;
+    if (!key || value === undefined) return json({ error: "key dan value required" }, 400);
+    const opts = ttl ? { expirationTtl: ttl } : undefined;
+    await env.ARUS_KV.put(key, value, opts);
+    return json({ ok: true, key });
+  }
+
+  if (req.method === "DELETE") {
+    const key = url.searchParams.get("key");
+    if (!key) return json({ error: "key required" }, 400);
+    await env.ARUS_KV.delete(key);
+    return json({ ok: true });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
 }
 
 // ─── Main Worker Export ─────────────────────────────────────────

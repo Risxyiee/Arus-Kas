@@ -29,8 +29,8 @@ ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 # bucket_name = "arus-storage"
 
 # ── Cron Triggers: subscription expiry check, payment reminders ──
-# [triggers]
-# crons = ["0 2 * * *"]   # Run daily at 02:00 UTC (09:00 WIB)
+[triggers]
+crons = ["0 2 * * *"]   # Run daily at 02:00 UTC (09:00 WIB)
 
 # ── Queues: async payment processing, email notifications ──
 # [[queues.producers]]

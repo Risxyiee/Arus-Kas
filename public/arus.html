@@ -752,17 +752,28 @@ async function doAuth(mode){
  const body=mode==='login'?{email,password:pass}:{email,password:pass,name:name||'Saya'};
  const r=await api(endpoint,{method:'POST',body:JSON.stringify(body)});
  if(r.error){toast(r.error);return;}
+ // Signup may require email confirmation — no access_token yet
+ if(!r.access_token){
+  closeModal();
+  toast('Cek email untuk konfirmasi, lalu masuk lagi 📧','info');
+  openAuthModal('login');
+  return;
+ }
  // Save auth token
  authToken=r.access_token;
  currentUser={id:r.user?.id,email:r.user?.email||email,name:name||'Saya'};
  localStorage.setItem('arus-auth-token',authToken);
  localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
  closeModal();
+ db.settings.onboarded=true;save();
  toast(mode==='login'?'Selamat datang! 👋':'Akun dibuat! 🎉');
  // Sync subscription from server
  const sub=await api('/subscription?user_id='+currentUser.id);
  if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
+ // Pull cloud data if Pro
+ if(getPlan().id==='pro'){await syncFromCloud();}
  render();
+ updateProfileUI();
 }
 
 function doLogout(){
@@ -1876,12 +1887,14 @@ function bellModal(){
 function onboardModal(){
  openModal('<div class="center"><div style="display:inline-flex;margin-bottom:10px;color:var(--pos)">'+ic('wallet','w20')+'</div>'+
   '<h3 style="font-weight:800;font-size:17px">Selamat datang di Arus</h3>'+
-  '<p class="small muted" style="margin-top:8px;line-height:1.65">Data hanya tersimpan di browser ini — tidak ada server, tidak ada akun. Mulai dari mana?</p></div>'+
+  '<p class="small muted" style="margin-top:8px;line-height:1.65">Buku kas pribadi & UMKM. Gratis untuk mulai, Pro untuk tumbuh.</p></div>'+
   '<div style="display:grid;gap:8px;margin-top:18px">'+
-  '<button class="btn primary" id="ob-demo" style="justify-content:flex-start">'+ic('bar','w14')+' Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
-  '<button class="btn" id="ob-clean" style="justify-content:flex-start">'+ic('plus','w14')+' Mulai bersih<span class="xs muted" style="margin-left:auto">kosong, siap diisi</span></button>'+
+  '<button class="btn primary" id="ob-login" style="justify-content:flex-start">'+ic('user','w14')+' Masuk dengan akun<span class="xs muted" style="margin-left:auto">sinkronisasi cloud ☁️</span></button>'+
+  '<button class="btn" id="ob-demo" style="justify-content:flex-start">'+ic('bar','w14')+' Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
+  '<button class="btn" id="ob-clean" style="justify-content:flex-start">'+ic('plus','w14')+' Mulai bersih (lokal)<span class="xs muted" style="margin-left:auto">tanpa akun</span></button>'+
   '<button class="btn" id="ob-import" style="justify-content:flex-start">'+ic('upload','w14')+' Pulihkan backup JSON<span class="xs muted" style="margin-left:auto">pindah perangkat</span></button>'+
   '<input type="file" id="ob-file" accept="application/json,.json" hidden></div>');
+ $('#ob-login').onclick=()=>{closeModal();openAuthModal('login');};
  $('#ob-demo').onclick=()=>{db.settings.onboarded=true;save();closeModal();render();toast('Data contoh dimuat — bebas diubah-ubah.');};
  $('#ob-clean').onclick=()=>{const keep={profile:db.profile,settings:Object.assign({},db.settings,{onboarded:true})};
   db=Object.assign(defaultDb(),keep,{demo:false});save();closeModal();render();toast('Kanvas kosong siap — catat transaksi pertamamu!');};
@@ -2080,6 +2093,31 @@ applyThemeUI();
 updateProfileUI();
 if(db.profile.pinEnabled&&db.profile.pin)showPinLock();
 render();
+
+// Auto-restore session if token exists
+(async function(){
+ if(!authToken||!currentUser)return;
+ try{
+  const me=await api('/auth/me');
+  if(me.data&&me.data.email){
+   currentUser={id:me.data.id,email:me.data.email,name:me.data.user_metadata?.name||'Saya'};
+   localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
+   // Sync subscription
+   const sub=await api('/subscription?user_id='+currentUser.id);
+   if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
+   // Pull cloud data if Pro
+   if(getPlan().id==='pro'){await syncFromCloud();render();}
+   updateProfileUI();
+  }else{
+   // Token expired — clear
+   authToken=null;currentUser=null;
+   localStorage.removeItem('arus-auth-token');
+   localStorage.removeItem('arus-current-user');
+   updateProfileUI();
+  }
+ }catch(e){}
+})();
+
 if(!db.settings.onboarded)setTimeout(onboardModal,db.profile.pinEnabled?900:400);
 window.addEventListener('hashchange',render);
 window.addEventListener('resize',()=>{if(ui.route==='dashboard')drawChart();if(ui.route==='statistik')drawDonut();});

@@ -841,17 +841,84 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 }
 
+// ─── Cron: Check expired Pro subscriptions ────────────────────
+async function handleCron(env: Env): Promise<void> {
+  const admin = getAdmin(env);
+  const now = new Date().toISOString();
+
+  // Find all Pro subscriptions that have expired
+  const { data: expired, error } = await admin
+    .from("subscriptions")
+    .select("user_id, expires_at")
+    .eq("plan", "pro")
+    .lt("expires_at", now);
+
+  if (error) {
+    console.error("Cron: failed to query expired subscriptions:", error);
+    return;
+  }
+
+  if (!expired || expired.length === 0) {
+    console.log(`Cron: no expired subscriptions at ${now}`);
+    return;
+  }
+
+  // Downgrade expired Pro users to Free
+  const userIds = expired.map((s: { user_id: string }) => s.user_id);
+  const { error: updateError } = await admin
+    .from("subscriptions")
+    .update({ plan: "free" })
+    .in("user_id", userIds);
+
+  if (updateError) {
+    console.error("Cron: failed to downgrade:", updateError);
+  } else {
+    console.log(`Cron: downgraded ${userIds.length} expired Pro → Free`);
+  }
+}
+
+// ─── Rate Limiting Helper (uses KV if available) ────────────────
+function getClientIp(request: Request): string {
+  return request.headers.get("cf-connecting-ip") ||
+         request.headers.get("x-forwarded-for")?.split(",")[0] ||
+         "unknown";
+}
+
+async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<boolean> {
+  // If ARUS_KV is not bound, skip rate limiting
+  if (!("ARUS_KV" in env)) return true;
+
+  const kv = (env as unknown as { ARUS_KV: KVNamespace }).ARUS_KV;
+  const ip = getClientIp(request);
+  const key = `rl:${ip}`;
+
+  const current = parseInt(await kv.get(key) || "0", 10);
+  if (current >= limit) return false; // Rate limited
+
+  await kv.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
+  return true;
+}
+
 // ─── Main Worker Export ─────────────────────────────────────────
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // API routes → Worker handlers
+    // Rate limiting on API routes (if KV available)
     if (url.pathname.startsWith("/api")) {
+      const allowed = await checkRateLimit(request, env);
+      if (!allowed) {
+        return json({ error: "Terlalu banyak request. Coba lagi dalam 1 menit." }, 429);
+      }
       return handleApi(request, env);
     }
 
     // Everything else → static assets
     return env.ASSETS.fetch(request);
+  },
+
+  // Cron trigger: runs daily at 09:00 WIB (02:00 UTC)
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleCron(env));
   },
 } satisfies ExportedHandler<Env>;

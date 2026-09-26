@@ -121,15 +121,18 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     const totalUsers = profilesRes.count ?? (profilesRes.data || []).length;
     const subs = subsRes.data || [];
     const proCount = subs.filter((s: { plan: string }) => s.plan === "pro").length;
-    const freeCount = totalUsers - proCount;
+    const proUnlimitedCount = subs.filter((s: { plan: string }) => s.plan === "pro_unlimited").length;
+    const paidCount = proCount + proUnlimitedCount;
+    const freeCount = totalUsers - paidCount;
     const now = new Date();
     const activePro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) >= now).length;
-    const expiredPro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) < now).length;
+    const activeProUnlimited = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro_unlimited" && s.expires_at && new Date(s.expires_at) >= now).length;
+    const expiredPro = subs.filter((s: { plan: string; expires_at: string | null }) => (s.plan === "pro" || s.plan === "pro_unlimited") && s.expires_at && new Date(s.expires_at) < now).length;
     const recentSignups = (recentRes.data || []).length;
-    const monthlyRevenue = proCount * 29000;
+    const monthlyRevenue = (proCount * 29000) + (proUnlimitedCount * 99000);
 
     return json({
-      data: { totalUsers, proCount, freeCount, monthlyRevenue, recentSignups, activePro, expiredPro },
+      data: { totalUsers, proCount, proUnlimitedCount, paidCount, freeCount, monthlyRevenue, recentSignups, activePro, activeProUnlimited, expiredPro },
     });
   }
 
@@ -190,24 +193,25 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     const expiresAt = body.expires_at as string | undefined;
 
     if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
-    if (plan !== "free" && plan !== "pro") return json({ error: "Plan harus 'free' atau 'pro'" }, 400);
+    if (plan !== "free" && plan !== "pro" && plan !== "pro_unlimited") return json({ error: "Plan harus 'free', 'pro', atau 'pro_unlimited'" }, 400);
 
     // Check if subscription exists
     const { data: existing } = await sb.from("subscriptions").select("id").eq("user_id", userId).single();
 
+    const planDurationDays = plan === "pro_unlimited" ? 365 : 30; // pro=30 days, pro_unlimited=365 days
     let result;
     if (existing) {
       const updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString() };
-      if (plan === "pro") {
-        updateData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+      if (plan === "pro" || plan === "pro_unlimited") {
+        updateData.expires_at = expiresAt || new Date(Date.now() + planDurationDays * 86400000).toISOString();
       } else {
         updateData.expires_at = expiresAt || null;
       }
       result = await sb.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
     } else {
       const insertData: Record<string, unknown> = { user_id: userId, plan };
-      if (plan === "pro") {
-        insertData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+      if (plan === "pro" || plan === "pro_unlimited") {
+        insertData.expires_at = expiresAt || new Date(Date.now() + planDurationDays * 86400000).toISOString();
       }
       result = await sb.from("subscriptions").insert(insertData).select().single();
     }
@@ -558,7 +562,8 @@ async function handleSubscription(req: Request, env: Env): Promise<Response> {
     if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
 
     const { data: existing } = await admin.from("subscriptions").select("id").eq("user_id", userId).single();
-    const expiresAt = plan === "pro" ? new Date(Date.now() + 30 * 86400000).toISOString() : null;
+    const planDurationDays = plan === "pro_unlimited" ? 365 : 30;
+    const expiresAt = (plan === "pro" || plan === "pro_unlimited") ? new Date(Date.now() + planDurationDays * 86400000).toISOString() : null;
 
     let result;
     if (existing) {
@@ -852,18 +857,24 @@ async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
     ? "https://app.midtrans.com/snap/v1/transactions"
     : "https://app.sandbox.midtrans.com/snap/v1/transactions";
 
-  const orderId = `ARUS-PRO-${userId.slice(0, 8)}-${Date.now()}`;
+  const plan = (body.plan as string) || "pro"; // "pro" or "pro_unlimited"
+  const isProUnlimited = plan === "pro_unlimited";
+  const grossAmount = isProUnlimited ? 99000 : 29000; // Rp 99.000 or Rp 29.000
+  const planLabel = isProUnlimited ? "Pro Unlimited" : "Pro";
+  const planDurationDays = isProUnlimited ? 365 : 30;
+
+  const orderId = `ARUS-${isProUnlimited ? "UNLTD" : "PRO"}-${userId.slice(0, 8)}-${Date.now()}`;
 
   const payload = {
     transaction_details: {
       order_id: orderId,
-      gross_amount: 29000, // Rp 29.000/bulan
+      gross_amount: grossAmount,
     },
     item_details: [{
-      id: "pro-monthly",
-      price: 29000,
+      id: isProUnlimited ? "pro-unlimited-yearly" : "pro-monthly",
+      price: grossAmount,
       quantity: 1,
-      name: "Arus Pro — Bulanan",
+      name: `Arus ${planLabel} — ${isProUnlimited ? "Tahunan" : "Bulanan"}`,
       category: "Subscription",
     }],
     customer_details: {
@@ -877,7 +888,7 @@ async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
     },
     metadata: {
       user_id: userId,
-      plan: "pro",
+      plan: plan, // "pro" or "pro_unlimited"
     },
   };
 
@@ -903,7 +914,7 @@ async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
   const admin = getAdmin(env);
   await admin.from("subscriptions").upsert({
     user_id: userId,
-    plan: "free",
+    plan: "free", // Will be upgraded on webhook success
     payment_method: "midtrans",
     transaction_id: orderId,
   }, { onConflict: "user_id" });
@@ -947,12 +958,14 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
     transactionStatus === "cancel";
 
   if (isSuccess && userId) {
-    // Activate Pro plan
-    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+    // Activate plan (pro or pro_unlimited based on metadata)
+    const paidPlan = metadata?.plan || "pro";
+    const planDurationDays = paidPlan === "pro_unlimited" ? 365 : 30;
+    const expiresAt = new Date(Date.now() + planDurationDays * 86400000).toISOString();
     const { error } = await admin
       .from("subscriptions")
       .update({
-        plan: "pro",
+        plan: paidPlan,
         started_at: new Date().toISOString(),
         expires_at: expiresAt,
         payment_method: `midtrans_${paymentType}`,
@@ -1031,11 +1044,11 @@ async function handleCron(env: Env): Promise<void> {
   const admin = getAdmin(env);
   const now = new Date().toISOString();
 
-  // Find all Pro subscriptions that have expired
+  // Find all paid subscriptions (pro + pro_unlimited) that have expired
   const { data: expired, error } = await admin
     .from("subscriptions")
-    .select("user_id, expires_at")
-    .eq("plan", "pro")
+    .select("user_id, expires_at, plan")
+    .in("plan", ["pro", "pro_unlimited"])
     .lt("expires_at", now);
 
   if (error) {
@@ -1062,7 +1075,7 @@ async function handleCron(env: Env): Promise<void> {
     for (const uid of userIds) {
       await invalidateSubscriptionCache(env, uid);
     }
-    console.log(`Cron: downgraded ${userIds.length} expired Pro → Free`);
+    console.log(`Cron: downgraded ${userIds.length} expired paid subscriptions → Free`);
   }
 }
 
@@ -1141,7 +1154,7 @@ async function invalidateSubscriptionCache(env: Env, userId: string): Promise<vo
 async function isProUser(env: Env, userId: string): Promise<boolean> {
   // Check KV cache first
   const cached = await getCachedSubscription(env, userId);
-  if (cached !== null) return cached === "pro";
+  if (cached !== null) return cached === "pro" || cached === "pro_unlimited";
 
   // Fallback to Supabase
   const admin = getAdmin(env);
@@ -1150,7 +1163,7 @@ async function isProUser(env: Env, userId: string): Promise<boolean> {
 
   // Cache it
   await cacheSubscription(env, userId, plan);
-  return plan === "pro";
+  return plan === "pro" || plan === "pro_unlimited";
 }
 
 // ─── R2 Handlers Removed ──────────────────────────────────────────

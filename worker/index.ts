@@ -12,8 +12,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // ─── Env bindings ───────────────────────────────────────────────
 interface Env {
   ASSETS: Fetcher;
-  ARUS_KV?: KVNamespace;          // Optional: rate limiting, cache, feature flags
-  ARUS_STORAGE?: R2Bucket;        // Optional: backup files, PDF reports, invoices
+  ARUS_KV: KVNamespace;            // Rate limiting, session cache, feature flags
+  ARUS_STORAGE: R2Bucket;          // Pro: backup JSON, PDF reports, invoices
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -21,6 +21,33 @@ interface Env {
   MIDTRANS_IS_PRODUCTION: string; // "true" or "false"
   ADMIN_EMAIL: string; // default: "riskiakbarp123@gmail.com"
 }
+
+// ─── R2 Constants ───────────────────────────────────────────────
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
+const MAX_FILES_PER_USER = 100;         // Max files per Pro user
+const ALLOWED_TYPES = new Set([
+  "application/json",
+  "application/pdf",
+  "text/csv",
+  "text/plain",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+// ─── KV Constants ───────────────────────────────────────────────
+const SESSION_TTL = 3600;          // 1 hour session cache
+const SUBSCRIPTION_CACHE_TTL = 300; // 5 min subscription cache
+const FEATURE_FLAG_TTL = 0;       // No expiry for feature flags (manual control)
+
+// ─── Default Feature Flags ─────────────────────────────────────
+const DEFAULT_FEATURE_FLAGS: Record<string, string> = {
+  "ff:pdf_export": "true",       // Pro: export PDF to cloud
+  "ff:cloud_backup": "true",     // Pro: auto-backup to R2
+  "ff:maintenance": "false",     // Global: maintenance mode
+  "ff:registration": "true",     // Global: allow new signups
+  "ff:max_free_transactions": "100", // Free tier limit
+};
 
 // ─── Helpers ────────────────────────────────────────────────────
 function json(data: unknown, status = 200): Response {
@@ -44,24 +71,35 @@ function getParams(url: URL): Record<string, string> {
   return p;
 }
 
-// ─── Admin Auth Verification ──────────────────────────────────
+// ─── Admin Auth Verification (with KV session cache) ───────────
 async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.replace("Bearer ", "");
 
-  // Verify token with Supabase
+  // Check KV session cache first
+  const cached = await getCachedSession(env, token);
+  if (cached) {
+    const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
+    if (cached.email !== adminEmail) return null;
+    return cached;
+  }
+
+  // Verify token+cache session
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
   });
   if (!res.ok) return null;
   const user = await res.json() as { id: string; email: string };
 
-  // Check admin email
   const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
   if (user.email !== adminEmail) return null;
 
-  return { userId: user.id, email: user.email };
+  // Cache the session
+  const sessionData = { userId: user.id, email: user.email };
+  await cacheSession(env, token, sessionData);
+
+  return sessionData;
 }
 
 // ─── API: /api/admin/* ────────────────────────────────────────
@@ -295,14 +333,9 @@ async function handleWallets(req: Request, env: Env): Promise<Response> {
     const body = await getBody(req);
     const userId = body.user_id as string;
 
-    // Check plan limit
-    const { data: sub } = await admin
-      .from("subscriptions")
-      .select("plan")
-      .eq("user_id", userId)
-      .single();
-
-    if (sub?.plan !== "pro") {
+    // Check plan limit (with KV cache)
+    const isPro = await isProUser(env, userId);
+    if (!isPro) {
       const { count } = await admin
         .from("wallets")
         .select("*", { count: "exact", head: true })
@@ -553,6 +586,12 @@ async function handleLogin(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/auth/signup ──────────────────────────────────────
 async function handleSignup(req: Request, env: Env): Promise<Response> {
+  // Check registration feature flag
+  const registrationOpen = await getFeatureFlag(env, "registration");
+  if (registrationOpen !== "true") {
+    return json({ error: "Pendaftaran sedang ditutup sementara." }, 403);
+  }
+
   const body = await getBody(req);
   const { email, password, name } = body as { email: string; password: string; name: string };
 
@@ -576,9 +615,9 @@ async function handleSync(req: Request, env: Env): Promise<Response> {
     const syncData = body.data as Record<string, unknown>;
     if (!userId || !syncData) return json({ error: "user_id dan data required" }, 400);
 
-    // Only Pro can sync
-    const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
-    if (sub?.plan !== "pro") return json({ error: "Sinkronisasi cloud cuma untuk paket Pro." }, 403);
+    // Only Pro can sync (with KV cache)
+    const isPro = await isProUser(env, userId);
+    if (!isPro) return json({ error: "Sinkronisasi cloud cuma untuk paket Pro." }, 403);
 
     const results: Record<string, unknown> = {};
 
@@ -668,6 +707,10 @@ async function handleLogout(req: Request, env: Env): Promise<Response> {
     return json({ error: "Unauthorized" }, 401);
   }
   const token = authHeader.replace("Bearer ", "");
+
+  // Invalidate KV session cache
+  await invalidateSession(env, token);
+
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/logout`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
@@ -832,6 +875,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
+    if (path === "/storage/backup" || path.startsWith("/storage/backup")) return await handleBackup(request, env);
+    if (path === "/storage/restore" || path.startsWith("/storage/restore")) return await handleRestore(request, env);
     if (path === "/storage" || path.startsWith("/storage")) return await handleStorage(request, env);
     if (path === "/cache" || path.startsWith("/cache")) return await handleCache(request, env);
 
@@ -877,11 +922,15 @@ async function handleCron(env: Env): Promise<void> {
   if (updateError) {
     console.error("Cron: failed to downgrade:", updateError);
   } else {
+    // Invalidate KV subscription caches for downgraded users
+    for (const uid of userIds) {
+      await invalidateSubscriptionCache(env, uid);
+    }
     console.log(`Cron: downgraded ${userIds.length} expired Pro → Free`);
   }
 }
 
-// ─── Rate Limiting Helper (uses KV if available) ────────────────
+// ─── Rate Limiting Helper (uses KV) ────────────────────────────
 function getClientIp(request: Request): string {
   return request.headers.get("cf-connecting-ip") ||
          request.headers.get("x-forwarded-for")?.split(",")[0] ||
@@ -889,35 +938,97 @@ function getClientIp(request: Request): string {
 }
 
 async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<boolean> {
-  if (!env.ARUS_KV) return true; // KV not bound — skip rate limiting
   try {
     const ip = getClientIp(request);
     const key = `rl:${ip}`;
-
     const current = parseInt(await env.ARUS_KV.get(key) || "0", 10);
     if (current >= limit) return false; // Rate limited
-
     await env.ARUS_KV.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
     return true;
   } catch {
-    return true;
+    return true; // Graceful fallback if KV fails
   }
+}
+
+// ─── KV: Session Cache ──────────────────────────────────────────
+// Caches Supabase auth verification results to reduce API calls
+async function getCachedSession(env: Env, token: string): Promise<{ userId: string; email: string } | null> {
+  try {
+    const cached = await env.ARUS_KV.get(`session:${token}`, "json");
+    if (cached) return cached as { userId: string; email: string };
+  } catch {}
+  return null;
+}
+
+async function cacheSession(env: Env, token: string, data: { userId: string; email: string }): Promise<void> {
+  try {
+    await env.ARUS_KV.put(`session:${token}`, JSON.stringify(data), { expirationTtl: SESSION_TTL });
+  } catch {}
+}
+
+async function invalidateSession(env: Env, token: string): Promise<void> {
+  try { await env.ARUS_KV.delete(`session:${token}`); } catch {}
+}
+
+// ─── KV: Feature Flags ─────────────────────────────────────────
+// Returns feature flag value, falls back to default if not set
+async function getFeatureFlag(env: Env, flag: string): Promise<string> {
+  try {
+    const val = await env.ARUS_KV.get(`ff:${flag}`);
+    if (val !== null) return val;
+  } catch {}
+  return DEFAULT_FEATURE_FLAGS[`ff:${flag}`] || "false";
+}
+
+async function setFeatureFlag(env: Env, flag: string, value: string): Promise<void> {
+  await env.ARUS_KV.put(`ff:${flag}`, value);
+}
+
+// ─── KV: Subscription Cache ────────────────────────────────────
+async function getCachedSubscription(env: Env, userId: string): Promise<string | null> {
+  try {
+    return await env.ARUS_KV.get(`sub:${userId}`);
+  } catch { return null; }
+}
+
+async function cacheSubscription(env: Env, userId: string, plan: string): Promise<void> {
+  try {
+    await env.ARUS_KV.put(`sub:${userId}`, plan, { expirationTtl: SUBSCRIPTION_CACHE_TTL });
+  } catch {}
+}
+
+async function invalidateSubscriptionCache(env: Env, userId: string): Promise<void> {
+  try { await env.ARUS_KV.delete(`sub:${userId}`); } catch {}
+}
+
+// ─── Helper: Check Pro plan (with KV cache) ────────────────────
+async function isProUser(env: Env, userId: string): Promise<boolean> {
+  // Check KV cache first
+  const cached = await getCachedSubscription(env, userId);
+  if (cached !== null) return cached === "pro";
+
+  // Fallback to Supabase
+  const admin = getAdmin(env);
+  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
+  const plan = sub?.plan || "free";
+
+  // Cache it
+  await cacheSubscription(env, userId, plan);
+  return plan === "pro";
 }
 
 // ─── API: /api/storage — R2 File Storage ──────────────────────
 // Pro users: backup JSON, PDF reports, invoice attachments
 async function handleStorage(req: Request, env: Env): Promise<Response> {
-  if (!env.ARUS_STORAGE) return json({ error: "Storage belum di-setup. Aktifkan R2 binding." }, 503);
   const url = new URL(req.url);
   const userId = url.searchParams.get("user_id");
   const fileId = url.searchParams.get("id");
 
   if (!userId) return json({ error: "user_id required" }, 400);
 
-  // Check Pro plan
-  const admin = getAdmin(env);
-  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
-  if (sub?.plan !== "pro") return json({ error: "Storage cloud cuma untuk paket Pro." }, 403);
+  // Check Pro plan (with KV cache)
+  const pro = await isProUser(env, userId);
+  if (!pro) return json({ error: "Storage cloud cuma untuk paket Pro. Upgrade ke Pro untuk backup & export PDF." }, 403);
 
   const prefix = `users/${userId}/`;
 
@@ -929,7 +1040,8 @@ async function handleStorage(req: Request, env: Env): Promise<Response> {
       return new Response(obj.body, {
         headers: {
           "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
-          "Content-Disposition": obj.httpMetadata?.contentDisposition || "",
+          "Content-Disposition": obj.httpMetadata?.contentDisposition || `inline; filename="${fileId}"`,
+          "Cache-Control": "private, max-age=3600",
         },
       });
     }
@@ -942,35 +1054,222 @@ async function handleStorage(req: Request, env: Env): Promise<Response> {
       uploaded: o.uploaded.toISOString(),
       type: o.httpMetadata?.contentType || "",
     }));
-    return json({ data: files });
+    return json({ data: files, total: files.length, limit: MAX_FILES_PER_USER });
   }
 
   if (req.method === "PUT") {
-    // Upload file
+    // Upload file with validation
     if (!fileId) return json({ error: "id (filename) required" }, 400);
+
     const contentType = req.headers.get("Content-Type") || "application/json";
+
+    // Validate content type
+    if (!ALLOWED_TYPES.has(contentType)) {
+      return json({ error: `Tipe file "${contentType}" tidak diizinkan. Gunakan: JSON, PDF, CSV, TXT, PNG, JPEG, WEBP.` }, 400);
+    }
+
+    // Validate file size
+    const contentLength = parseInt(req.headers.get("Content-Length") || "0", 10);
+    if (contentLength > MAX_FILE_SIZE) {
+      return json({ error: `File terlalu besar (max ${MAX_FILE_SIZE / 1024 / 1024}MB).` }, 413);
+    }
+
+    // Check file count quota
+    const existing = await env.ARUS_STORAGE.list({ prefix });
+    if (existing.objects.length >= MAX_FILES_PER_USER) {
+      return json({ error: `Kuota file penuh (max ${MAX_FILES_PER_USER} file). Hapus file lama dulu.` }, 403);
+    }
+
+    // Upload to R2
     await env.ARUS_STORAGE.put(prefix + fileId, req.body, {
-      httpMetadata: { contentType },
+      httpMetadata: {
+        contentType,
+        contentDisposition: `attachment; filename="${fileId}"`,
+      },
+      customMetadata: {
+        userId,
+        uploadedAt: new Date().toISOString(),
+      },
     });
-    return json({ ok: true, key: fileId });
+
+    return json({ ok: true, key: fileId, type: contentType });
   }
 
   if (req.method === "DELETE") {
     if (!fileId) return json({ error: "id (filename) required" }, 400);
     await env.ARUS_STORAGE.delete(prefix + fileId);
-    return json({ ok: true });
+    return json({ ok: true, deleted: fileId });
   }
 
   return json({ error: "Method not allowed" }, 405);
 }
 
-// ─── API: /api/cache — KV Feature Flags & Cache ───────────────
-async function handleCache(req: Request, env: Env): Promise<Response> {
-  if (!env.ARUS_KV) return json({ error: "Cache belum di-setup. Aktifkan KV binding." }, 503);
+// ─── API: /api/storage/backup — Full Data Backup to R2 ──────────
+async function handleBackup(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
+  const userId = url.searchParams.get("user_id");
+  if (!userId) return json({ error: "user_id required" }, 400);
+
+  const pro = await isProUser(env, userId);
+  if (!pro) return json({ error: "Backup cloud cuma untuk paket Pro." }, 403);
+
+  if (req.method === "POST") {
+    // Create full backup of all user data
+    const admin = getAdmin(env);
+    const [wallets, transactions, debts, budgets, customCats] = await Promise.all([
+      admin.from("wallets").select("*").eq("user_id", userId),
+      admin.from("transactions").select("*").eq("user_id", userId).order("occurred_at", { ascending: false }),
+      admin.from("debts").select("*").eq("user_id", userId),
+      admin.from("budgets").select("*").eq("user_id", userId),
+      admin.from("custom_categories").select("*").eq("user_id", userId),
+    ]);
+
+    const backupData = {
+      version: "3.1",
+      exported_at: new Date().toISOString(),
+      user_id: userId,
+      wallets: wallets.data || [],
+      transactions: transactions.data || [],
+      debts: debts.data || [],
+      budgets: budgets.data || [],
+      custom_categories: customCats.data || [],
+    };
+
+    const backupKey = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+    const r2Key = `users/${userId}/${backupKey}`;
+
+    await env.ARUS_STORAGE.put(r2Key, JSON.stringify(backupData, null, 2), {
+      httpMetadata: {
+        contentType: "application/json",
+        contentDisposition: `attachment; filename="${backupKey}"`,
+      },
+      customMetadata: {
+        userId,
+        type: "full-backup",
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // Also cache the last backup timestamp in KV
+    await env.ARUS_KV.put(`last-backup:${userId}`, new Date().toISOString());
+
+    return json({
+      ok: true,
+      key: backupKey,
+      size: JSON.stringify(backupData).length,
+      records: {
+        wallets: (wallets.data || []).length,
+        transactions: (transactions.data || []).length,
+        debts: (debts.data || []).length,
+        budgets: (budgets.data || []).length,
+        categories: (customCats.data || []).length,
+      },
+    });
+  }
 
   if (req.method === "GET") {
-    // Get a cached value or feature flag
+    // Get last backup info
+    const lastBackup = await env.ARUS_KV.get(`last-backup:${userId}`);
+    const listed = await env.ARUS_STORAGE.list({ prefix: `users/${userId}/backup_` });
+    const backups = listed.objects.map((o) => ({
+      key: o.key.replace(`users/${userId}/`, ""),
+      size: o.size,
+      date: o.uploaded.toISOString(),
+    }));
+    return json({ last_backup: lastBackup, backups });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
+}
+
+// ─── API: /api/storage/restore — Restore from R2 Backup ─────────
+async function handleRestore(req: Request, env: Env): Promise<Response> {
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const body = await getBody(req);
+  const userId = body.user_id as string;
+  const backupKey = body.key as string;
+  if (!userId || !backupKey) return json({ error: "user_id dan key required" }, 400);
+
+  const pro = await isProUser(env, userId);
+  if (!pro) return json({ error: "Restore cuma untuk paket Pro." }, 403);
+
+  // Get backup from R2
+  const obj = await env.ARUS_STORAGE.get(`users/${userId}/${backupKey}`);
+  if (!obj) return json({ error: "Backup tidak ditemukan" }, 404);
+
+  const backupData = await obj.json() as {
+    wallets?: unknown[];
+    transactions?: unknown[];
+    debts?: unknown[];
+    budgets?: unknown[];
+    custom_categories?: unknown[];
+  };
+
+  const admin = getAdmin(env);
+  const results: Record<string, number> = {};
+
+  // Restore each table (upsert)
+  if (backupData.wallets?.length) {
+    const { error } = await admin.from("wallets").upsert(backupData.wallets, { onConflict: "id" });
+    if (!error) results.wallets = backupData.wallets.length;
+  }
+  if (backupData.transactions?.length) {
+    const { error } = await admin.from("transactions").upsert(backupData.transactions, { onConflict: "id" });
+    if (!error) results.transactions = backupData.transactions.length;
+  }
+  if (backupData.debts?.length) {
+    const { error } = await admin.from("debts").upsert(backupData.debts, { onConflict: "id" });
+    if (!error) results.debts = backupData.debts.length;
+  }
+  if (backupData.budgets?.length) {
+    const { error } = await admin.from("budgets").upsert(backupData.budgets, { onConflict: "id" });
+    if (!error) results.budgets = backupData.budgets.length;
+  }
+  if (backupData.custom_categories?.length) {
+    const { error } = await admin.from("custom_categories").upsert(backupData.custom_categories, { onConflict: "id" });
+    if (!error) results.categories = backupData.custom_categories.length;
+  }
+
+  // Invalidate subscription cache after restore
+  await invalidateSubscriptionCache(env, userId);
+
+  return json({ ok: true, restored: results });
+}
+
+// ─── API: /api/cache — KV Feature Flags, Cache & Sessions ──────
+async function handleCache(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const subPath = url.pathname.replace("/api/cache", "").replace("//", "/");
+
+  // ── Feature Flags ──
+  if (subPath === "/flags" || subPath === "/flags/") {
+    if (req.method === "GET") {
+      // Get all feature flags (merged with defaults)
+      const flags: Record<string, string> = { ...DEFAULT_FEATURE_FLAGS };
+      try {
+        const list = await env.ARUS_KV.list({ prefix: "ff:" });
+        for (const k of list.keys) {
+          const val = await env.ARUS_KV.get(k.name);
+          if (val !== null) flags[k.name] = val;
+        }
+      } catch {}
+      return json({ flags });
+    }
+
+    if (req.method === "PUT") {
+      // Admin: set a feature flag
+      const body = await getBody(req);
+      const flag = body.flag as string;
+      const value = body.value as string;
+      if (!flag || value === undefined) return json({ error: "flag dan value required" }, 400);
+      await setFeatureFlag(env, flag, value);
+      return json({ ok: true, flag: `ff:${flag}`, value });
+    }
+  }
+
+  // ── Generic KV Get/Put/Delete ──
+  if (req.method === "GET") {
     const key = url.searchParams.get("key");
     if (key) {
       const value = await env.ARUS_KV.get(key);
@@ -1008,8 +1307,14 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Rate limiting on API routes (if KV available)
+    // Global maintenance mode check (feature flag via KV)
     if (url.pathname.startsWith("/api")) {
+      const maintenance = await getFeatureFlag(env, "maintenance");
+      if (maintenance === "true" && !url.pathname.startsWith("/api/cache")) {
+        return json({ error: "Sedang maintenance. Coba lagi nanti.", maintenance: true }, 503);
+      }
+
+      // Rate limiting on API routes
       const allowed = await checkRateLimit(request, env);
       if (!allowed) {
         return json({ error: "Terlalu banyak request. Coba lagi dalam 1 menit." }, 429);

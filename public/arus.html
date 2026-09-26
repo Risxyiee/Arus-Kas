@@ -216,6 +216,8 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
  <symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-5 4-4-6-4 6z"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></symbol>
  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></symbol>
  <symbol id="i-check2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+ <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.3A5 5 0 0 0 7 9a3 3 0 0 0-.6 5.9A3.5 3.5 0 0 0 9.5 19H18a4 4 0 0 0 0-8z"/></symbol>
+ <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
 </svg>
@@ -1565,6 +1567,12 @@ function pagePengaturan(){
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Unduh backup JSON</div><div class="xs muted" style="margin-top:2px">Seluruh data dalam satu berkas — rutinlah melakukan ini.</div></div><button class="btn" id="exp-btn">'+ic('dl','w12')+' Unduh</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Ekspor CSV</div><div class="xs muted" style="margin-top:2px">Semua transaksi untuk Excel / Google Sheets.</div></div><button class="btn" id="csv-btn2">'+ic('dl','w12')+' CSV</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Impor JSON</div><div class="xs muted" style="margin-top:2px">Ganti data saat ini dengan isi berkas backup.</div></div><button class="btn" id="imp-btn">'+ic('up','w12')+' Impor</button><input type="file" id="imp-file" accept="application/json,.json" hidden></div>'+
+    /* Cloud backup for Pro */
+    (getPlan().id==='pro'?'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div class="small" style="font-weight:700;color:var(--pos)">'+ic('cloud','w14')+' Cloud backup (Pro)</div>'+
+    '<div class="setrow" style="margin-top:6px"><div class="grow minw"><div class="small" style="font-weight:600">Backup ke cloud</div><div class="xs muted" style="margin-top:2px" id="cloud-backup-info">Simpan semua data ke R2 — aman & bisa diakses dari perangkat lain.</div></div><button class="btn primary" id="cloud-backup-btn">'+ic('cloud','w12')+' Backup</button></div>'+
+    '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:600">Pulihkan dari cloud</div><div class="xs muted" style="margin-top:2px">Ambil data dari backup cloud terakhir.</div></div><button class="btn" id="cloud-restore-btn">'+ic('up','w12')+' Restore</button></div>'+
+    '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:600">File di cloud</div><div class="xs muted" style="margin-top:2px" id="cloud-files-info">—</div></div><button class="btn" id="cloud-list-btn">'+ic('eye','w12')+' Lihat</button></div>'+
+    '</div>':'<div style="margin-top:8px"><div class="xs muted" style="padding:8px 10px;background:var(--soft);border-radius:8px">'+ic('cloud','w12')+' Cloud backup tersedia di paket Pro — <a href="#/langganan" style="color:var(--pos);font-weight:600">upgrade sekarang</a></div></div>')+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Reset data contoh</div><div class="xs muted" style="margin-top:2px">Kembali ke data demo bawaan.</div></div><button class="btn" id="reset-btn">'+ic('undo','w12')+' Reset</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Hapus semua data</div><div class="xs muted" style="margin-top:2px">Kosongkan seluruh transaksi &amp; utang/piutang permanen.</div></div><button class="btn danger" id="wipe-btn">'+ic('trash','w12')+' Hapus semua</button></div>'+
    '</div></div>';}
@@ -1644,7 +1652,45 @@ function afterPengaturan(){
   'Semua transaksi dan utang/piutang dihapus permanen dari browser ini.',()=>{
    const keep={profile:db.profile,settings:db.settings};
    db=Object.assign(defaultDb(),keep,{demo:false,settings:Object.assign({},db.settings,{onboarded:true})});
-   save();render();toast('Semua data dihapus.','info');},true);}
+   save();render();toast('Semua data dihapus.','info');},true);
+ /* Cloud backup/restore (Pro) */
+ const uid=db.profile.userId||localStorage.getItem('arus-uid');
+ if(uid&&getPlan().id==='pro'){
+  const cb=$('#cloud-backup-btn');if(cb)cb.onclick=async()=>{
+   cb.disabled=true;cb.textContent='Mengbackup...';
+   try{
+    const r=await fetch('/api/storage/backup?user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'}});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Gagal');
+    db.settings.lastBackup=todayISO();save();
+    toast('Cloud backup berhasil! '+((d.records&&Object.values(d.records).reduce((a,b)=>a+b,0))||0)+' record disimpan.');
+    if($('#cloud-backup-info'))$('#cloud-backup-info').textContent='Terakhir: '+fmtDate(d.key?.replace('backup_','').replace('.json','')||todayISO());
+   }catch(e){toast(e.message,'error');}cb.disabled=false;cb.innerHTML=ic('cloud','w12')+' Backup';};
+  const cr=$('#cloud-restore-btn');if(cr)cr.onclick=async()=>{
+   cr.disabled=true;cr.textContent='Memulihkan...';
+   try{
+    const lr=await fetch('/api/storage/backup?user_id='+uid);const ld=await lr.json();
+    const latest=ld.backups&&ld.backups.length?ld.backups[0].key:null;
+    if(!latest)throw new Error('Belum ada backup di cloud.');
+    confirmModal('Pulihkan dari cloud?','Data lokal akan ditimpa dengan backup cloud terakhir ('+esc(latest)+').',async()=>{
+     try{
+      const r=await fetch('/api/storage/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,key:latest})});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'Gagal');
+      toast('Data dipulihkan dari cloud! '+((d.restored&&Object.values(d.restored).reduce((a,b)=>a+b,0))||0)+' record.');
+      await pullCloud();render();
+     }catch(e){toast(e.message,'error');}},true);
+   }catch(e){toast(e.message,'error');}cr.disabled=false;cr.innerHTML=ic('up','w12')+' Restore';};
+  const cl=$('#cloud-list-btn');if(cl)cl.onclick=async()=>{
+   try{
+    const r=await fetch('/api/storage?user_id='+uid);const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Gagal');
+    const info=$('#cloud-files-info');
+    if(info)info.textContent=d.data?d.data.length+' file ('+d.total+'/'+d.limit+')':'0 file';
+   }catch(e){toast(e.message,'error');}};
+  /* Load cloud file count on page open */
+  const fi=$('#cloud-files-info');
+  if(fi)fetch('/api/storage?user_id='+uid).then(r=>r.json()).then(d=>{if(d.data)fi.textContent=d.data.length+' file ('+d.total+'/'+d.limit+')';}).catch(()=>{});
+ }}
 function exportJSON(){
  db.settings.lastBackup=todayISO();save();
  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});

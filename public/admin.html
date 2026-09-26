@@ -188,6 +188,9 @@ tbody tr:hover td{background:var(--soft)}
       <button class="navlink" data-section="pengaturan" onclick="switchSection('pengaturan',this)">
         ⚙️ Pengaturan
       </button>
+      <button class="navlink" data-section="infra" onclick="switchSection('infra',this)">
+        ☁️ Infra (KV/R2)
+      </button>
     </nav>
     <div class="sidebar-footer">
       <button class="btn mini" style="width:100%" onclick="toggleTheme()">🌓 Ganti Tema</button>
@@ -360,6 +363,7 @@ async function loadSection(name) {
       case 'langganan': await renderLangganan(view); break;
       case 'transaksi': await renderTransaksi(view); break;
       case 'pengaturan': await renderPengaturan(view); break;
+      case 'infra': await renderInfra(view); break;
     }
   } catch (e) {
     view.innerHTML = '<div class="small neg" style="padding:20px">Error: ' + e.message + '</div>';
@@ -806,6 +810,168 @@ async function manualUpdatePlan() {
       body: JSON.stringify({ user_id: userId, plan })
     });
     toast('Paket berhasil diperbarui ke ' + (plan === 'pro' ? 'Pro' : 'Gratis'), 'pos');
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Infra (KV + R2)
+// ═══════════════════════════════════════════════════════════════
+let featureFlags = {};
+
+async function renderInfra(el) {
+  // Load feature flags
+  try {
+    const flagsRes = await api('/cache/flags');
+    featureFlags = flagsRes.flags || flagsRes || {};
+  } catch { featureFlags = {}; }
+
+  const flagRows = Object.entries(featureFlags).map(([k, v]) => {
+    const isOn = v === 'true';
+    const label = k.replace('ff:', '');
+    return `<div class="row between" style="padding:7px 0;border-bottom:1px solid var(--line)">
+      <div><span class="small" style="font-weight:600">${esc(label)}</span>
+      <span class="xs muted" style="margin-left:8px">${esc(k)}</span></div>
+      <div class="row" style="gap:6px">
+        <span class="xs ${isOn ? 'pos' : 'neg'}" style="font-weight:700">${isOn ? 'ON' : (v === 'false' ? 'OFF' : v)}</span>
+        <button class="btn mini" onclick="toggleFlag('${esc(k)}','${esc(v)}')">Toggle</button>
+      </div></div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="section-title">☁️ Infra (KV & R2)</div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:4px">KV — Feature Flags</div>
+      <div class="small muted" style="margin-bottom:12px">Kontrol fitur aplikasi secara real-time tanpa redeploy. Cache TTL 0 = permanen sampai diubah manual.</div>
+      ${flagRows || '<div class="muted small">Tidak ada flags.</div>'}
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <div style="font-weight:600;margin-bottom:8px" class="small">Tambah/Edit Flag</div>
+        <div class="filter-bar">
+          <div class="field"><label class="lbl">Nama</label><input id="ffName" class="fld" placeholder="cth: maintenance" style="width:200px"></div>
+          <div class="field"><label class="lbl">Nilai</label><select id="ffVal" class="fld" style="width:120px"><option value="true">true (ON)</option><option value="false">false (OFF)</option></select></div>
+          <button class="btn primary mini" onclick="setFlag()">Simpan</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:4px">KV — Cache & Rate Limit</div>
+      <div class="small muted" style="margin-bottom:12px">Lihat keys di KV namespace. Prefix: rl: = rate limit, session: = auth cache, sub: = subscription cache, ff: = feature flags.</div>
+      <div class="filter-bar">
+        <div class="field"><label class="lbl">Prefix</label><input id="kvPrefix" class="fld" placeholder="cth: rl: atau session:" style="width:200px" value="rl:"></div>
+        <button class="btn mini" onclick="loadKvKeys()">Lihat Keys</button>
+      </div>
+      <div id="kvKeysList" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:4px">R2 — Cloud Storage</div>
+      <div class="small muted" style="margin-bottom:12px">R2 bucket \"arus-storage\" menyimpan backup JSON, PDF, dan invoice Pro users. Maks 10MB/file, 100 file/user.</div>
+      <div class="row" style="gap:8px;margin-bottom:8px">
+        <div class="stat-card" style="flex:1"><div class="label">Bucket</div><div class="value small">arus-storage</div></div>
+        <div class="stat-card" style="flex:1"><div class="label">Maks File/User</div><div class="value small">100</div></div>
+        <div class="stat-card" style="flex:1"><div class="label">Maks Size/File</div><div class="value small">10 MB</div></div>
+      </div>
+      <div class="filter-bar">
+        <div class="field"><label class="lbl">User ID (opsional)</label><input id="r2UserId" class="fld mono" placeholder="UUID user" style="width:280px"></div>
+        <button class="btn mini" onclick="listR2Files()">List Files</button>
+      </div>
+      <div id="r2FilesList" class="small" style="margin-top:8px"></div>
+    </div>
+  `;
+}
+
+async function toggleFlag(key, currentVal) {
+  const newVal = currentVal === 'true' ? 'false' : 'true';
+  const flagName = key.replace('ff:', '');
+  try {
+    await api('/cache/flags', {
+      method: 'PUT',
+      body: JSON.stringify({ flag: flagName, value: newVal })
+    });
+    toast('Flag ' + flagName + ' → ' + newVal, 'pos');
+    loadSection('infra');
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+async function setFlag() {
+  const name = document.getElementById('ffName')?.value.trim();
+  const value = document.getElementById('ffVal')?.value;
+  if (!name) { toast('Isi nama flag', 'neg'); return; }
+  try {
+    await api('/cache/flags', {
+      method: 'PUT',
+      body: JSON.stringify({ flag: name, value })
+    });
+    toast('Flag ' + name + ' disimpan → ' + value, 'pos');
+    loadSection('infra');
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+async function loadKvKeys() {
+  const prefix = document.getElementById('kvPrefix')?.value || '';
+  const list = document.getElementById('kvKeysList');
+  if (!list) return;
+  list.innerHTML = '<span class="muted">Memuat...</span>';
+  try {
+    const res = await api('/cache?prefix=' + encodeURIComponent(prefix));
+    const keys = res.keys || [];
+    if (!keys.length) {
+      list.innerHTML = '<span class="muted">Tidak ada keys dengan prefix "' + esc(prefix) + '"</span>';
+    } else {
+      list.innerHTML = '<table style="width:100%"><thead><tr><th>Key</th><th>Expiry</th><th>Aksi</th></tr></thead><tbody>' +
+        keys.slice(0, 50).map(k => `<tr><td class="mono xs">${esc(k.name)}</td><td class="xs muted">${k.expiration ? new Date(k.expiration * 1000).toLocaleString('id') : 'Permanen'}</td><td><button class="btn mini" onclick="deleteKvKey('${esc(k.name)}')">Hapus</button></td></tr>`).join('') +
+        '</tbody></table>';
+    }
+  } catch (e) {
+    list.innerHTML = '<span class="neg">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function deleteKvKey(key) {
+  if (!confirm('Hapus KV key "' + key + '"?')) return;
+  try {
+    await api('/cache?key=' + encodeURIComponent(key), { method: 'DELETE' });
+    toast('Key "' + key + '" dihapus', 'pos');
+    loadKvKeys();
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+async function listR2Files() {
+  const userId = document.getElementById('r2UserId')?.value.trim();
+  const list = document.getElementById('r2FilesList');
+  if (!list) return;
+  if (!userId) { list.innerHTML = '<span class="muted">Masukkan User ID untuk melihat file.</span>'; return; }
+  list.innerHTML = '<span class="muted">Memuat...</span>';
+  try {
+    const res = await api('/storage?user_id=' + userId);
+    const files = res.data || [];
+    if (!files.length) {
+      list.innerHTML = '<span class="muted">Tidak ada file untuk user ini.</span>';
+    } else {
+      list.innerHTML = '<table style="width:100%"><thead><tr><th>File</th><th>Tipe</th><th>Size</th><th>Upload</th><th>Aksi</th></tr></thead><tbody>' +
+        files.map(f => `<tr><td class="mono xs">${esc(f.key)}</td><td class="xs">${esc(f.type)}</td><td class="mono xs">${(f.size / 1024).toFixed(1)} KB</td><td class="xs">${fmtDate(f.uploaded)}</td><td><button class="btn mini danger" onclick="deleteR2File('${esc(userId)}','${esc(f.key)}')">Hapus</button></td></tr>`).join('') +
+        '</tbody></table>';
+    }
+  } catch (e) {
+    list.innerHTML = '<span class="neg">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function deleteR2File(userId, key) {
+  if (!confirm('Hapus file "' + key + '" dari R2?')) return;
+  try {
+    await api('/storage?user_id=' + userId + '&id=' + encodeURIComponent(key), { method: 'DELETE' });
+    toast('File "' + key + '" dihapus', 'pos');
+    listR2Files();
   } catch (e) {
     toast('Gagal: ' + e.message, 'neg');
   }

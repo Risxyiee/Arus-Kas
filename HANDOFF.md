@@ -163,6 +163,27 @@ PLANS.pro  = { wallets:∞, debts:∞, budgets:∞, customCats:∞, recurring:tr
 | POST | `/api/payment/create` | Buat Snap transaction |
 | POST | `/api/payment/webhook` | Midtrans webhook (aktifkan Pro) |
 
+### Storage (R2, Pro only)
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/api/storage?user_id=` | List file user di R2 |
+| GET | `/api/storage?user_id=&id=` | Download file |
+| PUT | `/api/storage?user_id=&id=` | Upload file (max 10MB, validated types) |
+| DELETE | `/api/storage?user_id=&id=` | Hapus file |
+| POST | `/api/storage/backup?user_id=` | Full data backup ke R2 |
+| GET | `/api/storage/backup?user_id=` | List backup history |
+| POST | `/api/storage/restore` | Restore dari R2 backup |
+
+### Cache & Feature Flags (KV)
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/api/cache/flags` | Semua feature flags (merged defaults) |
+| PUT | `/api/cache/flags` | Set feature flag |
+| GET | `/api/cache?key=` | Get single KV value |
+| GET | `/api/cache?prefix=` | List keys by prefix |
+| PUT | `/api/cache` | Set KV key+value (+ optional TTL) |
+| DELETE | `/api/cache?key=` | Delete KV key |
+
 ### Admin API (hanya riskiakbarp123@gmail.com)
 | Method | Endpoint | Fungsi |
 |---|---|---|
@@ -206,22 +227,47 @@ PLANS.pro  = { wallets:∞, debts:∞, budgets:∞, customCats:∞, recurring:tr
 | Binding | Status | Fungsi |
 |---|---|---|
 | `[assets]` | ✅ Aktif | Serve static files dari /out |
-| `[triggers]` Cron | ✅ Aktif | Daily 09:00 WIB — cek Pro expired → downgrade |
+| `[triggers]` Cron | ✅ Aktif | Daily 09:00 WIB — cek Pro expired → downgrade + invalidate KV cache |
+| **KV** (`ARUS_KV`) | ✅ Aktif | Rate limiting, session cache, feature flags, subscription cache |
+| **R2** (`ARUS_STORAGE`) | ✅ Aktif | Pro: backup JSON, PDF reports, invoices, file storage |
 
-### Siap Aktifkan (uncomment di wrangler.toml)
-| Binding | Cara Setup | Fungsi |
+### KV Usage Details
+| Key Pattern | TTL | Fungsi |
 |---|---|---|
-| **KV** | `npx wrangler kv namespace create "ARUS_KV"` | Rate limiting (60 req/min), session cache |
-| **R2** | `npx wrangler r2 bucket create "arus-storage"` | PDF backup, invoice storage |
+| `rl:{ip}` | 60s | Rate limiting per IP (60 req/min) |
+| `session:{token}` | 3600s | Auth session cache (reduce Supabase calls) |
+| `sub:{userId}` | 300s | Subscription plan cache (5 min) |
+| `ff:{name}` | ∞ (manual) | Feature flags (no auto-expiry) |
+| `last-backup:{userId}` | ∞ | Timestamp of last R2 backup |
+
+### Default Feature Flags
+| Flag | Default | Fungsi |
+|---|---|---|
+| `ff:pdf_export` | true | Pro: export PDF ke cloud |
+| `ff:cloud_backup` | true | Pro: auto-backup ke R2 |
+| `ff:maintenance` | false | Global: maintenance mode (503) |
+| `ff:registration` | true | Global: allow new signups |
+| `ff:max_free_transactions` | 100 | Free tier transaction limit |
+
+### R2 Storage Details
+| Parameter | Value |
+|---|---|
+| Bucket | `arus-storage` |
+| Max file size | 10 MB/file |
+| Max files per user | 100 |
+| Allowed types | JSON, PDF, CSV, TXT, PNG, JPEG, WEBP |
+| Key structure | `users/{userId}/{filename}` |
+| Backup key | `users/{userId}/backup_YYYY-MM-DD.json` |
 
 ### Cloudflare Free Tier Limits
 | Resource | Free | Arus Kas Kebutuhan |
 |---|---|---|
 | Workers requests | 100K/hari | ✅ Cukup untuk awal |
 | KV reads | 100K/hari | ✅ Cukup |
-| KV writes | 1K/hari | ✅ Cukup untuk rate limit |
+| KV writes | 1K/hari | ✅ Cukup untuk rate limit + cache |
 | R2 storage | 10 GB | ✅ Cukup |
 | R2 Class A ops | 1M/bulan | ✅ Cukup |
+| R2 Class B ops | 10M/bulan | ✅ Cukup |
 | Cron triggers | 5 | ✅ Hanya pakai 1 |
 | **R2 BISA di free tier** | ✅ | Tidak perlu bayar |
 
@@ -317,6 +363,7 @@ git push origin main
 | 💳 Langganan | List subscription, filter, edit plan + expiry |
 | 💰 Transaksi | Transaksi semua user, filter date + type, pagination |
 | ⚙️ Pengaturan | App status, manual plan management |
+| ☁️ Infra (KV/R2) | Feature flags toggle, KV key browser, R2 file manager |
 
 ---
 
@@ -326,21 +373,24 @@ git push origin main
 - [x] Landing page (2-tier pricing, FAQ, trust badges, SEO, OG tags)
 - [x] Dashboard app (arus.html) — 6 halaman, dark/light, PIN lock
 - [x] 2-tier plan system (Gratis + Pro) dengan feature gating
-- [x] Cloudflare Worker API (20+ endpoints)
+- [x] Cloudflare Worker API (25+ endpoints)
 - [x] Supabase schema (7 tables, RLS, indexes, helpers)
 - [x] Auth flow (login, signup, email confirm, auto-restore session)
 - [x] Cloud sync (push + pull, Pro only)
 - [x] Midtrans Snap integration (sandbox)
-- [x] Admin dashboard (admin.html + 5 admin API endpoints)
-- [x] Cron trigger (daily subscription expiry check)
-- [x] Rate limiting (KV-based, graceful fallback)
+- [x] Admin dashboard (admin.html + 5 admin API endpoints + Infra KV/R2 section)
+- [x] Cron trigger (daily subscription expiry check + KV cache invalidation)
+- [x] Rate limiting (KV-based, 60 req/min per IP)
+- [x] **KV integration** — Rate limiting, session cache, subscription cache, feature flags with defaults
+- [x] **R2 integration** — Pro file storage (10MB/file, 100 files/user), backup/restore, type validation
+- [x] **Feature flags** — maintenance mode, registration toggle, PDF export, cloud backup, transaction limits
 - [x] Onboard modal with "Masuk dengan akun" option
+- [x] Cloud backup/restore UI for Pro users in Pengaturan
 
 ### ⏳ Belum / Perlu Dilakukan
 - [ ] **Midtrans production** — Ganti `MIDTRANS_IS_PRODUCTION` ke `"true"` + set production server key
 - [ ] **Supabase email templates** — Customize email konfirmasi/reset pakai branding Arus
-- [ ] **KV namespace setup** — `npx wrangler kv namespace create "ARUS_KV"` → paste ID ke wrangler.toml
-- [ ] **R2 bucket setup** — `npx wrangler r2 bucket create "arus-storage"` → uncomment di wrangler.toml
+- [ ] **KV namespace ID** — Paste real IDs dari dashboard ke wrangler.toml (currently `PASTE_KV_ID_HERE`)
 - [ ] **Email transaksional** — Daftar Resend/SendGrid → set `RESEND_API_KEY` secret → implement welcome email, payment receipt
 - [ ] **Landing page OG image** — Buat gambar 1200×630 untuk share di social media
 - [ ] **Favicon proper** — Sekarang pakai inline SVG data-URI, ganti dengan .ico file

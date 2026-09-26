@@ -11,6 +11,13 @@
 <meta property="og:locale" content="id_ID">
 <!-- Favicon inline (SVG data-URI) -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect x='1' y='1' width='32' height='32' rx='9' fill='%23242019'/%3E%3Cpath d='M10 12.5h14M10 17h14M10 21.5h9' stroke='%23F4F1E8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='21.5' r='2.2' fill='%230E7B4F'/%3E%3C/svg%3E">
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Arus">
+<meta name="theme-color" content="#242019">
 <script>
 (function(){try{var s=localStorage.getItem('arus-theme');
  var dk=s?s==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
@@ -184,10 +191,30 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;bac
 .admin-tab{padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-size:12px;font-weight:600;cursor:pointer}
 .admin-tab.active{background:var(--ink);color:var(--invfg);border-color:var(--ink)}
 .admin-tab:hover{opacity:.85}
+/* Cookie consent */
+#cookie-consent{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--card);border-top:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 20px rgba(30,27,21,.08)}
+#cookie-consent .cc-text{flex:1;min-width:200px;font-size:12.5px;line-height:1.5}
+#cookie-consent .cc-text a{color:var(--pos);font-weight:600}
+/* Loading skeleton */
+.skel{background:linear-gradient(90deg,var(--soft) 25%,var(--line) 50%,var(--soft) 75%);background-size:200% 100%;animation:skelpulse 1.5s ease infinite;border-radius:6px}
+@keyframes skelpulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skel-card{border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.skel-line{height:14px;margin:8px 0;border-radius:4px}
+.skel-line.w50{width:50%}.skel-line.w70{width:70%}.skel-line.w30{width:30%}.skel-line.w90{width:90%}
+/* Error boundary */
+.err-boundary{background:var(--neg-soft);border:1px solid var(--neg);border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.err-boundary .err-icon{font-size:20px}
+.err-boundary .err-msg{font-size:13px;font-weight:600;color:var(--neg)}
+.err-boundary .err-detail{font-size:11px;color:var(--mut)}
 </style>
 <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-environment="sandbox"></script>
 </head>
 <body>
+<!-- Cookie Consent -->
+<div id="cookie-consent" style="display:none">
+ <div class="cc-text">🍪 Kami menggunakan cookie untuk menyimpan preferensi &amp; data lokal (dompet, transaksi). Tanpa cookie, aplikasi tidak bisa berfungsi. <a href="/privacy.html" target="_blank">Kebijakan privasi</a></div>
+ <button class="btn mini primary" id="cc-accept">Oke, mengerti</button>
+</div>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></symbol>
  <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></symbol>
@@ -475,14 +502,37 @@ function apiHeaders() {
   return h;
 }
 
+/* ── Loading state ── */
+let _loading = false;
+function setLoading(v){ _loading = v; }
+function isLoading(){ return _loading; }
+function skeletonCard(n){
+  let h='';
+  for(let i=0;i<n;i++) h+='<div class="skel-card"><div class="skel skel-line w50"></div><div class="skel skel-line w90"></div><div class="skel skel-line w70"></div><div class="skel skel-line w30"></div></div>';
+  return h;
+}
+function errorBoundary(msg,detail,retryFn){
+  return '<div class="err-boundary"><div class="err-icon">⚠️</div><div class="err-msg">'+esc(msg||'Terjadi kesalahan')+'</div>'+(detail?'<div class="err-detail">'+esc(detail)+'</div>':'')+(retryFn?'<button class="btn mini primary" id="err-retry">Coba lagi</button>':'')+'</div>';
+}
+
 async function api(path, opts = {}) {
+  const maxRetries = (opts._retries || 0);
+  const retryLimit = 2; // max 2 retries (3 total attempts)
   try {
     const res = await fetch(API + '/api' + path, {headers: apiHeaders(), ...opts});
     const text = await res.text();
     try { return JSON.parse(text); } catch {
       return {error: 'Server error: respons bukan JSON. Pastikan API sudah berjalan.'};
     }
-  } catch(e) { return {error: e.message || 'Koneksi gagal'}; }
+  } catch(e) {
+    // Network error — retry with exponential backoff
+    if (maxRetries < retryLimit) {
+      const delay = Math.pow(2, maxRetries) * 1000; // 1s, 2s, 4s
+      await new Promise(r => setTimeout(r, delay));
+      return api(path, {...opts, _retries: maxRetries + 1});
+    }
+    return {error: e.message || 'Koneksi gagal. Periksa internet Anda.'};
+  }
 }
 
 let db=null;
@@ -2358,7 +2408,8 @@ function openAdmin(){
    '<div style="padding:12px;display:flex;gap:6px;border-bottom:1px solid var(--line)">'+
    '<button class="admin-tab active" data-atab="dashboard">Dashboard</button>'+
    '<button class="admin-tab" data-atab="users">Users</button>'+
-   '<button class="admin-tab" data-atab="txns">Transaksi</button></div>'+
+   '<button class="admin-tab" data-atab="txns">Transaksi</button>'+
+   '<button class="admin-tab" data-atab="fulladmin">Full Admin ↗</button></div>'+
    '<div id="admin-content" style="padding:16px"></div>';
   document.body.appendChild(p);
   p.querySelectorAll('.admin-tab').forEach(b=>b.onclick=()=>loadAdminTab(b.dataset.atab));
@@ -2376,11 +2427,13 @@ function loadAdminTab(tab){
  if(tab==='dashboard')loadAdminDashboard(c);
  else if(tab==='users')loadAdminUsers(c);
  else if(tab==='txns')loadAdminTransactions(c);
+ else if(tab==='fulladmin')window.open('/admin.html','_blank');
 }
 
 async function loadAdminDashboard(c){
+ c.innerHTML='<div style="text-align:center;padding:24px">'+skeletonCard(1)+'</div>';
  const r=await api('/admin/stats');
- if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ if(r.error){c.innerHTML=errorBoundary('Gagal memuat statistik',r.error);const rb=c.querySelector('#err-retry');if(rb)rb.onclick=()=>loadAdminDashboard(c);return;}
  const d=r.data||{};
  c.innerHTML=
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'+
@@ -2399,8 +2452,9 @@ function statBox(icon,label,value){
 }
 
 async function loadAdminUsers(c){
+ c.innerHTML='<div style="text-align:center;padding:24px">'+skeletonCard(2)+'</div>';
  const r=await api('/admin/users');
- if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ if(r.error){c.innerHTML=errorBoundary('Gagal memuat pengguna',r.error);const rb=c.querySelector('#err-retry');if(rb)rb.onclick=()=>loadAdminUsers(c);return;}
  const users=r.data||[];
  c.innerHTML=
   '<input id="admin-user-search" placeholder="Cari nama/email..." style="width:100%;padding:8px 10px;margin-bottom:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
@@ -2459,8 +2513,9 @@ async function adminDeleteUser(uid,name){
 }
 
 async function loadAdminTransactions(c){
+ c.innerHTML='<div style="text-align:center;padding:24px">'+skeletonCard(3)+'</div>';
  const r=await api('/admin/transactions?limit=30');
- if(r.error){c.innerHTML='<div class="muted">Error: '+esc(r.error)+'</div>';return;}
+ if(r.error){c.innerHTML=errorBoundary('Gagal memuat transaksi',r.error);const rb=c.querySelector('#err-retry');if(rb)rb.onclick=()=>loadAdminTransactions(c);return;}
  const txns=r.data||[];
  if(!txns.length){c.innerHTML='<div class="muted" style="padding:20px;text-align:center">Belum ada transaksi</div>';return;}
  c.innerHTML=txns.map(t=>
@@ -2509,6 +2564,26 @@ function finishOnboarding(){
  toast('Selamat mencatat! 🎉');
 }
 
+/* ── Cookie Consent ── */
+(function(){
+ try{
+  if(!localStorage.getItem('arus-cookie-consent')){
+   var cc=document.getElementById('cookie-consent');
+   if(cc){cc.style.display='flex';
+    document.getElementById('cc-accept').onclick=function(){
+     localStorage.setItem('arus-cookie-consent','1');
+     cc.style.display='none';
+    };
+   }
+  }
+ }catch(e){}
+})();
+
+/* ── Service Worker (PWA) ── */
+if('serviceWorker' in navigator){
+ try{navigator.serviceWorker.register('/sw.js').catch(function(){});}catch(e){}
+}
+
 /* Init */
 load();
 applyCustomCats();
@@ -2522,6 +2597,10 @@ render();
 // Auto-restore session if token exists
 (async function(){
  if(!authToken||!currentUser)return;
+ setLoading(true);
+ // Show skeleton while loading session data
+ const viewEl=document.getElementById('view');
+ if(viewEl) viewEl.innerHTML='<div class="grid g2" style="margin-top:8px">'+skeletonCard(2)+'</div><div class="grid grid4" style="margin-top:14px">'+skeletonCard(4)+'</div>';
  try{
   const me=await api('/auth/me');
   if(me.data&&me.data.email){
@@ -2560,6 +2639,8 @@ render();
     }
    }
   }catch(e2){}
+ }finally{
+  setLoading(false);
  }
 })();
 

@@ -1,0 +1,20 @@
+{
+  "name": "Arus — Buku Kas Pribadi & UMKM",
+  "short_name": "Arus",
+  "description": "Catat keuangan pribadi & UMKM: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF.",
+  "start_url": "/arus.html",
+  "display": "standalone",
+  "background_color": "#F4F1E8",
+  "theme_color": "#242019",
+  "orientation": "any",
+  "lang": "id",
+  "categories": ["finance", "business"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect x='1' y='1' width='32' height='32' rx='9' fill='%23242019'/%3E%3Cpath d='M10 12.5h14M10 17h14M10 21.5h9' stroke='%23F4F1E8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='21.5' r='2.2' fill='%230E7B4F'/%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

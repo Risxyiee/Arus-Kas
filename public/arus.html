@@ -559,8 +559,7 @@ function load(){
  if(db.debts)db.debts.forEach(d=>{if(!d.note)d.note='';});
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db));
- // Auto-sync to cloud for Pro users (debounced)
- if(currentUser&&getPlan().id==='pro'){clearTimeout(window._syncTimer);window._syncTimer=setTimeout(syncToCloud,3000);}
+ // Auto-sync disabled (R2 not bound)
  }catch(e){
  toast('Gagal menyimpan — penyimpanan browser penuh?','error');}}
 function syncTop(){const el=$('#top-bal');if(el)el.textContent=money(totals().balance);}
@@ -775,8 +774,8 @@ async function doAuth(mode){
  // Sync subscription from server
  const sub=await api('/subscription?user_id='+currentUser.id);
  if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
- // Pull cloud data if Pro
- if(getPlan().id==='pro'){await syncFromCloud();}
+ // Pull cloud data if Pro — disabled (R2 not bound)
+ // if(getPlan().id==='pro'){await syncFromCloud();}
  render();
  updateProfileUI();
 }
@@ -1567,12 +1566,8 @@ function pagePengaturan(){
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Unduh backup JSON</div><div class="xs muted" style="margin-top:2px">Seluruh data dalam satu berkas — rutinlah melakukan ini.</div></div><button class="btn" id="exp-btn">'+ic('dl','w12')+' Unduh</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Ekspor CSV</div><div class="xs muted" style="margin-top:2px">Semua transaksi untuk Excel / Google Sheets.</div></div><button class="btn" id="csv-btn2">'+ic('dl','w12')+' CSV</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Impor JSON</div><div class="xs muted" style="margin-top:2px">Ganti data saat ini dengan isi berkas backup.</div></div><button class="btn" id="imp-btn">'+ic('up','w12')+' Impor</button><input type="file" id="imp-file" accept="application/json,.json" hidden></div>'+
-    /* Cloud backup for Pro */
-    (getPlan().id==='pro'?'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div class="small" style="font-weight:700;color:var(--pos)">'+ic('cloud','w14')+' Cloud backup (Pro)</div>'+
-    '<div class="setrow" style="margin-top:6px"><div class="grow minw"><div class="small" style="font-weight:600">Backup ke cloud</div><div class="xs muted" style="margin-top:2px" id="cloud-backup-info">Simpan semua data ke R2 — aman & bisa diakses dari perangkat lain.</div></div><button class="btn primary" id="cloud-backup-btn">'+ic('cloud','w12')+' Backup</button></div>'+
-    '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:600">Pulihkan dari cloud</div><div class="xs muted" style="margin-top:2px">Ambil data dari backup cloud terakhir.</div></div><button class="btn" id="cloud-restore-btn">'+ic('up','w12')+' Restore</button></div>'+
-    '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:600">File di cloud</div><div class="xs muted" style="margin-top:2px" id="cloud-files-info">—</div></div><button class="btn" id="cloud-list-btn">'+ic('eye','w12')+' Lihat</button></div>'+
-    '</div>':'<div style="margin-top:8px"><div class="xs muted" style="padding:8px 10px;background:var(--soft);border-radius:8px">'+ic('cloud','w12')+' Cloud backup tersedia di paket Pro — <a href="#/langganan" style="color:var(--pos);font-weight:600">upgrade sekarang</a></div></div>')+
+    /* Cloud backup — R2 disabled */
+    '<div style="margin-top:8px"><div class="xs muted" style="padding:8px 10px;background:var(--soft);border-radius:8px">'+ic('cloud','w12')+' Cloud backup belum tersedia — sedang dalam pengembangan.</div></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Reset data contoh</div><div class="xs muted" style="margin-top:2px">Kembali ke data demo bawaan.</div></div><button class="btn" id="reset-btn">'+ic('undo','w12')+' Reset</button></div>'+
     '<div class="setrow"><div class="grow minw"><div class="small" style="font-weight:700">Hapus semua data</div><div class="xs muted" style="margin-top:2px">Kosongkan seluruh transaksi &amp; utang/piutang permanen.</div></div><button class="btn danger" id="wipe-btn">'+ic('trash','w12')+' Hapus semua</button></div>'+
    '</div></div>';}
@@ -1653,44 +1648,7 @@ function afterPengaturan(){
    const keep={profile:db.profile,settings:db.settings};
    db=Object.assign(defaultDb(),keep,{demo:false,settings:Object.assign({},db.settings,{onboarded:true})});
    save();render();toast('Semua data dihapus.','info');},true);
- /* Cloud backup/restore (Pro) */
- const uid=db.profile.userId||localStorage.getItem('arus-uid');
- if(uid&&getPlan().id==='pro'){
-  const cb=$('#cloud-backup-btn');if(cb)cb.onclick=async()=>{
-   cb.disabled=true;cb.textContent='Mengbackup...';
-   try{
-    const r=await fetch('/api/storage/backup?user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'}});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Gagal');
-    db.settings.lastBackup=todayISO();save();
-    toast('Cloud backup berhasil! '+((d.records&&Object.values(d.records).reduce((a,b)=>a+b,0))||0)+' record disimpan.');
-    if($('#cloud-backup-info'))$('#cloud-backup-info').textContent='Terakhir: '+fmtDate(d.key?.replace('backup_','').replace('.json','')||todayISO());
-   }catch(e){toast(e.message,'error');}cb.disabled=false;cb.innerHTML=ic('cloud','w12')+' Backup';};
-  const cr=$('#cloud-restore-btn');if(cr)cr.onclick=async()=>{
-   cr.disabled=true;cr.textContent='Memulihkan...';
-   try{
-    const lr=await fetch('/api/storage/backup?user_id='+uid);const ld=await lr.json();
-    const latest=ld.backups&&ld.backups.length?ld.backups[0].key:null;
-    if(!latest)throw new Error('Belum ada backup di cloud.');
-    confirmModal('Pulihkan dari cloud?','Data lokal akan ditimpa dengan backup cloud terakhir ('+esc(latest)+').',async()=>{
-     try{
-      const r=await fetch('/api/storage/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,key:latest})});
-      const d=await r.json();if(!r.ok)throw new Error(d.error||'Gagal');
-      toast('Data dipulihkan dari cloud! '+((d.restored&&Object.values(d.restored).reduce((a,b)=>a+b,0))||0)+' record.');
-      await pullCloud();render();
-     }catch(e){toast(e.message,'error');}},true);
-   }catch(e){toast(e.message,'error');}cr.disabled=false;cr.innerHTML=ic('up','w12')+' Restore';};
-  const cl=$('#cloud-list-btn');if(cl)cl.onclick=async()=>{
-   try{
-    const r=await fetch('/api/storage?user_id='+uid);const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Gagal');
-    const info=$('#cloud-files-info');
-    if(info)info.textContent=d.data?d.data.length+' file ('+d.total+'/'+d.limit+')':'0 file';
-   }catch(e){toast(e.message,'error');}};
-  /* Load cloud file count on page open */
-  const fi=$('#cloud-files-info');
-  if(fi)fetch('/api/storage?user_id='+uid).then(r=>r.json()).then(d=>{if(d.data)fi.textContent=d.data.length+' file ('+d.total+'/'+d.limit+')';}).catch(()=>{});
- }}
+ /* Cloud backup/restore — R2 disabled, no handlers needed */}
 function exportJSON(){
  db.settings.lastBackup=todayISO();save();
  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
@@ -2154,8 +2112,8 @@ render();
    // Sync subscription
    const sub=await api('/subscription?user_id='+currentUser.id);
    if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
-   // Pull cloud data if Pro
-   if(getPlan().id==='pro'){await syncFromCloud();render();}
+   // Pull cloud data if Pro — disabled (R2 not bound)
+   // if(getPlan().id==='pro'){await syncFromCloud();render();}
    updateProfileUI();
   }else{
    // Token expired — clear

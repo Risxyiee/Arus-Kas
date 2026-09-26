@@ -15,7 +15,7 @@ ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 
 # ── KV Namespace (rate limiting, session cache, feature flags) ──
 [[kv_namespaces]]
-binding = "ARUS_KV"
+binding = "arus_kv"
 id = "b16a988d730c4dddb15621fa3a8f492f"
 
 # ── Cron Triggers ──

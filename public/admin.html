@@ -868,17 +868,7 @@ async function renderInfra(el) {
 
     <div class="card">
       <div style="font-weight:700;margin-bottom:4px">R2 — Cloud Storage</div>
-      <div class="small muted" style="margin-bottom:12px">R2 bucket \"arus-storage\" menyimpan backup JSON, PDF, dan invoice Pro users. Maks 10MB/file, 100 file/user.</div>
-      <div class="row" style="gap:8px;margin-bottom:8px">
-        <div class="stat-card" style="flex:1"><div class="label">Bucket</div><div class="value small">arus-storage</div></div>
-        <div class="stat-card" style="flex:1"><div class="label">Maks File/User</div><div class="value small">100</div></div>
-        <div class="stat-card" style="flex:1"><div class="label">Maks Size/File</div><div class="value small">10 MB</div></div>
-      </div>
-      <div class="filter-bar">
-        <div class="field"><label class="lbl">User ID (opsional)</label><input id="r2UserId" class="fld mono" placeholder="UUID user" style="width:280px"></div>
-        <button class="btn mini" onclick="listR2Files()">List Files</button>
-      </div>
-      <div id="r2FilesList" class="small" style="margin-top:8px"></div>
+      <div class="small muted" style="padding:8px 10px;background:var(--soft);border-radius:8px">R2 belum dikonfigurasi — fitur cloud storage dinonaktifkan untuk penghematan biaya.</div>
     </div>
   `;
 }
@@ -945,37 +935,7 @@ async function deleteKvKey(key) {
   }
 }
 
-async function listR2Files() {
-  const userId = document.getElementById('r2UserId')?.value.trim();
-  const list = document.getElementById('r2FilesList');
-  if (!list) return;
-  if (!userId) { list.innerHTML = '<span class="muted">Masukkan User ID untuk melihat file.</span>'; return; }
-  list.innerHTML = '<span class="muted">Memuat...</span>';
-  try {
-    const res = await api('/storage?user_id=' + userId);
-    const files = res.data || [];
-    if (!files.length) {
-      list.innerHTML = '<span class="muted">Tidak ada file untuk user ini.</span>';
-    } else {
-      list.innerHTML = '<table style="width:100%"><thead><tr><th>File</th><th>Tipe</th><th>Size</th><th>Upload</th><th>Aksi</th></tr></thead><tbody>' +
-        files.map(f => `<tr><td class="mono xs">${esc(f.key)}</td><td class="xs">${esc(f.type)}</td><td class="mono xs">${(f.size / 1024).toFixed(1)} KB</td><td class="xs">${fmtDate(f.uploaded)}</td><td><button class="btn mini danger" onclick="deleteR2File('${esc(userId)}','${esc(f.key)}')">Hapus</button></td></tr>`).join('') +
-        '</tbody></table>';
-    }
-  } catch (e) {
-    list.innerHTML = '<span class="neg">Error: ' + esc(e.message) + '</span>';
-  }
-}
-
-async function deleteR2File(userId, key) {
-  if (!confirm('Hapus file "' + key + '" dari R2?')) return;
-  try {
-    await api('/storage?user_id=' + userId + '&id=' + encodeURIComponent(key), { method: 'DELETE' });
-    toast('File "' + key + '" dihapus', 'pos');
-    listR2Files();
-  } catch (e) {
-    toast('Gagal: ' + e.message, 'neg');
-  }
-}
+// R2 functions removed — R2 not bound (cost control)
 
 // ─── XSS escape ───────────────────────────────────────────────
 function esc(s) {

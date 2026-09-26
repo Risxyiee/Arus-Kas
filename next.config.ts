@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* API routes now handled by Next.js — no static export */
+  output: "export",
   images: {
     unoptimized: true,
   },

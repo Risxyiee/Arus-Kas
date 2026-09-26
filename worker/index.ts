@@ -12,8 +12,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // ─── Env bindings ───────────────────────────────────────────────
 interface Env {
   ASSETS: Fetcher;
-  ARUS_KV: KVNamespace;            // Rate limiting, session cache, feature flags
-  ARUS_STORAGE?: R2Bucket;         // Optional: Pro backup, PDF, invoices (bind later)
+  arus_kv: KVNamespace;            // Rate limiting, session cache, feature flags
+  // R2 (ARUS_STORAGE) skipped — not bound. All /storage/* routes return 503.
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -22,18 +22,11 @@ interface Env {
   ADMIN_EMAIL: string; // default: "riskiakbarp123@gmail.com"
 }
 
-// ─── R2 Constants ───────────────────────────────────────────────
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
-const MAX_FILES_PER_USER = 100;         // Max files per Pro user
-const ALLOWED_TYPES = new Set([
-  "application/json",
-  "application/pdf",
-  "text/csv",
-  "text/plain",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-]);
+// ─── R2 Disabled ────────────────────────────────────────────────
+// R2 storage is NOT bound (cost control). All storage routes return 503.
+function r2Disabled(): Response {
+  return json({ error: "Cloud storage belum diaktifkan. Fitur ini memerlukan R2 yang belum dikonfigurasi.", r2_required: true }, 503);
+}
 
 // ─── KV Constants ───────────────────────────────────────────────
 const SESSION_TTL = 3600;          // 1 hour session cache
@@ -875,9 +868,10 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
-    if (path === "/storage/backup" || path.startsWith("/storage/backup")) return await handleBackup(request, env);
-    if (path === "/storage/restore" || path.startsWith("/storage/restore")) return await handleRestore(request, env);
-    if (path === "/storage" || path.startsWith("/storage")) return await handleStorage(request, env);
+    // R2 storage routes — disabled (no R2 binding)
+    if (path === "/storage/backup" || path.startsWith("/storage/backup")) return r2Disabled();
+    if (path === "/storage/restore" || path.startsWith("/storage/restore")) return r2Disabled();
+    if (path === "/storage" || path.startsWith("/storage")) return r2Disabled();
     if (path === "/cache" || path.startsWith("/cache")) return await handleCache(request, env);
 
     // Admin routes
@@ -941,9 +935,9 @@ async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<b
   try {
     const ip = getClientIp(request);
     const key = `rl:${ip}`;
-    const current = parseInt(await env.ARUS_KV.get(key) || "0", 10);
+    const current = parseInt(await env.arus_kv.get(key) || "0", 10);
     if (current >= limit) return false; // Rate limited
-    await env.ARUS_KV.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
+    await env.arus_kv.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
     return true;
   } catch {
     return true; // Graceful fallback if KV fails
@@ -954,7 +948,7 @@ async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<b
 // Caches Supabase auth verification results to reduce API calls
 async function getCachedSession(env: Env, token: string): Promise<{ userId: string; email: string } | null> {
   try {
-    const cached = await env.ARUS_KV.get(`session:${token}`, "json");
+    const cached = await env.arus_kv.get(`session:${token}`, "json");
     if (cached) return cached as { userId: string; email: string };
   } catch {}
   return null;
@@ -962,43 +956,43 @@ async function getCachedSession(env: Env, token: string): Promise<{ userId: stri
 
 async function cacheSession(env: Env, token: string, data: { userId: string; email: string }): Promise<void> {
   try {
-    await env.ARUS_KV.put(`session:${token}`, JSON.stringify(data), { expirationTtl: SESSION_TTL });
+    await env.arus_kv.put(`session:${token}`, JSON.stringify(data), { expirationTtl: SESSION_TTL });
   } catch {}
 }
 
 async function invalidateSession(env: Env, token: string): Promise<void> {
-  try { await env.ARUS_KV.delete(`session:${token}`); } catch {}
+  try { await env.arus_kv.delete(`session:${token}`); } catch {}
 }
 
 // ─── KV: Feature Flags ─────────────────────────────────────────
 // Returns feature flag value, falls back to default if not set
 async function getFeatureFlag(env: Env, flag: string): Promise<string> {
   try {
-    const val = await env.ARUS_KV.get(`ff:${flag}`);
+    const val = await env.arus_kv.get(`ff:${flag}`);
     if (val !== null) return val;
   } catch {}
   return DEFAULT_FEATURE_FLAGS[`ff:${flag}`] || "false";
 }
 
 async function setFeatureFlag(env: Env, flag: string, value: string): Promise<void> {
-  await env.ARUS_KV.put(`ff:${flag}`, value);
+  await env.arus_kv.put(`ff:${flag}`, value);
 }
 
 // ─── KV: Subscription Cache ────────────────────────────────────
 async function getCachedSubscription(env: Env, userId: string): Promise<string | null> {
   try {
-    return await env.ARUS_KV.get(`sub:${userId}`);
+    return await env.arus_kv.get(`sub:${userId}`);
   } catch { return null; }
 }
 
 async function cacheSubscription(env: Env, userId: string, plan: string): Promise<void> {
   try {
-    await env.ARUS_KV.put(`sub:${userId}`, plan, { expirationTtl: SUBSCRIPTION_CACHE_TTL });
+    await env.arus_kv.put(`sub:${userId}`, plan, { expirationTtl: SUBSCRIPTION_CACHE_TTL });
   } catch {}
 }
 
 async function invalidateSubscriptionCache(env: Env, userId: string): Promise<void> {
-  try { await env.ARUS_KV.delete(`sub:${userId}`); } catch {}
+  try { await env.arus_kv.delete(`sub:${userId}`); } catch {}
 }
 
 // ─── Helper: Check Pro plan (with KV cache) ────────────────────
@@ -1017,228 +1011,9 @@ async function isProUser(env: Env, userId: string): Promise<boolean> {
   return plan === "pro";
 }
 
-// ─── API: /api/storage — R2 File Storage ──────────────────────
-// Pro users: backup JSON, PDF reports, invoice attachments
-async function handleStorage(req: Request, env: Env): Promise<Response> {
-  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("user_id");
-  const fileId = url.searchParams.get("id");
-
-  if (!userId) return json({ error: "user_id required" }, 400);
-
-  // Check Pro plan (with KV cache)
-  const pro = await isProUser(env, userId);
-  if (!pro) return json({ error: "Storage cloud cuma untuk paket Pro. Upgrade ke Pro untuk backup & export PDF." }, 403);
-
-  const prefix = `users/${userId}/`;
-
-  if (req.method === "GET") {
-    // List files or get single file
-    if (fileId) {
-      const obj = await env.ARUS_STORAGE.get(prefix + fileId);
-      if (!obj) return json({ error: "File tidak ditemukan" }, 404);
-      return new Response(obj.body, {
-        headers: {
-          "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
-          "Content-Disposition": obj.httpMetadata?.contentDisposition || `inline; filename="${fileId}"`,
-          "Cache-Control": "private, max-age=3600",
-        },
-      });
-    }
-
-    // List all files for this user
-    const listed = await env.ARUS_STORAGE.list({ prefix });
-    const files = listed.objects.map((o) => ({
-      key: o.key.replace(prefix, ""),
-      size: o.size,
-      uploaded: o.uploaded.toISOString(),
-      type: o.httpMetadata?.contentType || "",
-    }));
-    return json({ data: files, total: files.length, limit: MAX_FILES_PER_USER });
-  }
-
-  if (req.method === "PUT") {
-    // Upload file with validation
-    if (!fileId) return json({ error: "id (filename) required" }, 400);
-
-    const contentType = req.headers.get("Content-Type") || "application/json";
-
-    // Validate content type
-    if (!ALLOWED_TYPES.has(contentType)) {
-      return json({ error: `Tipe file "${contentType}" tidak diizinkan. Gunakan: JSON, PDF, CSV, TXT, PNG, JPEG, WEBP.` }, 400);
-    }
-
-    // Validate file size
-    const contentLength = parseInt(req.headers.get("Content-Length") || "0", 10);
-    if (contentLength > MAX_FILE_SIZE) {
-      return json({ error: `File terlalu besar (max ${MAX_FILE_SIZE / 1024 / 1024}MB).` }, 413);
-    }
-
-    // Check file count quota
-    const existing = await env.ARUS_STORAGE.list({ prefix });
-    if (existing.objects.length >= MAX_FILES_PER_USER) {
-      return json({ error: `Kuota file penuh (max ${MAX_FILES_PER_USER} file). Hapus file lama dulu.` }, 403);
-    }
-
-    // Upload to R2
-    await env.ARUS_STORAGE.put(prefix + fileId, req.body, {
-      httpMetadata: {
-        contentType,
-        contentDisposition: `attachment; filename="${fileId}"`,
-      },
-      customMetadata: {
-        userId,
-        uploadedAt: new Date().toISOString(),
-      },
-    });
-
-    return json({ ok: true, key: fileId, type: contentType });
-  }
-
-  if (req.method === "DELETE") {
-    if (!fileId) return json({ error: "id (filename) required" }, 400);
-    await env.ARUS_STORAGE.delete(prefix + fileId);
-    return json({ ok: true, deleted: fileId });
-  }
-
-  return json({ error: "Method not allowed" }, 405);
-}
-
-// ─── API: /api/storage/backup — Full Data Backup to R2 ──────────
-async function handleBackup(req: Request, env: Env): Promise<Response> {
-  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("user_id");
-  if (!userId) return json({ error: "user_id required" }, 400);
-
-  const pro = await isProUser(env, userId);
-  if (!pro) return json({ error: "Backup cloud cuma untuk paket Pro." }, 403);
-
-  if (req.method === "POST") {
-    // Create full backup of all user data
-    const admin = getAdmin(env);
-    const [wallets, transactions, debts, budgets, customCats] = await Promise.all([
-      admin.from("wallets").select("*").eq("user_id", userId),
-      admin.from("transactions").select("*").eq("user_id", userId).order("occurred_at", { ascending: false }),
-      admin.from("debts").select("*").eq("user_id", userId),
-      admin.from("budgets").select("*").eq("user_id", userId),
-      admin.from("custom_categories").select("*").eq("user_id", userId),
-    ]);
-
-    const backupData = {
-      version: "3.1",
-      exported_at: new Date().toISOString(),
-      user_id: userId,
-      wallets: wallets.data || [],
-      transactions: transactions.data || [],
-      debts: debts.data || [],
-      budgets: budgets.data || [],
-      custom_categories: customCats.data || [],
-    };
-
-    const backupKey = `backup_${new Date().toISOString().slice(0, 10)}.json`;
-    const r2Key = `users/${userId}/${backupKey}`;
-
-    await env.ARUS_STORAGE.put(r2Key, JSON.stringify(backupData, null, 2), {
-      httpMetadata: {
-        contentType: "application/json",
-        contentDisposition: `attachment; filename="${backupKey}"`,
-      },
-      customMetadata: {
-        userId,
-        type: "full-backup",
-        uploadedAt: new Date().toISOString(),
-      },
-    });
-
-    // Also cache the last backup timestamp in KV
-    await env.ARUS_KV.put(`last-backup:${userId}`, new Date().toISOString());
-
-    return json({
-      ok: true,
-      key: backupKey,
-      size: JSON.stringify(backupData).length,
-      records: {
-        wallets: (wallets.data || []).length,
-        transactions: (transactions.data || []).length,
-        debts: (debts.data || []).length,
-        budgets: (budgets.data || []).length,
-        categories: (customCats.data || []).length,
-      },
-    });
-  }
-
-  if (req.method === "GET") {
-    // Get last backup info
-    const lastBackup = await env.ARUS_KV.get(`last-backup:${userId}`);
-    const listed = await env.ARUS_STORAGE.list({ prefix: `users/${userId}/backup_` });
-    const backups = listed.objects.map((o) => ({
-      key: o.key.replace(`users/${userId}/`, ""),
-      size: o.size,
-      date: o.uploaded.toISOString(),
-    }));
-    return json({ last_backup: lastBackup, backups });
-  }
-
-  return json({ error: "Method not allowed" }, 405);
-}
-
-// ─── API: /api/storage/restore — Restore from R2 Backup ─────────
-async function handleRestore(req: Request, env: Env): Promise<Response> {
-  if (!env.ARUS_STORAGE) return json({ error: "Cloud storage belum diaktifkan. Hubungi admin untuk setup R2.", r2_required: true }, 503);
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-
-  const body = await getBody(req);
-  const userId = body.user_id as string;
-  const backupKey = body.key as string;
-  if (!userId || !backupKey) return json({ error: "user_id dan key required" }, 400);
-
-  const pro = await isProUser(env, userId);
-  if (!pro) return json({ error: "Restore cuma untuk paket Pro." }, 403);
-
-  // Get backup from R2
-  const obj = await env.ARUS_STORAGE.get(`users/${userId}/${backupKey}`);
-  if (!obj) return json({ error: "Backup tidak ditemukan" }, 404);
-
-  const backupData = await obj.json() as {
-    wallets?: unknown[];
-    transactions?: unknown[];
-    debts?: unknown[];
-    budgets?: unknown[];
-    custom_categories?: unknown[];
-  };
-
-  const admin = getAdmin(env);
-  const results: Record<string, number> = {};
-
-  // Restore each table (upsert)
-  if (backupData.wallets?.length) {
-    const { error } = await admin.from("wallets").upsert(backupData.wallets, { onConflict: "id" });
-    if (!error) results.wallets = backupData.wallets.length;
-  }
-  if (backupData.transactions?.length) {
-    const { error } = await admin.from("transactions").upsert(backupData.transactions, { onConflict: "id" });
-    if (!error) results.transactions = backupData.transactions.length;
-  }
-  if (backupData.debts?.length) {
-    const { error } = await admin.from("debts").upsert(backupData.debts, { onConflict: "id" });
-    if (!error) results.debts = backupData.debts.length;
-  }
-  if (backupData.budgets?.length) {
-    const { error } = await admin.from("budgets").upsert(backupData.budgets, { onConflict: "id" });
-    if (!error) results.budgets = backupData.budgets.length;
-  }
-  if (backupData.custom_categories?.length) {
-    const { error } = await admin.from("custom_categories").upsert(backupData.custom_categories, { onConflict: "id" });
-    if (!error) results.categories = backupData.custom_categories.length;
-  }
-
-  // Invalidate subscription cache after restore
-  await invalidateSubscriptionCache(env, userId);
-
-  return json({ ok: true, restored: results });
-}
+// ─── R2 Handlers Removed ──────────────────────────────────────────
+// handleStorage, handleBackup, handleRestore removed — R2 not bound.
+// All /api/storage/* routes return 503 via r2Disabled().
 
 // ─── API: /api/cache — KV Feature Flags, Cache & Sessions ──────
 async function handleCache(req: Request, env: Env): Promise<Response> {
@@ -1251,9 +1026,9 @@ async function handleCache(req: Request, env: Env): Promise<Response> {
       // Get all feature flags (merged with defaults)
       const flags: Record<string, string> = { ...DEFAULT_FEATURE_FLAGS };
       try {
-        const list = await env.ARUS_KV.list({ prefix: "ff:" });
+        const list = await env.arus_kv.list({ prefix: "ff:" });
         for (const k of list.keys) {
-          const val = await env.ARUS_KV.get(k.name);
+          const val = await env.arus_kv.get(k.name);
           if (val !== null) flags[k.name] = val;
         }
       } catch {}
@@ -1275,12 +1050,12 @@ async function handleCache(req: Request, env: Env): Promise<Response> {
   if (req.method === "GET") {
     const key = url.searchParams.get("key");
     if (key) {
-      const value = await env.ARUS_KV.get(key);
+      const value = await env.arus_kv.get(key);
       return json({ key, value });
     }
     // List all keys with prefix
     const prefix = url.searchParams.get("prefix") || "";
-    const list = await env.ARUS_KV.list({ prefix });
+    const list = await env.arus_kv.list({ prefix });
     return json({ keys: list.keys.map((k) => ({ name: k.name, expiration: k.expiration })) });
   }
 
@@ -1291,14 +1066,14 @@ async function handleCache(req: Request, env: Env): Promise<Response> {
     const ttl = body.ttl as number | undefined;
     if (!key || value === undefined) return json({ error: "key dan value required" }, 400);
     const opts = ttl ? { expirationTtl: ttl } : undefined;
-    await env.ARUS_KV.put(key, value, opts);
+    await env.arus_kv.put(key, value, opts);
     return json({ ok: true, key });
   }
 
   if (req.method === "DELETE") {
     const key = url.searchParams.get("key");
     if (!key) return json({ error: "key required" }, 400);
-    await env.ARUS_KV.delete(key);
+    await env.arus_kv.delete(key);
     return json({ ok: true });
   }
 

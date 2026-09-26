@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* Static export for landing page — API routes handled by CF Worker */
-  output: "export",
+  /* API routes now handled by Next.js — no static export */
   images: {
     unoptimized: true,
   },

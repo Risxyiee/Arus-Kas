@@ -759,13 +759,22 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 Buku kas pribadi & UMKM. Gratis untuk mulai.
               </div>
             </div>
-            <a
-              className="footer-link"
-              href="#"
-              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-            >
-              Buka Aplikasi →
-            </a>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <a
+                className="footer-link"
+                href="#"
+                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+              >
+                Buka Aplikasi →
+              </a>
+              <a
+                className="footer-link"
+                href="/admin.html"
+                style={{ opacity: 0.5, fontSize: 12 }}
+              >
+                Admin
+              </a>
+            </div>
           </div>
         </div>
       </footer>

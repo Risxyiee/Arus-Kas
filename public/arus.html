@@ -469,8 +469,11 @@ function apiHeaders() {
 async function api(path, opts = {}) {
   try {
     const res = await fetch(API + '/api' + path, {headers: apiHeaders(), ...opts});
-    return await res.json();
-  } catch(e) { return {error: e.message}; }
+    const text = await res.text();
+    try { return JSON.parse(text); } catch {
+      return {error: 'Server error: respons bukan JSON. Pastikan API sudah berjalan.'};
+    }
+  } catch(e) { return {error: e.message || 'Koneksi gagal'}; }
 }
 
 let db=null;

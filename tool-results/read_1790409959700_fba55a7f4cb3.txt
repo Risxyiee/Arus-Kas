@@ -1,0 +1,1029 @@
+     1→     1→/**
+     2→     2→ * Arus Kas — Cloudflare Worker (API Routes + Static Assets)
+     3→     3→ * Pure CF Workers, no Vercel dependency.
+     4→     4→ *
+     5→     5→ * Routes:
+     6→     6→ *   /api/*        → Supabase API handlers
+     7→     7→ *   /*            → Static assets (landing page, arus.html, _next/static)
+     8→     8→ */
+     9→     9→
+    10→    10→import { createClient, SupabaseClient } from "@supabase/supabase-js";
+    11→    11→
+    12→    12→// ─── Env bindings ───────────────────────────────────────────────
+    13→    13→interface Env {
+    14→    14→  ASSETS: Fetcher;
+    15→    15→  ARUS_KV?: KVNamespace;          // Optional: rate limiting, cache, feature flags
+    16→    16→  ARUS_STORAGE?: R2Bucket;        // Optional: backup files, PDF reports, invoices
+    17→    17→  SUPABASE_URL: string;
+    18→    18→  SUPABASE_ANON_KEY: string;
+    19→    19→  SUPABASE_SERVICE_KEY: string;
+    20→    20→  MIDTRANS_SERVER_KEY: string;
+    21→    21→  MIDTRANS_IS_PRODUCTION: string; // "true" or "false"
+    22→    22→  ADMIN_EMAIL: string; // default: "riskiakbarp123@gmail.com"
+    23→    23→}
+    24→    24→
+    25→    25→// ─── Helpers ────────────────────────────────────────────────────
+    26→    26→function json(data: unknown, status = 200): Response {
+    27→    27→  return new Response(JSON.stringify(data), {
+    28→    28→    status,
+    29→    29→    headers: { "Content-Type": "application/json" },
+    30→    30→  });
+    31→    31→}
+    32→    32→
+    33→    33→function getAdmin(env: Env): SupabaseClient {
+    34→    34→  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    35→    35→}
+    36→    36→
+    37→    37→async function getBody(req: Request): Promise<Record<string, unknown>> {
+    38→    38→  return req.json() as Promise<Record<string, unknown>>;
+    39→    39→}
+    40→    40→
+    41→    41→function getParams(url: URL): Record<string, string> {
+    42→    42→  const p: Record<string, string> = {};
+    43→    43→  url.searchParams.forEach((v, k) => (p[k] = v));
+    44→    44→  return p;
+    45→    45→}
+    46→    46→
+    47→    47→// ─── Admin Auth Verification ──────────────────────────────────
+    48→    48→async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
+    49→    49→  const authHeader = req.headers.get("Authorization");
+    50→    50→  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    51→    51→  const token = authHeader.replace("Bearer ", "");
+    52→    52→
+    53→    53→  // Verify token with Supabase
+    54→    54→  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    55→    55→    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    56→    56→  });
+    57→    57→  if (!res.ok) return null;
+    58→    58→  const user = await res.json() as { id: string; email: string };
+    59→    59→
+    60→    60→  // Check admin email
+    61→    61→  const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
+    62→    62→  if (user.email !== adminEmail) return null;
+    63→    63→
+    64→    64→  return { userId: user.id, email: user.email };
+    65→    65→}
+    66→    66→
+    67→    67→// ─── API: /api/admin/* ────────────────────────────────────────
+    68→    68→async function handleAdmin(req: Request, env: Env, path: string): Promise<Response> {
+    69→    69→  // Verify admin access for all admin routes
+    70→    70→  const admin = await verifyAdmin(req, env);
+    71→    71→  if (!admin) return json({ error: "Akses ditolak. Halaman ini hanya untuk admin." }, 403);
+    72→    72→
+    73→    73→  const sb = getAdmin(env);
+    74→    74→  const url = new URL(req.url);
+    75→    75→
+    76→    76→  // GET /api/admin/stats — Dashboard overview stats
+    77→    77→  if (path === "/admin/stats" && req.method === "GET") {
+    78→    78→    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    79→    79→
+    80→    80→    const [profilesRes, subsRes, recentRes] = await Promise.all([
+    81→    81→      sb.from("profiles").select("id, created_at", { count: "exact" }),
+    82→    82→      sb.from("subscriptions").select("plan, expires_at"),
+    83→    83→      sb.from("profiles").select("id").gte("created_at", sevenDaysAgo),
+    84→    84→    ]);
+    85→    85→
+    86→    86→    if (profilesRes.error) throw profilesRes.error;
+    87→    87→    if (subsRes.error) throw subsRes.error;
+    88→    88→    if (recentRes.error) throw recentRes.error;
+    89→    89→
+    90→    90→    const totalUsers = profilesRes.count ?? (profilesRes.data || []).length;
+    91→    91→    const subs = subsRes.data || [];
+    92→    92→    const proCount = subs.filter((s: { plan: string }) => s.plan === "pro").length;
+    93→    93→    const freeCount = totalUsers - proCount;
+    94→    94→    const now = new Date();
+    95→    95→    const activePro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) >= now).length;
+    96→    96→    const expiredPro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) < now).length;
+    97→    97→    const recentSignups = (recentRes.data || []).length;
+    98→    98→    const monthlyRevenue = proCount * 29000;
+    99→    99→
+   100→   100→    return json({
+   101→   101→      data: { totalUsers, proCount, freeCount, monthlyRevenue, recentSignups, activePro, expiredPro },
+   102→   102→    });
+   103→   103→  }
+   104→   104→
+   105→   105→  // GET /api/admin/users — List all users with profile + subscription info
+   106→   106→  if (path === "/admin/users" && req.method === "GET") {
+   107→   107→    const [profilesRes, subsRes] = await Promise.all([
+   108→   108→      sb.from("profiles").select("*").order("created_at", { ascending: false }),
+   109→   109→      sb.from("subscriptions").select("user_id, plan, started_at, expires_at"),
+   110→   110→    ]);
+   111→   111→
+   112→   112→    if (profilesRes.error) throw profilesRes.error;
+   113→   113→    if (subsRes.error) throw subsRes.error;
+   114→   114→
+   115→   115→    const profiles = profilesRes.data || [];
+   116→   116→    const subMap = new Map<string, { plan: string; started_at: string | null; expires_at: string | null }>();
+   117→   117→    for (const s of (subsRes.data || [])) {
+   118→   118→      subMap.set(s.user_id, s);
+   119→   119→    }
+   120→   120→
+   121→   121→    // Try to get emails from auth.users via admin API (list users)
+   122→   122→    let emailMap = new Map<string, string>();
+   123→   123→    try {
+   124→   124→      const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+   125→   125→        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+   126→   126→      });
+   127→   127→      if (authRes.ok) {
+   128→   128→        const authData = await authRes.json() as { users: { id: string; email: string }[] };
+   129→   129→        for (const u of (authData.users || [])) {
+   130→   130→          emailMap.set(u.id, u.email);
+   131→   131→        }
+   132→   132→      }
+   133→   133→    } catch {
+   134→   134→      // If admin API not available, proceed without emails
+   135→   135→    }
+   136→   136→
+   137→   137→    const users = profiles.map((p: { id: string; user_id?: string; name?: string; created_at: string }) => {
+   138→   138→      const uid = p.user_id || p.id;
+   139→   139→      const sub = subMap.get(uid);
+   140→   140→      return {
+   141→   141→        user_id: uid,
+   142→   142→        id: p.id,
+   143→   143→        name: p.name || "—",
+   144→   144→        email: emailMap.get(uid) || "—",
+   145→   145→        plan: sub?.plan || "free",
+   146→   146→        created_at: p.created_at,
+   147→   147→      };
+   148→   148→    });
+   149→   149→
+   150→   150→    return json({ data: users });
+   151→   151→  }
+   152→   152→
+   153→   153→  // GET /api/admin/subscriptions/update — should be POST, reject GET
+   154→   154→  // POST /api/admin/subscription/update — Manually update a user's plan
+   155→   155→  if (path === "/admin/subscription/update" && req.method === "POST") {
+   156→   156→    const body = await getBody(req);
+   157→   157→    const userId = body.user_id as string;
+   158→   158→    const plan = body.plan as string;
+   159→   159→    const expiresAt = body.expires_at as string | undefined;
+   160→   160→
+   161→   161→    if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
+   162→   162→    if (plan !== "free" && plan !== "pro") return json({ error: "Plan harus 'free' atau 'pro'" }, 400);
+   163→   163→
+   164→   164→    // Check if subscription exists
+   165→   165→    const { data: existing } = await sb.from("subscriptions").select("id").eq("user_id", userId).single();
+   166→   166→
+   167→   167→    let result;
+   168→   168→    if (existing) {
+   169→   169→      const updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString() };
+   170→   170→      if (plan === "pro") {
+   171→   171→        updateData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+   172→   172→      } else {
+   173→   173→        updateData.expires_at = expiresAt || null;
+   174→   174→      }
+   175→   175→      result = await sb.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
+   176→   176→    } else {
+   177→   177→      const insertData: Record<string, unknown> = { user_id: userId, plan };
+   178→   178→      if (plan === "pro") {
+   179→   179→        insertData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+   180→   180→      }
+   181→   181→      result = await sb.from("subscriptions").insert(insertData).select().single();
+   182→   182→    }
+   183→   183→
+   184→   184→    if (result.error) throw result.error;
+   185→   185→    return json({ data: result.data });
+   186→   186→  }
+   187→   187→
+   188→   188→  // GET /api/admin/subscriptions/update — method not allowed
+   189→   189→  if (path === "/admin/subscription/update" && req.method === "GET") {
+   190→   190→    return json({ error: "Method not allowed. Gunakan POST." }, 405);
+   191→   191→  }
+   192→   192→
+   193→   193→  // GET /api/admin/subscriptions — Alias for subscription/update GET (not needed, but for completeness)
+   194→   194→
+   195→   195→  // GET /api/admin/subscriptions — List all subscriptions
+   196→   196→  if (path === "/admin/subscriptions" || path === "/admin/subscriptions/") {
+   197→   197→    if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
+   198→   198→
+   199→   199→    const { data, error } = await sb.from("subscriptions").select("*").order("started_at", { ascending: false, nullsFirst: "last" });
+   200→   200→    if (error) throw error;
+   201→   201→
+   202→   202→    // Get emails
+   203→   203→    let emailMap = new Map<string, string>();
+   204→   204→    try {
+   205→   205→      const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+   206→   206→        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+   207→   207→      });
+   208→   208→      if (authRes.ok) {
+   209→   209→        const authData = await authRes.json() as { users: { id: string; email: string }[] };
+   210→   210→        for (const u of (authData.users || [])) {
+   211→   211→          emailMap.set(u.id, u.email);
+   212→   212→        }
+   213→   213→      }
+   214→   214→    } catch {
+   215→   215→      // proceed without emails
+   216→   216→    }
+   217→   217→
+   218→   218→    const subs = (data || []).map((s: { user_id: string; [key: string]: unknown }) => ({
+   219→   219→      ...s,
+   220→   220→      email: emailMap.get(s.user_id) || "—",
+   221→   221→    }));
+   222→   222→
+   223→   223→    return json({ data: subs });
+   224→   224→  }
+   225→   225→
+   226→   226→  // GET /api/admin/transactions — Recent transactions across all users
+   227→   227→  if (path === "/admin/transactions" && req.method === "GET") {
+   228→   228→    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+   229→   229→    const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+   230→   230→    const from = url.searchParams.get("from");
+   231→   231→    const to = url.searchParams.get("to");
+   232→   232→    const type = url.searchParams.get("type");
+   233→   233→
+   234→   234→    let query = sb
+   235→   235→      .from("transactions")
+   236→   236→      .select("*")
+   237→   237→      .order("occurred_at", { ascending: false })
+   238→   238→      .range(offset, offset + limit - 1);
+   239→   239→
+   240→   240→    if (from) query = query.gte("occurred_at", from);
+   241→   241→    if (to) query = query.lte("occurred_at", to);
+   242→   242→    if (type) query = query.eq("type", type);
+   243→   243→
+   244→   244→    const { data, error } = await query;
+   245→   245→    if (error) throw error;
+   246→   246→
+   247→   247→    // Get emails for the user_ids in the transactions
+   248→   248→    const userIds = [...new Set((data || []).map((t: { user_id: string }) => t.user_id))];
+   249→   249→    let emailMap = new Map<string, string>();
+   250→   250→    if (userIds.length > 0) {
+   251→   251→      try {
+   252→   252→        const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+   253→   253→          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+   254→   254→        });
+   255→   255→        if (authRes.ok) {
+   256→   256→          const authData = await authRes.json() as { users: { id: string; email: string }[] };
+   257→   257→          for (const u of (authData.users || [])) {
+   258→   258→            emailMap.set(u.id, u.email);
+   259→   259→          }
+   260→   260→        }
+   261→   261→      } catch {
+   262→   262→        // proceed without emails
+   263→   263→      }
+   264→   264→    }
+   265→   265→
+   266→   266→    const txns = (data || []).map((t: { user_id: string; [key: string]: unknown }) => ({
+   267→   267→      ...t,
+   268→   268→      user_email: emailMap.get(t.user_id) || "—",
+   269→   269→    }));
+   270→   270→
+   271→   271→    return json({ data: txns });
+   272→   272→  }
+   273→   273→
+   274→   274→  return json({ error: "Not found" }, 404);
+   275→   275→}
+   276→   276→
+   277→   277→// ─── API: /api/wallets ──────────────────────────────────────────
+   278→   278→async function handleWallets(req: Request, env: Env): Promise<Response> {
+   279→   279→  const url = new URL(req.url);
+   280→   280→  const admin = getAdmin(env);
+   281→   281→
+   282→   282→  if (req.method === "GET") {
+   283→   283→    const userId = url.searchParams.get("user_id");
+   284→   284→    if (!userId) return json({ error: "user_id required" }, 400);
+   285→   285→    const { data, error } = await admin
+   286→   286→      .from("wallets")
+   287→   287→      .select("*")
+   288→   288→      .eq("user_id", userId)
+   289→   289→      .order("created_at", { ascending: true });
+   290→   290→    if (error) throw error;
+   291→   291→    return json({ data });
+   292→   292→  }
+   293→   293→
+   294→   294→  if (req.method === "POST") {
+   295→   295→    const body = await getBody(req);
+   296→   296→    const userId = body.user_id as string;
+   297→   297→
+   298→   298→    // Check plan limit
+   299→   299→    const { data: sub } = await admin
+   300→   300→      .from("subscriptions")
+   301→   301→      .select("plan")
+   302→   302→      .eq("user_id", userId)
+   303→   303→      .single();
+   304→   304→
+   305→   305→    if (sub?.plan !== "pro") {
+   306→   306→      const { count } = await admin
+   307→   307→        .from("wallets")
+   308→   308→        .select("*", { count: "exact", head: true })
+   309→   309→        .eq("user_id", userId);
+   310→   310→      if ((count || 0) >= 2) {
+   311→   311→        return json(
+   312→   312→          { error: "Limit dompet tercapai (2 untuk Gratis). Upgrade ke Pro untuk unlimited.", limit: "wallets" },
+   313→   313→          403
+   314→   314→        );
+   315→   315→      }
+   316→   316→    }
+   317→   317→
+   318→   318→    const { data, error } = await admin.from("wallets").insert(body).select().single();
+   319→   319→    if (error) throw error;
+   320→   320→    return json({ data }, 201);
+   321→   321→  }
+   322→   322→
+   323→   323→  if (req.method === "DELETE") {
+   324→   324→    const id = url.searchParams.get("id");
+   325→   325→    if (!id) return json({ error: "id required" }, 400);
+   326→   326→    const { error } = await admin.from("wallets").delete().eq("id", id);
+   327→   327→    if (error) throw error;
+   328→   328→    return json({ ok: true });
+   329→   329→  }
+   330→   330→
+   331→   331→  return json({ error: "Method not allowed" }, 405);
+   332→   332→}
+   333→   333→
+   334→   334→// ─── API: /api/transactions ─────────────────────────────────────
+   335→   335→async function handleTransactions(req: Request, env: Env): Promise<Response> {
+   336→   336→  const url = new URL(req.url);
+   337→   337→  const admin = getAdmin(env);
+   338→   338→
+   339→   339→  if (req.method === "GET") {
+   340→   340→    const userId = url.searchParams.get("user_id");
+   341→   341→    if (!userId) return json({ error: "user_id required" }, 400);
+   342→   342→
+   343→   343→    let query = admin
+   344→   344→      .from("transactions")
+   345→   345→      .select("*")
+   346→   346→      .eq("user_id", userId)
+   347→   347→      .order("occurred_at", { ascending: false });
+   348→   348→
+   349→   349→    const from = url.searchParams.get("from");
+   350→   350→    const to = url.searchParams.get("to");
+   351→   351→    const type = url.searchParams.get("type");
+   352→   352→    const category = url.searchParams.get("category");
+   353→   353→    const wallet = url.searchParams.get("wallet");
+   354→   354→
+   355→   355→    if (from) query = query.gte("occurred_at", from);
+   356→   356→    if (to) query = query.lte("occurred_at", to);
+   357→   357→    if (type) query = query.eq("type", type);
+   358→   358→    if (category) query = query.eq("category", category);
+   359→   359→    if (wallet) query = query.eq("wallet_id", wallet);
+   360→   360→
+   361→   361→    const { data, error } = await query;
+   362→   362→    if (error) throw error;
+   363→   363→    return json({ data });
+   364→   364→  }
+   365→   365→
+   366→   366→  if (req.method === "POST") {
+   367→   367→    const body = await getBody(req);
+   368→   368→    const { data, error } = await admin.from("transactions").insert(body).select().single();
+   369→   369→    if (error) throw error;
+   370→   370→    return json({ data }, 201);
+   371→   371→  }
+   372→   372→
+   373→   373→  if (req.method === "DELETE") {
+   374→   374→    const id = url.searchParams.get("id");
+   375→   375→    if (!id) return json({ error: "id required" }, 400);
+   376→   376→    const { error } = await admin.from("transactions").delete().eq("id", id);
+   377→   377→    if (error) throw error;
+   378→   378→    return json({ ok: true });
+   379→   379→  }
+   380→   380→
+   381→   381→  return json({ error: "Method not allowed" }, 405);
+   382→   382→}
+   383→   383→
+   384→   384→// ─── API: /api/debts ────────────────────────────────────────────
+   385→   385→async function handleDebts(req: Request, env: Env): Promise<Response> {
+   386→   386→  const url = new URL(req.url);
+   387→   387→  const admin = getAdmin(env);
+   388→   388→
+   389→   389→  if (req.method === "GET") {
+   390→   390→    const userId = url.searchParams.get("user_id");
+   391→   391→    if (!userId) return json({ error: "user_id required" }, 400);
+   392→   392→    const { data, error } = await admin
+   393→   393→      .from("debts")
+   394→   394→      .select("*")
+   395→   395→      .eq("user_id", userId)
+   396→   396→      .order("created_at", { ascending: false });
+   397→   397→    if (error) throw error;
+   398→   398→    return json({ data });
+   399→   399→  }
+   400→   400→
+   401→   401→  if (req.method === "POST") {
+   402→   402→    const body = await getBody(req);
+   403→   403→    const { data, error } = await admin.from("debts").insert(body).select().single();
+   404→   404→    if (error) throw error;
+   405→   405→    return json({ data }, 201);
+   406→   406→  }
+   407→   407→
+   408→   408→  if (req.method === "PATCH") {
+   409→   409→    const body = await getBody(req);
+   410→   410→    const { id, ...patch } = body;
+   411→   411→    if (!id) return json({ error: "id required" }, 400);
+   412→   412→    const { data, error } = await admin.from("debts").update(patch).eq("id", id).select().single();
+   413→   413→    if (error) throw error;
+   414→   414→    return json({ data });
+   415→   415→  }
+   416→   416→
+   417→   417→  if (req.method === "DELETE") {
+   418→   418→    const id = url.searchParams.get("id");
+   419→   419→    if (!id) return json({ error: "id required" }, 400);
+   420→   420→    const { error } = await admin.from("debts").delete().eq("id", id);
+   421→   421→    if (error) throw error;
+   422→   422→    return json({ ok: true });
+   423→   423→  }
+   424→   424→
+   425→   425→  return json({ error: "Method not allowed" }, 405);
+   426→   426→}
+   427→   427→
+   428→   428→// ─── API: /api/subscription ─────────────────────────────────────
+   429→   429→async function handleSubscription(req: Request, env: Env): Promise<Response> {
+   430→   430→  const url = new URL(req.url);
+   431→   431→  const admin = getAdmin(env);
+   432→   432→
+   433→   433→  if (req.method === "GET") {
+   434→   434→    const userId = url.searchParams.get("user_id");
+   435→   435→    if (!userId) return json({ error: "user_id required" }, 400);
+   436→   436→    const { data, error } = await admin.from("subscriptions").select("*").eq("user_id", userId).single();
+   437→   437→    if (error && error.code === "PGRST116") {
+   438→   438→      return json({ data: { plan: "free", started_at: null, expires_at: null } });
+   439→   439→    }
+   440→   440→    if (error) throw error;
+   441→   441→    return json({ data });
+   442→   442→  }
+   443→   443→
+   444→   444→  if (req.method === "POST") {
+   445→   445→    const body = await getBody(req);
+   446→   446→    const userId = body.user_id as string;
+   447→   447→    const plan = body.plan as string;
+   448→   448→    if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
+   449→   449→
+   450→   450→    const { data: existing } = await admin.from("subscriptions").select("id").eq("user_id", userId).single();
+   451→   451→    const expiresAt = plan === "pro" ? new Date(Date.now() + 30 * 86400000).toISOString() : null;
+   452→   452→
+   453→   453→    let result;
+   454→   454→    if (existing) {
+   455→   455→      result = await admin
+   456→   456→        .from("subscriptions")
+   457→   457→        .update({ plan, started_at: new Date().toISOString(), expires_at: expiresAt })
+   458→   458→        .eq("user_id", userId)
+   459→   459→        .select()
+   460→   460→        .single();
+   461→   461→    } else {
+   462→   462→      result = await admin.from("subscriptions").insert({ user_id: userId, plan, expires_at: expiresAt }).select().single();
+   463→   463→    }
+   464→   464→    if (result.error) throw result.error;
+   465→   465→    return json({ data: result.data });
+   466→   466→  }
+   467→   467→
+   468→   468→  return json({ error: "Method not allowed" }, 405);
+   469→   469→}
+   470→   470→
+   471→   471→// ─── API: /api/summary ──────────────────────────────────────────
+   472→   472→async function handleSummary(req: Request, env: Env): Promise<Response> {
+   473→   473→  const url = new URL(req.url);
+   474→   474→  const userId = url.searchParams.get("user_id");
+   475→   475→  if (!userId) return json({ error: "user_id required" }, 400);
+   476→   476→
+   477→   477→  const admin = getAdmin(env);
+   478→   478→  const [txnsRes, debtsRes] = await Promise.all([
+   479→   479→    admin.from("transactions").select("*").eq("user_id", userId),
+   480→   480→    admin.from("debts").select("*").eq("user_id", userId),
+   481→   481→  ]);
+   482→   482→
+   483→   483→  if (txnsRes.error) throw txnsRes.error;
+   484→   484→  if (debtsRes.error) throw debtsRes.error;
+   485→   485→
+   486→   486→  const transactions = txnsRes.data || [];
+   487→   487→  const debts = debtsRes.data || [];
+   488→   488→
+   489→   489→  const totalIncome = transactions.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+   490→   490→  const totalExpenses = transactions.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+   491→   491→  const activeBalance = totalIncome - totalExpenses;
+   492→   492→  const totalDebt = debts.filter((d: { type: string; status: string }) => d.type === "debt" && d.status !== "paid").reduce((s: number, d: { amount: number; paid_amount: number }) => s + (d.amount - d.paid_amount), 0);
+   493→   493→  const totalReceivable = debts.filter((d: { type: string; status: string }) => d.type === "receivable" && d.status !== "paid").reduce((s: number, d: { amount: number; paid_amount: number }) => s + (d.amount - d.paid_amount), 0);
+   494→   494→
+   495→   495→  const now = new Date();
+   496→   496→  const monthlyData = [];
+   497→   497→  for (let i = 11; i >= 0; i--) {
+   498→   498→    const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+   499→   499→    const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+   500→   500→    const mTxns = transactions.filter((t: { occurred_at: string }) => { const d = new Date(t.occurred_at); return d >= mStart && d < mEnd; });
+   501→   501→    const mIncome = mTxns.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+   502→   502→    const mExpenses = mTxns.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+   503→   503→    monthlyData.push({ month: mStart.toLocaleDateString("en-US", { month: "short", year: "2-digit" }), income: mIncome, expenses: mExpenses, net: mIncome - mExpenses });
+   504→   504→  }
+   505→   505→
+   506→   506→  return json({ activeBalance, totalIncome, totalExpenses, totalDebt, totalReceivable, monthlyData });
+   507→   507→}
+   508→   508→
+   509→   509→// ─── API: /api/categorize ───────────────────────────────────────
+   510→   510→const CATEGORY_RULES: { keywords: string[]; category: string; type: "income" | "expense" }[] = [
+   511→   511→  { keywords: ["food", "lunch", "dinner", "breakfast", "cafe", "coffee", "grocery", "makan", "beli", "restaurant"], category: "F&B", type: "expense" },
+   512→   512→  { keywords: ["gas", "fuel", "uber", "taxi", "bus", "train", "parking", "transport", "ojek", "bensin"], category: "Transportation", type: "expense" },
+   513→   513→  { keywords: ["rent", "mortgage", "electricity", "water", "utility", "internet", "listrik", "sewa"], category: "Housing", type: "expense" },
+   514→   514→  { keywords: ["movie", "netflix", "spotify", "game", "entertainment", "hiburan"], category: "Entertainment", type: "expense" },
+   515→   515→  { keywords: ["shop", "shopping", "clothes", "belanja", "purchase"], category: "Shopping", type: "expense" },
+   516→   516→  { keywords: ["doctor", "hospital", "medicine", "health", "dokter", "obat"], category: "Healthcare", type: "expense" },
+   517→   517→  { keywords: ["salary", "wage", "paycheck", "bonus", "freelance", "income", "gaji", "upah"], category: "Income", type: "income" },
+   518→   518→  { keywords: ["transfer", "deposit", "withdrawal", "transfer"], category: "Transfer", type: "expense" },
+   519→   519→  { keywords: ["gift", "donation", "hadiah", "sedekah"], category: "Gift", type: "expense" },
+   520→   520→];
+   521→   521→
+   522→   522→function autoCategorize(desc: string): { category: string; type: "income" | "expense" } {
+   523→   523→  const lower = desc.toLowerCase();
+   524→   524→  for (const rule of CATEGORY_RULES) {
+   525→   525→    for (const kw of rule.keywords) {
+   526→   526→      if (lower.includes(kw)) return { category: rule.category, type: rule.type };
+   527→   527→    }
+   528→   528→  }
+   529→   529→  return { category: "Other", type: "expense" };
+   530→   530→}
+   531→   531→
+   532→   532→async function handleCategorize(req: Request): Promise<Response> {
+   533→   533→  const body = await getBody(req);
+   534→   534→  const description = body.description as string;
+   535→   535→  if (!description) return json({ error: "Missing description" }, 400);
+   536→   536→  return json(autoCategorize(description));
+   537→   537→}
+   538→   538→
+   539→   539→// ─── API: /api/auth/login ───────────────────────────────────────
+   540→   540→async function handleLogin(req: Request, env: Env): Promise<Response> {
+   541→   541→  const body = await getBody(req);
+   542→   542→  const { email, password } = body as { email: string; password: string };
+   543→   543→
+   544→   544→  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+   545→   545→    method: "POST",
+   546→   546→    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+   547→   547→    body: JSON.stringify({ email, password }),
+   548→   548→  });
+   549→   549→  const data = await res.json();
+   550→   550→  if (!res.ok) return json({ error: data.error_description || data.msg || "Login gagal" }, res.status);
+   551→   551→  return json(data);
+   552→   552→}
+   553→   553→
+   554→   554→// ─── API: /api/auth/signup ──────────────────────────────────────
+   555→   555→async function handleSignup(req: Request, env: Env): Promise<Response> {
+   556→   556→  const body = await getBody(req);
+   557→   557→  const { email, password, name } = body as { email: string; password: string; name: string };
+   558→   558→
+   559→   559→  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/signup`, {
+   560→   560→    method: "POST",
+   561→   561→    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+   562→   562→    body: JSON.stringify({ email, password, data: { name: name || "Saya" } }),
+   563→   563→  });
+   564→   564→  const data = await res.json();
+   565→   565→  if (!res.ok) return json({ error: data.error_description || data.msg || "Signup gagal" }, res.status);
+   566→   566→  return json(data);
+   567→   567→}
+   568→   568→
+   569→   569→// ─── API: /api/sync ─────────────────────────────────────────────
+   570→   570→async function handleSync(req: Request, env: Env): Promise<Response> {
+   571→   571→  const admin = getAdmin(env);
+   572→   572→
+   573→   573→  if (req.method === "POST") {
+   574→   574→    const body = await getBody(req);
+   575→   575→    const userId = body.user_id as string;
+   576→   576→    const syncData = body.data as Record<string, unknown>;
+   577→   577→    if (!userId || !syncData) return json({ error: "user_id dan data required" }, 400);
+   578→   578→
+   579→   579→    // Only Pro can sync
+   580→   580→    const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
+   581→   581→    if (sub?.plan !== "pro") return json({ error: "Sinkronisasi cloud cuma untuk paket Pro." }, 403);
+   582→   582→
+   583→   583→    const results: Record<string, unknown> = {};
+   584→   584→
+   585→   585→    if ((syncData.wallets as unknown[])?.length) {
+   586→   586→      const wallets = (syncData.wallets as Record<string, unknown>[]).map((w) => ({
+   587→   587→        id: w.id, user_id: userId, name: w.name, color: w.color || "#C9A962", initial_balance: w.initial || 0,
+   588→   588→      }));
+   589→   589→      const { data: r, error } = await admin.from("wallets").upsert(wallets, { onConflict: "id" });
+   590→   590→      if (error) throw error;
+   591→   591→      results.wallets = r;
+   592→   592→    }
+   593→   593→
+   594→   594→    if ((syncData.transactions as unknown[])?.length) {
+   595→   595→      const txns = (syncData.transactions as Record<string, unknown>[]).map((t) => ({
+   596→   596→        id: t.id, user_id: userId, wallet_id: t.wallet_id, type: t.type, category: t.category,
+   597→   597→        description: t.description, amount: t.amount, occurred_at: t.occurred_at,
+   598→   598→        source: t.source || "manual", ref_id: t.ref_id || null, recur: t.recur || "none", recur_parent: t.recur_parent || null,
+   599→   599→      }));
+   600→   600→      const { data: r, error } = await admin.from("transactions").upsert(txns, { onConflict: "id" });
+   601→   601→      if (error) throw error;
+   602→   602→      results.transactions = r;
+   603→   603→    }
+   604→   604→
+   605→   605→    if ((syncData.debts as unknown[])?.length) {
+   606→   606→      const debts = (syncData.debts as Record<string, unknown>[]).map((d) => ({
+   607→   607→        id: d.id, user_id: userId, name: d.name, type: d.type, amount: d.amount,
+   608→   608→        paid_amount: d.paid_amount || 0, due_date: d.due_date || null, note: d.note || "",
+   609→   609→        status: d.status || "unpaid", settled_at: d.settled_at || null,
+   610→   610→      }));
+   611→   611→      const { data: r, error } = await admin.from("debts").upsert(debts, { onConflict: "id" });
+   612→   612→      if (error) throw error;
+   613→   613→      results.debts = r;
+   614→   614→    }
+   615→   615→
+   616→   616→    return json({ ok: true, synced: Object.keys(results) });
+   617→   617→  }
+   618→   618→
+   619→   619→  // GET — pull all data
+   620→   620→  if (req.method === "GET") {
+   621→   621→    const url = new URL(req.url);
+   622→   622→    const userId = url.searchParams.get("user_id");
+   623→   623→    if (!userId) return json({ error: "user_id required" }, 400);
+   624→   624→
+   625→   625→    const [wallets, transactions, debts, budgets, customCats, subscription] = await Promise.all([
+   626→   626→      admin.from("wallets").select("*").eq("user_id", userId),
+   627→   627→      admin.from("transactions").select("*").eq("user_id", userId).order("occurred_at", { ascending: false }),
+   628→   628→      admin.from("debts").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+   629→   629→      admin.from("budgets").select("*").eq("user_id", userId),
+   630→   630→      admin.from("custom_categories").select("*").eq("user_id", userId),
+   631→   631→      admin.from("subscriptions").select("*").eq("user_id", userId).single(),
+   632→   632→    ]);
+   633→   633→
+   634→   634→    return json({
+   635→   635→      data: {
+   636→   636→        wallets: wallets.data || [],
+   637→   637→        transactions: transactions.data || [],
+   638→   638→        debts: debts.data || [],
+   639→   639→        budgets: (budgets.data || []).reduce((acc: Record<string, number>, b: { category: string; amount: number }) => { acc[b.category] = b.amount; return acc; }, {}),
+   640→   640→        customCats: (customCats.data || []).map((c: { name: string; type: string; color: string; keywords: string[] }) => ({ name: c.name, type: c.type, color: c.color, kw: c.keywords })),
+   641→   641→        subscription: subscription.data || { plan: "free" },
+   642→   642→      },
+   643→   643→    });
+   644→   644→  }
+   645→   645→
+   646→   646→  return json({ error: "Method not allowed" }, 405);
+   647→   647→}
+   648→   648→
+   649→   649→// ─── API: /api/auth/me (get current user from Supabase) ──────────
+   650→   650→async function handleAuthMe(req: Request, env: Env): Promise<Response> {
+   651→   651→  const authHeader = req.headers.get("Authorization");
+   652→   652→  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+   653→   653→    return json({ error: "Unauthorized" }, 401);
+   654→   654→  }
+   655→   655→  const token = authHeader.replace("Bearer ", "");
+   656→   656→  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+   657→   657→    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+   658→   658→  });
+   659→   659→  const data = await res.json();
+   660→   660→  if (!res.ok) return json({ error: data.msg || "Invalid token" }, res.status);
+   661→   661→  return json({ data });
+   662→   662→}
+   663→   663→
+   664→   664→// ─── API: /api/auth/logout ──────────────────────────────────────
+   665→   665→async function handleLogout(req: Request, env: Env): Promise<Response> {
+   666→   666→  const authHeader = req.headers.get("Authorization");
+   667→   667→  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+   668→   668→    return json({ error: "Unauthorized" }, 401);
+   669→   669→  }
+   670→   670→  const token = authHeader.replace("Bearer ", "");
+   671→   671→  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/logout`, {
+   672→   672→    method: "POST",
+   673→   673→    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+   674→   674→  });
+   675→   675→  return json({ ok: true });
+   676→   676→}
+   677→   677→
+   678→   678→// ─── Midtrans: Create Snap Transaction ──────────────────────────
+   679→   679→async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
+   680→   680→  const body = await getBody(req);
+   681→   681→  const userId = body.user_id as string;
+   682→   682→  const email = body.email as string;
+   683→   683→  const name = body.name as string || "Saya";
+   684→   684→
+   685→   685→  if (!userId) return json({ error: "user_id required" }, 400);
+   686→   686→
+   687→   687→  const isProd = env.MIDTRANS_IS_PRODUCTION === "true";
+   688→   688→  const baseUrl = isProd
+   689→   689→    ? "https://app.midtrans.com/snap/v1/transactions"
+   690→   690→    : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+   691→   691→
+   692→   692→  const orderId = `ARUS-PRO-${userId.slice(0, 8)}-${Date.now()}`;
+   693→   693→
+   694→   694→  const payload = {
+   695→   695→    transaction_details: {
+   696→   696→      order_id: orderId,
+   697→   697→      gross_amount: 29000, // Rp 29.000/bulan
+   698→   698→    },
+   699→   699→    item_details: [{
+   700→   700→      id: "pro-monthly",
+   701→   701→      price: 29000,
+   702→   702→      quantity: 1,
+   703→   703→      name: "Arus Pro — Bulanan",
+   704→   704→      category: "Subscription",
+   705→   705→    }],
+   706→   706→    customer_details: {
+   707→   707→      first_name: name,
+   708→   708→      email: email || undefined,
+   709→   709→    },
+   710→   710→    callbacks: {
+   711→   711→      finish: "?payment=done",
+   712→   712→      error: "?payment=error",
+   713→   713→      pending: "?payment=pending",
+   714→   714→    },
+   715→   715→    metadata: {
+   716→   716→      user_id: userId,
+   717→   717→      plan: "pro",
+   718→   718→    },
+   719→   719→  };
+   720→   720→
+   721→   721→  const authKey = btoa(env.MIDTRANS_SERVER_KEY + ":");
+   722→   722→
+   723→   723→  const res = await fetch(baseUrl, {
+   724→   724→    method: "POST",
+   725→   725→    headers: {
+   726→   726→      "Content-Type": "application/json",
+   727→   727→      Accept: "application/json",
+   728→   728→      Authorization: `Basic ${authKey}`,
+   729→   729→    },
+   730→   730→    body: JSON.stringify(payload),
+   731→   731→  });
+   732→   732→
+   733→   733→  const data = await res.json();
+   734→   734→
+   735→   735→  if (!res.ok) {
+   736→   736→    return json({ error: data.error_messages?.[0] || "Midtrans error", details: data }, 400);
+   737→   737→  }
+   738→   738→
+   739→   739→  // Save pending order to Supabase
+   740→   740→  const admin = getAdmin(env);
+   741→   741→  await admin.from("subscriptions").upsert({
+   742→   742→    user_id: userId,
+   743→   743→    plan: "free",
+   744→   744→    payment_method: "midtrans",
+   745→   745→    transaction_id: orderId,
+   746→   746→  }, { onConflict: "user_id" });
+   747→   747→
+   748→   748→  return json({
+   749→   749→    token: data.token,
+   750→   750→    redirect_url: data.redirect_url,
+   751→   751→    order_id: orderId,
+   752→   752→  });
+   753→   753→}
+   754→   754→
+   755→   755→// ─── Midtrans: Webhook Handler ──────────────────────────────────
+   756→   756→async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> {
+   757→   757→  const body = await getBody(req);
+   758→   758→
+   759→   759→  const transactionStatus = body.transaction_status as string;
+   760→   760→  const orderId = body.order_id as string;
+   761→   761→  const paymentType = body.payment_type as string;
+   762→   762→  const metadata = body.metadata as { user_id?: string; plan?: string } | undefined;
+   763→   763→  const userId = metadata?.user_id || (body.custom_field1 as string);
+   764→   764→
+   765→   765→  if (!orderId || !transactionStatus) {
+   766→   766→    return json({ error: "Invalid webhook payload" }, 400);
+   767→   767→  }
+   768→   768→
+   769→   769→  // Verify signature (optional but recommended for production)
+   770→   770→  // const signatureKey = body.signature_key;
+   771→   771→  // ... verify with SHA512(order_id + status + gross_amount + server_key)
+   772→   772→
+   773→   773→  const admin = getAdmin(env);
+   774→   774→
+   775→   775→  // Determine if payment is successful
+   776→   776→  const isSuccess =
+   777→   777→    transactionStatus === "capture" ||
+   778→   778→    transactionStatus === "settlement";
+   779→   779→
+   780→   780→  const isPending = transactionStatus === "pending";
+   781→   781→  const isFailure =
+   782→   782→    transactionStatus === "deny" ||
+   783→   783→    transactionStatus === "expire" ||
+   784→   784→    transactionStatus === "cancel";
+   785→   785→
+   786→   786→  if (isSuccess && userId) {
+   787→   787→    // Activate Pro plan
+   788→   788→    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+   789→   789→    const { error } = await admin
+   790→   790→      .from("subscriptions")
+   791→   791→      .update({
+   792→   792→        plan: "pro",
+   793→   793→        started_at: new Date().toISOString(),
+   794→   794→        expires_at: expiresAt,
+   795→   795→        payment_method: `midtrans_${paymentType}`,
+   796→   796→        transaction_id: orderId,
+   797→   797→      })
+   798→   798→      .eq("user_id", userId);
+   799→   799→
+   800→   800→    if (error) console.error("Failed to update subscription:", error);
+   801→   801→  } else if (isFailure && userId) {
+   802→   802→    // Revert to free
+   803→   803→    await admin
+   804→   804→      .from("subscriptions")
+   805→   805→      .update({ plan: "free", transaction_id: orderId })
+   806→   806→      .eq("user_id", userId);
+   807→   807→  }
+   808→   808→
+   809→   809→  // Always return 200 to Midtrans
+   810→   810→  return json({ ok: true });
+   811→   811→}
+   812→   812→
+   813→   813→// ─── Router ─────────────────────────────────────────────────────
+   814→   814→async function handleApi(request: Request, env: Env): Promise<Response> {
+   815→   815→  const url = new URL(request.url);
+   816→   816→  const path = url.pathname.replace("/api", "").replace("//", "/");
+   817→   817→
+   818→   818→  try {
+   819→   819→    // Route matching
+   820→   820→    if (path === "/" || path === "") return json({ message: "Arus Kas API v3.1", status: "ok" });
+   821→   821→
+   822→   822→    if (path === "/wallets" || path.startsWith("/wallets")) return await handleWallets(request, env);
+   823→   823→    if (path === "/transactions" || path.startsWith("/transactions")) return await handleTransactions(request, env);
+   824→   824→    if (path === "/debts" || path.startsWith("/debts")) return await handleDebts(request, env);
+   825→   825→    if (path === "/subscription" || path.startsWith("/subscription")) return await handleSubscription(request, env);
+   826→   826→    if (path === "/summary" || path.startsWith("/summary")) return await handleSummary(request, env);
+   827→   827→    if (path === "/categorize" || path.startsWith("/categorize")) return await handleCategorize(request);
+   828→   828→    if (path === "/auth/login") return await handleLogin(request, env);
+   829→   829→    if (path === "/auth/signup") return await handleSignup(request, env);
+   830→   830→    if (path === "/auth/me") return await handleAuthMe(request, env);
+   831→   831→    if (path === "/auth/logout") return await handleLogout(request, env);
+   832→   832→    if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
+   833→   833→    if (path === "/payment/create") return await handleMidtransCreate(request, env);
+   834→   834→    if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
+   835→   835→    if (path === "/storage" || path.startsWith("/storage")) return await handleStorage(request, env);
+   836→   836→    if (path === "/cache" || path.startsWith("/cache")) return await handleCache(request, env);
+   837→   837→
+   838→   838→    // Admin routes
+   839→   839→    if (path.startsWith("/admin")) return await handleAdmin(request, env, path);
+   840→   840→
+   841→   841→    return json({ error: "Not found" }, 404);
+   842→   842→  } catch (err: unknown) {
+   843→   843→    const msg = err instanceof Error ? err.message : "Server error";
+   844→   844→    return json({ error: msg }, 500);
+   845→   845→  }
+   846→   846→}
+   847→   847→
+   848→   848→// ─── Cron: Check expired Pro subscriptions ────────────────────
+   849→   849→async function handleCron(env: Env): Promise<void> {
+   850→   850→  const admin = getAdmin(env);
+   851→   851→  const now = new Date().toISOString();
+   852→   852→
+   853→   853→  // Find all Pro subscriptions that have expired
+   854→   854→  const { data: expired, error } = await admin
+   855→   855→    .from("subscriptions")
+   856→   856→    .select("user_id, expires_at")
+   857→   857→    .eq("plan", "pro")
+   858→   858→    .lt("expires_at", now);
+   859→   859→
+   860→   860→  if (error) {
+   861→   861→    console.error("Cron: failed to query expired subscriptions:", error);
+   862→   862→    return;
+   863→   863→  }
+   864→   864→
+   865→   865→  if (!expired || expired.length === 0) {
+   866→   866→    console.log(`Cron: no expired subscriptions at ${now}`);
+   867→   867→    return;
+   868→   868→  }
+   869→   869→
+   870→   870→  // Downgrade expired Pro users to Free
+   871→   871→  const userIds = expired.map((s: { user_id: string }) => s.user_id);
+   872→   872→  const { error: updateError } = await admin
+   873→   873→    .from("subscriptions")
+   874→   874→    .update({ plan: "free" })
+   875→   875→    .in("user_id", userIds);
+   876→   876→
+   877→   877→  if (updateError) {
+   878→   878→    console.error("Cron: failed to downgrade:", updateError);
+   879→   879→  } else {
+   880→   880→    console.log(`Cron: downgraded ${userIds.length} expired Pro → Free`);
+   881→   881→  }
+   882→   882→}
+   883→   883→
+   884→   884→// ─── Rate Limiting Helper (uses KV if available) ────────────────
+   885→   885→function getClientIp(request: Request): string {
+   886→   886→  return request.headers.get("cf-connecting-ip") ||
+   887→   887→         request.headers.get("x-forwarded-for")?.split(",")[0] ||
+   888→   888→         "unknown";
+   889→   889→}
+   890→   890→
+   891→   891→async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<boolean> {
+   892→   892→  if (!env.ARUS_KV) return true; // KV not bound — skip rate limiting
+   893→   893→  try {
+   894→   894→    const ip = getClientIp(request);
+   895→   895→    const key = `rl:${ip}`;
+   896→   896→
+   897→   897→    const current = parseInt(await env.ARUS_KV.get(key) || "0", 10);
+   898→   898→    if (current >= limit) return false; // Rate limited
+   899→   899→
+   900→   900→    await env.ARUS_KV.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
+   901→   901→    return true;
+   902→   902→  } catch {
+   903→   903→    return true;
+   904→   904→  }
+   905→   905→}
+   906→   906→
+   907→   907→// ─── API: /api/storage — R2 File Storage ──────────────────────
+   908→   908→// Pro users: backup JSON, PDF reports, invoice attachments
+   909→   909→async function handleStorage(req: Request, env: Env): Promise<Response> {
+   910→   910→  if (!env.ARUS_STORAGE) return json({ error: "Storage belum di-setup. Aktifkan R2 binding." }, 503);
+   911→   911→  const url = new URL(req.url);
+   912→   912→  const userId = url.searchParams.get("user_id");
+   913→   913→  const fileId = url.searchParams.get("id");
+   914→   914→
+   915→   915→  if (!userId) return json({ error: "user_id required" }, 400);
+   916→   916→
+   917→   917→  // Check Pro plan
+   918→   918→  const admin = getAdmin(env);
+   919→   919→  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", userId).single();
+   920→   920→  if (sub?.plan !== "pro") return json({ error: "Storage cloud cuma untuk paket Pro." }, 403);
+   921→   921→
+   922→   922→  const prefix = `users/${userId}/`;
+   923→   923→
+   924→   924→  if (req.method === "GET") {
+   925→   925→    // List files or get single file
+   926→   926→    if (fileId) {
+   927→   927→      const obj = await env.ARUS_STORAGE.get(prefix + fileId);
+   928→   928→      if (!obj) return json({ error: "File tidak ditemukan" }, 404);
+   929→   929→      return new Response(obj.body, {
+   930→   930→        headers: {
+   931→   931→          "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
+   932→   932→          "Content-Disposition": obj.httpMetadata?.contentDisposition || "",
+   933→   933→        },
+   934→   934→      });
+   935→   935→    }
+   936→   936→
+   937→   937→    // List all files for this user
+   938→   938→    const listed = await env.ARUS_STORAGE.list({ prefix });
+   939→   939→    const files = listed.objects.map((o) => ({
+   940→   940→      key: o.key.replace(prefix, ""),
+   941→   941→      size: o.size,
+   942→   942→      uploaded: o.uploaded.toISOString(),
+   943→   943→      type: o.httpMetadata?.contentType || "",
+   944→   944→    }));
+   945→   945→    return json({ data: files });
+   946→   946→  }
+   947→   947→
+   948→   948→  if (req.method === "PUT") {
+   949→   949→    // Upload file
+   950→   950→    if (!fileId) return json({ error: "id (filename) required" }, 400);
+   951→   951→    const contentType = req.headers.get("Content-Type") || "application/json";
+   952→   952→    await env.ARUS_STORAGE.put(prefix + fileId, req.body, {
+   953→   953→      httpMetadata: { contentType },
+   954→   954→    });
+   955→   955→    return json({ ok: true, key: fileId });
+   956→   956→  }
+   957→   957→
+   958→   958→  if (req.method === "DELETE") {
+   959→   959→    if (!fileId) return json({ error: "id (filename) required" }, 400);
+   960→   960→    await env.ARUS_STORAGE.delete(prefix + fileId);
+   961→   961→    return json({ ok: true });
+   962→   962→  }
+   963→   963→
+   964→   964→  return json({ error: "Method not allowed" }, 405);
+   965→   965→}
+   966→   966→
+   967→   967→// ─── API: /api/cache — KV Feature Flags & Cache ───────────────
+   968→   968→async function handleCache(req: Request, env: Env): Promise<Response> {
+   969→   969→  if (!env.ARUS_KV) return json({ error: "Cache belum di-setup. Aktifkan KV binding." }, 503);
+   970→   970→  const url = new URL(req.url);
+   971→   971→
+   972→   972→  if (req.method === "GET") {
+   973→   973→    // Get a cached value or feature flag
+   974→   974→    const key = url.searchParams.get("key");
+   975→   975→    if (key) {
+   976→   976→      const value = await env.ARUS_KV.get(key);
+   977→   977→      return json({ key, value });
+   978→   978→    }
+   979→   979→    // List all keys with prefix
+   980→   980→    const prefix = url.searchParams.get("prefix") || "";
+   981→   981→    const list = await env.ARUS_KV.list({ prefix });
+   982→   982→    return json({ keys: list.keys.map((k) => ({ name: k.name, expiration: k.expiration })) });
+   983→   983→  }
+   984→   984→
+   985→   985→  if (req.method === "PUT") {
+   986→   986→    const body = await getBody(req);
+   987→   987→    const key = body.key as string;
+   988→   988→    const value = body.value as string;
+   989→   989→    const ttl = body.ttl as number | undefined;
+   990→   990→    if (!key || value === undefined) return json({ error: "key dan value required" }, 400);
+   991→   991→    const opts = ttl ? { expirationTtl: ttl } : undefined;
+   992→   992→    await env.ARUS_KV.put(key, value, opts);
+   993→   993→    return json({ ok: true, key });
+   994→   994→  }
+   995→   995→
+   996→   996→  if (req.method === "DELETE") {
+   997→   997→    const key = url.searchParams.get("key");
+   998→   998→    if (!key) return json({ error: "key required" }, 400);
+   999→   999→    await env.ARUS_KV.delete(key);
+  1000→  1000→    return json({ ok: true });
+  1001→  1001→  }
+  1002→  1002→
+  1003→  1003→  return json({ error: "Method not allowed" }, 405);
+  1004→  1004→}
+  1005→  1005→
+  1006→  1006→// ─── Main Worker Export ─────────────────────────────────────────
+  1007→  1007→export default {
+  1008→  1008→  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  1009→  1009→    const url = new URL(request.url);
+  1010→  1010→
+  1011→  1011→    // Rate limiting on API routes (if KV available)
+  1012→  1012→    if (url.pathname.startsWith("/api")) {
+  1013→  1013→      const allowed = await checkRateLimit(request, env);
+  1014→  1014→      if (!allowed) {
+  1015→  1015→        return json({ error: "Terlalu banyak request. Coba lagi dalam 1 menit." }, 429);
+  1016→  1016→      }
+  1017→  1017→      return handleApi(request, env);
+  1018→  1018→    }
+  1019→  1019→
+  1020→  1020→    // Everything else → static assets
+  1021→  1021→    return env.ASSETS.fetch(request);
+  1022→  1022→  },
+  1023→  1023→
+  1024→  1024→  // Cron trigger: runs daily at 09:00 WIB (02:00 UTC)
+  1025→  1025→  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  1026→  1026→    ctx.waitUntil(handleCron(env));
+  1027→  1027→  },
+  1028→  1028→} satisfies ExportedHandler<Env>;
+  1029→  1029→

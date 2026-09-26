@@ -12,8 +12,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // ─── Env bindings ───────────────────────────────────────────────
 interface Env {
   ASSETS: Fetcher;
-  ARUS_KV: KVNamespace;          // Rate limiting, cache, feature flags
-  ARUS_STORAGE: R2Bucket;        // Backup files, PDF reports, invoices
+  ARUS_KV?: KVNamespace;          // Optional: rate limiting, cache, feature flags
+  ARUS_STORAGE?: R2Bucket;        // Optional: backup files, PDF reports, invoices
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -889,6 +889,7 @@ function getClientIp(request: Request): string {
 }
 
 async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<boolean> {
+  if (!env.ARUS_KV) return true; // KV not bound — skip rate limiting
   try {
     const ip = getClientIp(request);
     const key = `rl:${ip}`;
@@ -899,7 +900,6 @@ async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<b
     await env.ARUS_KV.put(key, String(current + 1), { expirationTtl: 60 }); // 1 min window
     return true;
   } catch {
-    // KV not available — skip rate limiting
     return true;
   }
 }
@@ -907,6 +907,7 @@ async function checkRateLimit(request: Request, env: Env, limit = 60): Promise<b
 // ─── API: /api/storage — R2 File Storage ──────────────────────
 // Pro users: backup JSON, PDF reports, invoice attachments
 async function handleStorage(req: Request, env: Env): Promise<Response> {
+  if (!env.ARUS_STORAGE) return json({ error: "Storage belum di-setup. Aktifkan R2 binding." }, 503);
   const url = new URL(req.url);
   const userId = url.searchParams.get("user_id");
   const fileId = url.searchParams.get("id");
@@ -965,6 +966,7 @@ async function handleStorage(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/cache — KV Feature Flags & Cache ───────────────
 async function handleCache(req: Request, env: Env): Promise<Response> {
+  if (!env.ARUS_KV) return json({ error: "Cache belum di-setup. Aktifkan KV binding." }, 503);
   const url = new URL(req.url);
 
   if (req.method === "GET") {

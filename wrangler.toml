@@ -4,7 +4,6 @@ compatibility_date = "2024-09-25"
 compatibility_flags = ["nodejs_compat"]
 
 # Static assets (landing page + arus.html + admin.html + _next/static)
-# Built by `next build` with output: "export" → goes to /out
 [assets]
 directory = "./out"
 binding = "ASSETS"
@@ -14,26 +13,27 @@ SUPABASE_URL = "https://evntvbqrprizgqogjyva.supabase.co"
 MIDTRANS_IS_PRODUCTION = "false"
 ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 
-# ── KV Namespace: rate limiting, session cache, feature flags ──
-# RUN: npx wrangler kv namespace create "ARUS_KV"
-# Then paste the id + preview_id from the output below
-[[kv_namespaces]]
-binding = "ARUS_KV"
-id = "PASTE_KV_ID_HERE"
-preview_id = "PASTE_KV_PREVIEW_ID_HERE"
+# ── KV Namespace ──
+# PRODUCTION: Uncomment and paste real IDs after running:
+#   npx wrangler kv namespace create "ARUS_KV"
+# [[kv_namespaces]]
+# binding = "ARUS_KV"
+# id = "PASTE_KV_ID_HERE"
+# preview_id = "PASTE_KV_PREVIEW_ID_HERE"
 
-# ── R2 Bucket: PDF backups, invoice attachments, exported reports ──
-# RUN: npx wrangler r2 bucket create "arus-storage"
-[[r2_buckets]]
-binding = "ARUS_STORAGE"
-bucket_name = "arus-storage"
+# ── R2 Bucket ──
+# PRODUCTION: Uncomment after running:
+#   npx wrangler r2 bucket create "arus-storage"
+# [[r2_buckets]]
+# binding = "ARUS_STORAGE"
+# bucket_name = "arus-storage"
 
-# ── Cron Triggers: subscription expiry check ──
+# ── Cron Triggers ──
 [triggers]
-crons = ["0 2 * * *"]   # Run daily at 02:00 UTC (09:00 WIB)
+crons = ["0 2 * * *"]
 
-# Set these as Secrets in Cloudflare Dashboard (don't commit real keys):
+# ── Secrets (set via: npx wrangler secret put NAME) ──
 # SUPABASE_ANON_KEY
 # SUPABASE_SERVICE_KEY
 # MIDTRANS_SERVER_KEY
-# RESEND_API_KEY        # for transactional emails via Resend
+# RESEND_API_KEY

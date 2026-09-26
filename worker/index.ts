@@ -17,6 +17,7 @@ interface Env {
   SUPABASE_SERVICE_KEY: string;
   MIDTRANS_SERVER_KEY: string;
   MIDTRANS_IS_PRODUCTION: string; // "true" or "false"
+  ADMIN_EMAIL: string; // default: "riskiakbarp123@gmail.com"
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -39,6 +40,236 @@ function getParams(url: URL): Record<string, string> {
   const p: Record<string, string> = {};
   url.searchParams.forEach((v, k) => (p[k] = v));
   return p;
+}
+
+// ─── Admin Auth Verification ──────────────────────────────────
+async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.replace("Bearer ", "");
+
+  // Verify token with Supabase
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) return null;
+  const user = await res.json() as { id: string; email: string };
+
+  // Check admin email
+  const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
+  if (user.email !== adminEmail) return null;
+
+  return { userId: user.id, email: user.email };
+}
+
+// ─── API: /api/admin/* ────────────────────────────────────────
+async function handleAdmin(req: Request, env: Env, path: string): Promise<Response> {
+  // Verify admin access for all admin routes
+  const admin = await verifyAdmin(req, env);
+  if (!admin) return json({ error: "Akses ditolak. Halaman ini hanya untuk admin." }, 403);
+
+  const sb = getAdmin(env);
+  const url = new URL(req.url);
+
+  // GET /api/admin/stats — Dashboard overview stats
+  if (path === "/admin/stats" && req.method === "GET") {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+    const [profilesRes, subsRes, recentRes] = await Promise.all([
+      sb.from("profiles").select("id, created_at", { count: "exact" }),
+      sb.from("subscriptions").select("plan, expires_at"),
+      sb.from("profiles").select("id").gte("created_at", sevenDaysAgo),
+    ]);
+
+    if (profilesRes.error) throw profilesRes.error;
+    if (subsRes.error) throw subsRes.error;
+    if (recentRes.error) throw recentRes.error;
+
+    const totalUsers = profilesRes.count ?? (profilesRes.data || []).length;
+    const subs = subsRes.data || [];
+    const proCount = subs.filter((s: { plan: string }) => s.plan === "pro").length;
+    const freeCount = totalUsers - proCount;
+    const now = new Date();
+    const activePro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) >= now).length;
+    const expiredPro = subs.filter((s: { plan: string; expires_at: string | null }) => s.plan === "pro" && s.expires_at && new Date(s.expires_at) < now).length;
+    const recentSignups = (recentRes.data || []).length;
+    const monthlyRevenue = proCount * 29000;
+
+    return json({
+      data: { totalUsers, proCount, freeCount, monthlyRevenue, recentSignups, activePro, expiredPro },
+    });
+  }
+
+  // GET /api/admin/users — List all users with profile + subscription info
+  if (path === "/admin/users" && req.method === "GET") {
+    const [profilesRes, subsRes] = await Promise.all([
+      sb.from("profiles").select("*").order("created_at", { ascending: false }),
+      sb.from("subscriptions").select("user_id, plan, started_at, expires_at"),
+    ]);
+
+    if (profilesRes.error) throw profilesRes.error;
+    if (subsRes.error) throw subsRes.error;
+
+    const profiles = profilesRes.data || [];
+    const subMap = new Map<string, { plan: string; started_at: string | null; expires_at: string | null }>();
+    for (const s of (subsRes.data || [])) {
+      subMap.set(s.user_id, s);
+    }
+
+    // Try to get emails from auth.users via admin API (list users)
+    let emailMap = new Map<string, string>();
+    try {
+      const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+      });
+      if (authRes.ok) {
+        const authData = await authRes.json() as { users: { id: string; email: string }[] };
+        for (const u of (authData.users || [])) {
+          emailMap.set(u.id, u.email);
+        }
+      }
+    } catch {
+      // If admin API not available, proceed without emails
+    }
+
+    const users = profiles.map((p: { id: string; user_id?: string; name?: string; created_at: string }) => {
+      const uid = p.user_id || p.id;
+      const sub = subMap.get(uid);
+      return {
+        user_id: uid,
+        id: p.id,
+        name: p.name || "—",
+        email: emailMap.get(uid) || "—",
+        plan: sub?.plan || "free",
+        created_at: p.created_at,
+      };
+    });
+
+    return json({ data: users });
+  }
+
+  // GET /api/admin/subscriptions/update — should be POST, reject GET
+  // POST /api/admin/subscription/update — Manually update a user's plan
+  if (path === "/admin/subscription/update" && req.method === "POST") {
+    const body = await getBody(req);
+    const userId = body.user_id as string;
+    const plan = body.plan as string;
+    const expiresAt = body.expires_at as string | undefined;
+
+    if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
+    if (plan !== "free" && plan !== "pro") return json({ error: "Plan harus 'free' atau 'pro'" }, 400);
+
+    // Check if subscription exists
+    const { data: existing } = await sb.from("subscriptions").select("id").eq("user_id", userId).single();
+
+    let result;
+    if (existing) {
+      const updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString() };
+      if (plan === "pro") {
+        updateData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+      } else {
+        updateData.expires_at = expiresAt || null;
+      }
+      result = await sb.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
+    } else {
+      const insertData: Record<string, unknown> = { user_id: userId, plan };
+      if (plan === "pro") {
+        insertData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+      }
+      result = await sb.from("subscriptions").insert(insertData).select().single();
+    }
+
+    if (result.error) throw result.error;
+    return json({ data: result.data });
+  }
+
+  // GET /api/admin/subscriptions/update — method not allowed
+  if (path === "/admin/subscription/update" && req.method === "GET") {
+    return json({ error: "Method not allowed. Gunakan POST." }, 405);
+  }
+
+  // GET /api/admin/subscriptions — Alias for subscription/update GET (not needed, but for completeness)
+
+  // GET /api/admin/subscriptions — List all subscriptions
+  if (path === "/admin/subscriptions" || path === "/admin/subscriptions/") {
+    if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
+
+    const { data, error } = await sb.from("subscriptions").select("*").order("started_at", { ascending: false, nullsFirst: "last" });
+    if (error) throw error;
+
+    // Get emails
+    let emailMap = new Map<string, string>();
+    try {
+      const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+      });
+      if (authRes.ok) {
+        const authData = await authRes.json() as { users: { id: string; email: string }[] };
+        for (const u of (authData.users || [])) {
+          emailMap.set(u.id, u.email);
+        }
+      }
+    } catch {
+      // proceed without emails
+    }
+
+    const subs = (data || []).map((s: { user_id: string; [key: string]: unknown }) => ({
+      ...s,
+      email: emailMap.get(s.user_id) || "—",
+    }));
+
+    return json({ data: subs });
+  }
+
+  // GET /api/admin/transactions — Recent transactions across all users
+  if (path === "/admin/transactions" && req.method === "GET") {
+    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+    const type = url.searchParams.get("type");
+
+    let query = sb
+      .from("transactions")
+      .select("*")
+      .order("occurred_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (from) query = query.gte("occurred_at", from);
+    if (to) query = query.lte("occurred_at", to);
+    if (type) query = query.eq("type", type);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Get emails for the user_ids in the transactions
+    const userIds = [...new Set((data || []).map((t: { user_id: string }) => t.user_id))];
+    let emailMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      try {
+        const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json() as { users: { id: string; email: string }[] };
+          for (const u of (authData.users || [])) {
+            emailMap.set(u.id, u.email);
+          }
+        }
+      } catch {
+        // proceed without emails
+      }
+    }
+
+    const txns = (data || []).map((t: { user_id: string; [key: string]: unknown }) => ({
+      ...t,
+      user_email: emailMap.get(t.user_id) || "—",
+    }));
+
+    return json({ data: txns });
+  }
+
+  return json({ error: "Not found" }, 404);
 }
 
 // ─── API: /api/wallets ──────────────────────────────────────────
@@ -599,6 +830,9 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
+
+    // Admin routes
+    if (path.startsWith("/admin")) return await handleAdmin(request, env, path);
 
     return json({ error: "Not found" }, 404);
   } catch (err: unknown) {

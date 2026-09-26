@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arus Admin — Dashboard</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect x='1' y='1' width='32' height='32' rx='9' fill='%23242019'/%3E%3Cpath d='M10 12.5h14M10 17h14M10 21.5h9' stroke='%23F4F1E8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='21.5' r='2.2' fill='%23C14E33'/%3E%3C/svg%3E">
+<script>
+(function(){try{var s=localStorage.getItem('arus-theme');
+ var dk=s?s==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+ if(dk)document.documentElement.classList.add('dark');}catch(e){}})();
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#F4F1E8;--card:#FFFFFF;--soft:#ECE8DB;--line:#E2DCCC;--ink:#242019;--mut:#8B8471;
+ --pos:#0E7B4F;--pos-soft:#DFF0E6;--neg:#C14E33;--neg-soft:#F9E8E1;--warn:#97741F;--warn-soft:#F5EDD5;
+ --shadow:0 12px 32px rgba(30,27,21,.10);
+ --inv:#242019;--invfg:#F4F1E8;--invmut:#9B947F;--invpos:#63D6A0;--invneg:#F09A7E}
+.dark{--bg:#16140F;--card:#211E17;--soft:#2B2820;--line:#393428;--ink:#EFEBDE;--mut:#A39B85;
+ --pos:#4EC38A;--pos-soft:#20342A;--neg:#E8825F;--neg-soft:#3C2820;--warn:#D8A94E;--warn-soft:#39311C;
+ --shadow:0 12px 32px rgba(0,0,0,.4);
+ --inv:#F1EDE1;--invfg:#1C1912;--invmut:#6F6957;--invpos:#0E7B4F;--invneg:#C14E33}
+body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif;
+ background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;font-variant-numeric:tabular-nums}
+.muted{color:var(--mut)}.pos{color:var(--pos)}.neg{color:var(--neg)}.warn{color:var(--warn)}
+.small{font-size:12.5px}.xs{font-size:11px}
+.row{display:flex;align-items:center;gap:8px}.wrap{flex-wrap:wrap}.between{justify-content:space-between}
+.right{text-align:right}.grow{flex:1}.minw{min-width:0}
+.grid{display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);
+ background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+ cursor:pointer;transition:.15s;font-family:inherit;text-decoration:none}
+.btn:hover{background:var(--soft)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{opacity:.88}
+.btn.danger{background:var(--neg);border-color:var(--neg);color:#fff}
+.btn.danger:hover{opacity:.9}
+.btn.mini{padding:5px 10px;font-size:11.5px;border-radius:8px;gap:5px}
+.btn.icon{padding:8px}
+.fld{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+ padding:9px 12px;font-size:13px;outline:none;font-family:inherit;transition:.15s}
+.fld:focus{border-color:var(--pos);box-shadow:0 0 0 3px var(--pos-soft)}
+.lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin-bottom:5px}
+select.fld{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238B8471' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+/* Layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);
+ display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:60}
+.brand{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.brand h1{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.brand span{font-size:10px;font-weight:600;background:var(--neg);color:#fff;padding:2px 7px;border-radius:99px;letter-spacing:.06em}
+.sidebar nav{padding:10px 12px;flex:1;overflow-y:auto}
+.navlink{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--mut);
+ text-decoration:none;font-weight:600;font-size:13px;transition:.15s;width:100%;font-family:inherit;cursor:pointer;border:none;background:none;text-align:left}
+.navlink:hover{color:var(--ink);background:var(--soft)}
+.navlink.active{background:var(--ink);color:var(--bg)}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--line)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:0 20px;height:56px;border-bottom:1px solid var(--line);
+ background:var(--bg);position:sticky;top:0;z-index:20}
+.topbar .email{font-size:12px;color:var(--mut)}
+#view{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:22px 20px 40px}
+
+/* Responsive */
+.menu-btn{display:none}
+.scrim{position:fixed;inset:0;background:rgba(15,13,10,.45);z-index:55;display:none}
+.scrim.show{display:block}
+@media(max-width:900px){
+ .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);
+  transition:transform .25s ease;box-shadow:0 0 60px rgba(0,0,0,.25)}
+ .sidebar.open{transform:none}
+ .menu-btn{display:inline-flex}
+}
+
+/* Tables */
+.tblwrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+ padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:hover td{background:var(--soft)}
+
+/* Stat cards */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.stat-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:6px}
+.stat-card .value{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.stat-card .sub{font-size:11px;color:var(--mut);margin-top:4px}
+
+/* Plan badge */
+.plan-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.04em}
+.plan-free{background:var(--soft);color:var(--mut)}.plan-pro{background:var(--pos-soft);color:var(--pos)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,13,10,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:16px}
+.modal .field{margin-bottom:14px}
+
+/* Login page */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:380px;width:100%;box-shadow:var(--shadow)}
+.login-card h2{font-size:22px;font-weight:800;margin-bottom:4px}
+.login-card p{color:var(--mut);font-size:13px;margin-bottom:20px}
+.login-card .field{margin-bottom:14px}
+.login-card .error{color:var(--neg);font-size:12px;margin-top:8px;display:none}
+.login-card .error.show{display:block}
+
+/* Theme toggle */
+.theme-toggle{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:8px;
+ padding:6px 8px;cursor:pointer;font-size:14px;transition:.15s;display:inline-flex;align-items:center}
+.theme-toggle:hover{background:var(--soft);color:var(--ink)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:200;animation:toastin .3s ease;box-shadow:var(--shadow)}
+@keyframes toastin{from{transform:translateY(20px);opacity:0}}
+.toast.pos{background:var(--pos);color:#fff}
+.toast.neg{background:var(--neg);color:#fff}
+
+/* Section title */
+.section-title{font-size:18px;font-weight:800;margin-bottom:16px}
+.section-sub{font-size:12px;color:var(--mut);margin-bottom:20px}
+
+/* Loading skeleton */
+.skeleton{background:var(--soft);border-radius:6px;animation:skpulse 1.2s ease-in-out infinite}
+@keyframes skpulse{0%,100%{opacity:.6}50%{opacity:.3}}
+
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:end}
+.filter-bar .field{display:flex;flex-direction:column;gap:4px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div class="row between" style="margin-bottom:20px">
+      <div>
+        <h2>Arus Admin</h2>
+        <p>Dashboard admin untuk Arus Kas</p>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Ganti tema">🌓</button>
+    </div>
+    <div class="field">
+      <label class="lbl">Email</label>
+      <input id="loginEmail" type="email" class="fld" placeholder="admin@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label class="lbl">Password</label>
+      <input id="loginPass" type="password" class="fld" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="loginError" class="error">Login gagal. Periksa email dan password.</div>
+    <button id="loginBtn" class="btn primary" style="width:100%;margin-top:6px" onclick="doLogin()">Masuk</button>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD SCREEN ============ -->
+<div id="dashScreen" class="app" style="display:none">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <h1>Arus</h1><span>ADMIN</span>
+    </div>
+    <nav>
+      <button class="navlink active" data-section="dashboard" onclick="switchSection('dashboard',this)">
+        📊 Dashboard
+      </button>
+      <button class="navlink" data-section="pengguna" onclick="switchSection('pengguna',this)">
+        👥 Pengguna
+      </button>
+      <button class="navlink" data-section="langganan" onclick="switchSection('langganan',this)">
+        💳 Langganan
+      </button>
+      <button class="navlink" data-section="transaksi" onclick="switchSection('transaksi',this)">
+        💰 Transaksi
+      </button>
+      <button class="navlink" data-section="pengaturan" onclick="switchSection('pengaturan',this)">
+        ⚙️ Pengaturan
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn mini" style="width:100%" onclick="toggleTheme()">🌓 Ganti Tema</button>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim" onclick="closeSidebar()"></div>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="topbar">
+      <button class="btn icon menu-btn" onclick="openSidebar()">☰</button>
+      <div class="grow"></div>
+      <span id="adminEmail" class="email"></span>
+      <button class="btn mini" onclick="doLogout()">Keluar</button>
+    </div>
+    <div id="view">
+      <!-- Content injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL CONTAINER ============ -->
+<div id="modalContainer"></div>
+
+<!-- ============ TOAST CONTAINER ============ -->
+<div id="toastContainer"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────
+let token = sessionStorage.getItem('arus_admin_token') || '';
+let currentSection = 'dashboard';
+const ADMIN_EMAIL = 'riskiakbarp123@gmail.com';
+const PRO_PRICE = 29000;
+
+// ─── Theme ────────────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('arus-theme', isDark ? 'dark' : 'light');
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ─── API helper ───────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch('/api' + path, { ...opts, headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Gagal memuat data');
+  return data;
+}
+
+// ─── Format helpers ───────────────────────────────────────────
+function fmtRp(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'}); }
+function fmtRelTime(d) {
+  if (!d) return '—';
+  const diff = Date.now() - new Date(d).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days < 1) return 'Hari ini';
+  if (days < 7) return days + ' hari lalu';
+  return fmtDate(d);
+}
+
+// ─── Login ────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.classList.remove('show');
+  btn.disabled = true; btn.textContent = 'Memproses...';
+
+  try {
+    // Step 1: Login to get token
+    const loginRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const loginData = await loginRes.json();
+    if (!loginRes.ok) throw new Error(loginData.error_description || loginData.error || 'Login gagal');
+
+    token = loginData.access_token;
+    if (!token) throw new Error('Token tidak ditemukan');
+
+    // Step 2: Verify user with /api/auth/me
+    const meRes = await fetch('/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const meData = await meRes.json();
+    if (!meRes.ok) throw new Error('Verifikasi gagal');
+
+    // Step 3: Check admin email
+    const userEmail = meData.data?.email || meData.email;
+    if (userEmail !== ADMIN_EMAIL) {
+      throw new Error('Akses ditolak. Halaman ini hanya untuk admin.');
+    }
+
+    // Success
+    sessionStorage.setItem('arus_admin_token', token);
+    document.getElementById('adminEmail').textContent = userEmail;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashScreen').style.display = 'flex';
+    loadSection('dashboard');
+
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+    token = '';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Masuk';
+  }
+}
+
+function doLogout() {
+  token = '';
+  sessionStorage.removeItem('arus_admin_token');
+  document.getElementById('dashScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPass').value = '';
+}
+
+// ─── Sidebar (mobile) ─────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('scrim').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+}
+
+// ─── Section switching ────────────────────────────────────────
+function switchSection(name, btn) {
+  document.querySelectorAll('.navlink').forEach(n => n.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  currentSection = name;
+  loadSection(name);
+  closeSidebar();
+}
+
+async function loadSection(name) {
+  const view = document.getElementById('view');
+  view.innerHTML = '<div class="small muted" style="padding:20px">Memuat...</div>';
+
+  try {
+    switch (name) {
+      case 'dashboard': await renderDashboard(view); break;
+      case 'pengguna': await renderPengguna(view); break;
+      case 'langganan': await renderLangganan(view); break;
+      case 'transaksi': await renderTransaksi(view); break;
+      case 'pengaturan': await renderPengaturan(view); break;
+    }
+  } catch (e) {
+    view.innerHTML = '<div class="small neg" style="padding:20px">Error: ' + e.message + '</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Dashboard
+// ═══════════════════════════════════════════════════════════════
+async function renderDashboard(el) {
+  const stats = await api('/admin/stats');
+  const d = stats.data || stats;
+
+  el.innerHTML = `
+    <div class="section-title">📊 Dashboard</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Total Pengguna</div>
+        <div class="value">${d.totalUsers ?? 0}</div>
+        <div class="sub">${d.recentSignups ?? 0} mendaftar 7 hari terakhir</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pelanggan Pro</div>
+        <div class="value pos">${d.proCount ?? 0}</div>
+        <div class="sub">dari total ${d.totalUsers ?? 0} pengguna</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pengguna Gratis</div>
+        <div class="value muted">${d.freeCount ?? 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pendapatan Bulanan</div>
+        <div class="value" style="color:var(--pos)">${fmtRp((d.proCount ?? 0) * PRO_PRICE)}</div>
+        <div class="sub">${d.proCount ?? 0} × ${fmtRp(PRO_PRICE)}/bulan</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pro Aktif</div>
+        <div class="value pos">${d.activePro ?? 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pro Expired</div>
+        <div class="value neg">${d.expiredPro ?? 0}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:8px">
+      <div style="font-weight:700;margin-bottom:8px">Ringkasan</div>
+      <div class="small muted">
+        Aplikasi Arus Kas berjalan normal. Semua data tersimpan di Supabase.
+        Gunakan menu di kiri untuk mengelola pengguna, langganan, dan transaksi.
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Pengguna
+// ═══════════════════════════════════════════════════════════════
+let usersData = [];
+
+async function renderPengguna(el) {
+  el.innerHTML = `
+    <div class="section-title">👥 Pengguna</div>
+    <div class="filter-bar">
+      <div class="field">
+        <label class="lbl">Cari</label>
+        <input id="userSearch" class="fld" placeholder="Nama atau email..." oninput="filterUsers()" style="width:240px">
+      </div>
+      <button class="btn mini" onclick="loadPengguna()">↻ Refresh</button>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr>
+          <th>Nama</th><th>Email</th><th>Paket</th><th>Bergabung</th><th>Aksi</th>
+        </tr></thead>
+        <tbody id="usersTbody"><tr><td colspan="5" class="muted">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+  `;
+  await loadPengguna();
+}
+
+async function loadPengguna() {
+  try {
+    const res = await api('/admin/users');
+    usersData = res.data || [];
+    filterUsers();
+  } catch (e) {
+    toast('Gagal memuat pengguna: ' + e.message, 'neg');
+  }
+}
+
+function filterUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
+  const filtered = usersData.filter(u => {
+    const name = (u.name || '').toLowerCase();
+    const email = (u.email || '').toLowerCase();
+    return name.includes(q) || email.includes(q);
+  });
+
+  const tbody = document.getElementById('usersTbody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">Tidak ada data</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(u => `
+    <tr>
+      <td style="font-weight:600">${esc(u.name || '—')}</td>
+      <td class="mono small">${esc(u.email || '—')}</td>
+      <td><span class="plan-pill ${u.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${u.plan === 'pro' ? 'PRO' : 'GRATIS'}</span></td>
+      <td class="small">${fmtDate(u.created_at)}</td>
+      <td><button class="btn mini" onclick="showUserDetail('${u.user_id || u.id}')">Detail</button></td>
+    </tr>
+  `).join('');
+}
+
+async function showUserDetail(userId) {
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><h3>Detail Pengguna</h3><p class="muted">Memuat...</p></div></div>';
+
+  try {
+    const [wallets, transactions, debts] = await Promise.all([
+      api('/wallets?user_id=' + userId).catch(() => ({ data: [] })),
+      api('/transactions?user_id=' + userId + '&limit=0').catch(() => ({ data: [] })),
+      api('/debts?user_id=' + userId).catch(() => ({ data: [] }))
+    ]);
+
+    const user = usersData.find(u => (u.user_id || u.id) === userId) || {};
+    const wc = (wallets.data || []).length;
+    const tc = (transactions.data || []).length;
+    const dc = (debts.data || []).length;
+
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+          <h3>Detail Pengguna</h3>
+          <div style="margin-bottom:12px">
+            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Nama</span><span style="font-weight:600">${esc(user.name || '—')}</span></div>
+            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Email</span><span class="mono small">${esc(user.email || '—')}</span></div>
+            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Paket</span><span class="plan-pill ${user.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${user.plan === 'pro' ? 'PRO' : 'GRATIS'}</span></div>
+            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Bergabung</span><span class="small">${fmtDate(user.created_at)}</span></div>
+          </div>
+          <div style="border-top:1px solid var(--line);padding-top:12px">
+            <div class="row between" style="margin-bottom:8px"><span class="small muted">Jumlah Dompet</span><span style="font-weight:700">${wc}</span></div>
+            <div class="row between" style="margin-bottom:8px"><span class="small muted">Jumlah Transaksi</span><span style="font-weight:700">${tc}</span></div>
+            <div class="row between"><span class="small muted">Jumlah Utang/Piutang</span><span style="font-weight:700">${dc}</span></div>
+          </div>
+          <button class="btn" style="width:100%;margin-top:16px" onclick="closeModal()">Tutup</button>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal"><h3>Error</h3><p class="neg">${esc(e.message)}</p><button class="btn" style="margin-top:12px" onclick="closeModal()">Tutup</button></div>
+      </div>
+    `;
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalContainer').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Langganan
+// ═══════════════════════════════════════════════════════════════
+let subsData = [];
+
+async function renderLangganan(el) {
+  el.innerHTML = `
+    <div class="section-title">💳 Langganan</div>
+    <div class="filter-bar">
+      <div class="field">
+        <label class="lbl">Filter Paket</label>
+        <select id="subFilter" class="fld" onchange="filterSubs()" style="width:140px">
+          <option value="">Semua</option>
+          <option value="pro">Pro</option>
+          <option value="free">Gratis</option>
+        </select>
+      </div>
+      <button class="btn mini" onclick="loadLangganan()">↻ Refresh</button>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr>
+          <th>Email</th><th>Paket</th><th>Mulai</th><th>Berakhir</th><th>Pembayaran</th><th>Aksi</th>
+        </tr></thead>
+        <tbody id="subsTbody"><tr><td colspan="6" class="muted">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+  `;
+  await loadLangganan();
+}
+
+async function loadLangganan() {
+  try {
+    const res = await api('/admin/subscriptions');
+    subsData = res.data || [];
+    filterSubs();
+  } catch (e) {
+    toast('Gagal memuat langganan: ' + e.message, 'neg');
+  }
+}
+
+function filterSubs() {
+  const filter = document.getElementById('subFilter')?.value || '';
+  const filtered = filter ? subsData.filter(s => s.plan === filter) : subsData;
+
+  const tbody = document.getElementById('subsTbody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">Tidak ada data</td></tr>';
+    return;
+  }
+
+  const now = new Date();
+  tbody.innerHTML = filtered.map(s => {
+    const expired = s.expires_at && new Date(s.expires_at) < now;
+    return `
+      <tr>
+        <td class="mono small">${esc(s.email || s.user_id || '—')}</td>
+        <td>
+          <span class="plan-pill ${s.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${s.plan === 'pro' ? 'PRO' : 'GRATIS'}</span>
+          ${expired ? '<span class="xs neg" style="margin-left:4px">expired</span>' : ''}
+        </td>
+        <td class="small">${fmtDate(s.started_at)}</td>
+        <td class="small">${fmtDate(s.expires_at)}</td>
+        <td class="small">${esc(s.payment_method || '—')}</td>
+        <td>
+          <button class="btn mini" onclick="showEditSub('${s.user_id}','${s.plan}','${s.expires_at || ''}')">Edit</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function showEditSub(userId, currentPlan, currentExpires) {
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>Edit Langganan</h3>
+        <div class="field">
+          <label class="lbl">User ID</label>
+          <input class="fld mono xs" value="${esc(userId)}" readonly>
+        </div>
+        <div class="field">
+          <label class="lbl">Paket</label>
+          <select id="editSubPlan" class="fld">
+            <option value="free" ${currentPlan==='free'?'selected':''}>Gratis</option>
+            <option value="pro" ${currentPlan==='pro'?'selected':''}>Pro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl">Tanggal Berakhir</label>
+          <input id="editSubExpires" type="datetime-local" class="fld" value="${currentExpires ? currentExpires.slice(0,16) : ''}">
+        </div>
+        <div class="row" style="gap:8px;margin-top:4px">
+          <button class="btn primary grow" onclick="saveSubEdit('${userId}')">Simpan</button>
+          <button class="btn grow" onclick="closeModal()">Batal</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function saveSubEdit(userId) {
+  const plan = document.getElementById('editSubPlan').value;
+  const expiresVal = document.getElementById('editSubExpires').value;
+
+  try {
+    const body = { user_id: userId, plan };
+    if (expiresVal) body.expires_at = new Date(expiresVal).toISOString();
+
+    await api('/admin/subscription/update', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
+    toast('Langganan berhasil diperbarui', 'pos');
+    closeModal();
+    await loadLangganan();
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Transaksi
+// ═══════════════════════════════════════════════════════════════
+let txnsData = [];
+let txnsOffset = 0;
+const TXNS_LIMIT = 50;
+
+async function renderTransaksi(el) {
+  txnsOffset = 0;
+  el.innerHTML = `
+    <div class="section-title">💰 Transaksi</div>
+    <div class="filter-bar">
+      <div class="field">
+        <label class="lbl">Dari</label>
+        <input id="txnFrom" type="date" class="fld" style="width:150px">
+      </div>
+      <div class="field">
+        <label class="lbl">Sampai</label>
+        <input id="txnTo" type="date" class="fld" style="width:150px">
+      </div>
+      <div class="field">
+        <label class="lbl">Tipe</label>
+        <select id="txnType" class="fld" style="width:120px">
+          <option value="">Semua</option>
+          <option value="income">Pemasukan</option>
+          <option value="expense">Pengeluaran</option>
+        </select>
+      </div>
+      <button class="btn mini" onclick="txnsOffset=0;loadTransaksi()">Filter</button>
+      <button class="btn mini" onclick="txnsOffset=0;loadTransaksi()">↻</button>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr>
+          <th>Pengguna</th><th>Deskripsi</th><th>Jumlah</th><th>Kategori</th><th>Tanggal</th>
+        </tr></thead>
+        <tbody id="txnsTbody"><tr><td colspan="5" class="muted">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="row between" style="margin-top:12px">
+      <span id="txnsInfo" class="small muted"></span>
+      <div class="row" style="gap:6px">
+        <button id="txnPrev" class="btn mini" onclick="txnsPrev()" disabled>← Sebelumnya</button>
+        <button id="txnNext" class="btn mini" onclick="txnsNext()">Selanjutnya →</button>
+      </div>
+    </div>
+  `;
+  await loadTransaksi();
+}
+
+async function loadTransaksi() {
+  const from = document.getElementById('txnFrom')?.value || '';
+  const to = document.getElementById('txnTo')?.value || '';
+  const type = document.getElementById('txnType')?.value || '';
+
+  let path = '/admin/transactions?limit=' + TXNS_LIMIT + '&offset=' + txnsOffset;
+  if (from) path += '&from=' + from;
+  if (to) path += '&to=' + to;
+  if (type) path += '&type=' + type;
+
+  try {
+    const res = await api(path);
+    txnsData = res.data || [];
+
+    const tbody = document.getElementById('txnsTbody');
+    if (!tbody) return;
+
+    if (!txnsData.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Tidak ada transaksi</td></tr>';
+    } else {
+      tbody.innerHTML = txnsData.map(t => `
+        <tr>
+          <td class="mono xs">${esc(t.user_email || t.user_id || '—')}</td>
+          <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || '—')}</td>
+          <td class="mono ${t.type === 'income' ? 'pos' : 'neg'}">${t.type === 'income' ? '+' : '−'}${fmtRp(t.amount)}</td>
+          <td><span class="catchip">${esc(t.category || 'Lainnya')}</span></td>
+          <td class="small">${fmtDate(t.occurred_at)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Pagination info
+    const info = document.getElementById('txnsInfo');
+    if (info) info.textContent = `Menampilkan ${txnsOffset + 1}–${txnsOffset + txnsData.length}`;
+
+    const prevBtn = document.getElementById('txnPrev');
+    const nextBtn = document.getElementById('txnNext');
+    if (prevBtn) prevBtn.disabled = txnsOffset === 0;
+    if (nextBtn) nextBtn.disabled = txnsData.length < TXNS_LIMIT;
+
+  } catch (e) {
+    toast('Gagal memuat transaksi: ' + e.message, 'neg');
+  }
+}
+
+function txnsPrev() { txnsOffset = Math.max(0, txnsOffset - TXNS_LIMIT); loadTransaksi(); }
+function txnsNext() { txnsOffset += TXNS_LIMIT; loadTransaksi(); }
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION: Pengaturan
+// ═══════════════════════════════════════════════════════════════
+async function renderPengaturan(el) {
+  el.innerHTML = `
+    <div class="section-title">⚙️ Pengaturan</div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:8px">Status Aplikasi</div>
+      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Versi API</span><span class="mono small">v3.1</span></div>
+      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Backend</span><span class="small">Cloudflare Workers + Supabase</span></div>
+      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Paket Pro</span><span class="mono small">${fmtRp(PRO_PRICE)}/bulan</span></div>
+      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Payment Gateway</span><span class="small">Midtrans</span></div>
+      <div class="row"><span class="lbl" style="width:140px">Admin</span><span class="mono small">${esc(ADMIN_EMAIL)}</span></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:12px">Manajemen Paket Manual</div>
+      <div class="small muted" style="margin-bottom:14px">Upgrade atau downgrade paket pengguna secara manual. Masukkan User ID dan pilih paket yang diinginkan.</div>
+      <div class="filter-bar">
+        <div class="field">
+          <label class="lbl">User ID</label>
+          <input id="manualUserId" class="fld mono" placeholder="UUID pengguna" style="width:280px">
+        </div>
+        <div class="field">
+          <label class="lbl">Paket</label>
+          <select id="manualPlan" class="fld" style="width:120px">
+            <option value="free">Gratis</option>
+            <option value="pro">Pro</option>
+          </select>
+        </div>
+        <button class="btn primary mini" onclick="manualUpdatePlan()">Terapkan</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:8px">Info</div>
+      <div class="small muted">
+        Halaman ini hanya bisa diakses oleh admin (${esc(ADMIN_EMAIL)}).
+        Semua perubahan langsung diterapkan ke database Supabase.
+        Gunakan dengan hati-hati.
+      </div>
+    </div>
+  `;
+}
+
+async function manualUpdatePlan() {
+  const userId = document.getElementById('manualUserId')?.value.trim();
+  const plan = document.getElementById('manualPlan')?.value;
+  if (!userId) { toast('Masukkan User ID', 'neg'); return; }
+
+  try {
+    await api('/admin/subscription/update', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, plan })
+    });
+    toast('Paket berhasil diperbarui ke ' + (plan === 'pro' ? 'Pro' : 'Gratis'), 'pos');
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'neg');
+  }
+}
+
+// ─── XSS escape ───────────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ─── Auto-login check on load ─────────────────────────────────
+(async function init() {
+  if (!token) return;
+  try {
+    const meRes = await fetch('/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const meData = await meRes.json();
+    if (!meRes.ok) throw new Error('invalid');
+    const userEmail = meData.data?.email || meData.email;
+    if (userEmail !== ADMIN_EMAIL) throw new Error('not admin');
+    document.getElementById('adminEmail').textContent = userEmail;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashScreen').style.display = 'flex';
+    loadSection('dashboard');
+  } catch {
+    token = '';
+    sessionStorage.removeItem('arus_admin_token');
+  }
+})();
+
+// Enter key on login
+document.getElementById('loginPass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginEmail').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('loginPass').focus();
+});
+</script>
+</body>
+</html>

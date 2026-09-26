@@ -37,3 +37,43 @@ Stage Summary:
 - Lint: 0 errors (1 warning about font loading — acceptable)
 - Dev server: ✅ compiling and serving pages
 - Landing page now accurately reflects 2-tier freemium model
+
+---
+Task ID: 2-a
+Agent: admin-page-developer
+Task: Create Admin Page (public/admin.html) + Admin API Endpoints (worker/index.ts)
+
+Work Log:
+- Read existing worker/index.ts (624 lines) and wrangler.toml
+- Read public/arus.html for CSS variable reference (warm palette, dark/light theme)
+- Created public/admin.html — standalone admin dashboard HTML file
+  - Login gate: email + password form, calls /api/auth/login then /api/auth/me, verifies email === riskiakbarp123@gmail.com
+  - Dashboard layout: sidebar nav (📊 Dashboard, 👥 Pengguna, 💳 Langganan, 💰 Transaksi, ⚙️ Pengaturan)
+  - Dashboard section: stat cards (total users, pro count, free count, monthly revenue, active/expired pro, recent signups)
+  - Pengguna section: users table with search/filter, detail modal (wallets, transactions, debts count)
+  - Langganan section: subscriptions table with plan filter, edit modal (plan + expires_at), manual update
+  - Transaksi section: transactions table with date range + type filters, pagination (limit/offset)
+  - Pengaturan section: app status info, manual plan management tool
+  - Same CSS variables as arus.html (--bg, --card, --ink, --pos, --neg, etc.)
+  - Dark/light theme toggle, responsive (mobile-friendly with collapsible sidebar)
+  - Auto-login check on page load via sessionStorage token
+  - Indonesian language throughout
+- Added admin API endpoints to worker/index.ts:
+  - verifyAdmin() helper: verifies Bearer token with Supabase, checks admin email
+  - GET /api/admin/stats: totalUsers, proCount, freeCount, monthlyRevenue, recentSignups, activePro, expiredPro
+  - GET /api/admin/users: profiles LEFT JOIN subscriptions, email from auth.users admin API
+  - GET /api/admin/transactions: paginated (limit/offset), filter by date range + type, with user email
+  - GET /api/admin/subscriptions(s): all subscriptions with user email
+  - POST /api/admin/subscription/update: manually update user plan + expires_at
+- Added ADMIN_EMAIL to Env interface in worker/index.ts
+- Added ADMIN_EMAIL = "riskiakbarp123@gmail.com" to wrangler.toml [vars]
+- Added admin route handler in router: if (path.startsWith("/admin")) return await handleAdmin(...)
+- Lint: 0 errors (1 pre-existing warning about font loading)
+- Dev server: ✅ running and serving pages
+
+Stage Summary:
+- Admin page (public/admin.html) created with full login gate + 5-section dashboard
+- 6 admin API endpoints added to worker/index.ts (all verify admin email before returning data)
+- wrangler.toml updated with ADMIN_EMAIL env var
+- All existing API routes preserved unchanged
+- Zero new lint errors

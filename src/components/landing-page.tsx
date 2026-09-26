@@ -157,10 +157,14 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
   const [userTyped, setUserTyped] = useState(false);
   const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
   const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
-  const [cookieConsent, setCookieConsent] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return !!localStorage.getItem('arus-cookie');
-  });
+  const [cookieConsent, setCookieConsent] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    if (!localStorage.getItem('arus-cookie')) {
+      setCookieConsent(false);
+    }
+  }, []);
 
   const demoInputRef = useRef<HTMLInputElement>(null);
   const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

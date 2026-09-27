@@ -1,0 +1,985 @@
+     1→<!DOCTYPE html>
+     2→<html lang="id">
+     3→<head>
+     4→<meta charset="UTF-8">
+     5→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→<title>Arus Admin — Dashboard</title>
+     7→<meta name="robots" content="noindex,nofollow">
+     8→<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect x='1' y='1' width='32' height='32' rx='9' fill='%23242019'/%3E%3Cpath d='M10 12.5h14M10 17h14M10 21.5h9' stroke='%23F4F1E8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='21.5' r='2.2' fill='%23C14E33'/%3E%3C/svg%3E">
+     9→<link rel="manifest" href="/manifest.json">
+    10→<script>
+    11→(function(){try{var s=localStorage.getItem('arus-theme');
+    12→ var dk=s?s==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+    13→ if(dk)document.documentElement.classList.add('dark');}catch(e){}})();
+    14→</script>
+    15→<style>
+    16→*{margin:0;padding:0;box-sizing:border-box}
+    17→:root{--bg:#F4F1E8;--card:#FFFFFF;--soft:#ECE8DB;--line:#E2DCCC;--ink:#242019;--mut:#8B8471;
+    18→ --pos:#0E7B4F;--pos-soft:#DFF0E6;--neg:#C14E33;--neg-soft:#F9E8E1;--warn:#97741F;--warn-soft:#F5EDD5;
+    19→ --shadow:0 12px 32px rgba(30,27,21,.10);
+    20→ --inv:#242019;--invfg:#F4F1E8;--invmut:#9B947F;--invpos:#63D6A0;--invneg:#F09A7E}
+    21→.dark{--bg:#16140F;--card:#211E17;--soft:#2B2820;--line:#393428;--ink:#EFEBDE;--mut:#A39B85;
+    22→ --pos:#4EC38A;--pos-soft:#20342A;--neg:#E8825F;--neg-soft:#3C2820;--warn:#D8A94E;--warn-soft:#39311C;
+    23→ --shadow:0 12px 32px rgba(0,0,0,.4);
+    24→ --inv:#F1EDE1;--invfg:#1C1912;--invmut:#6F6957;--invpos:#0E7B4F;--invneg:#C14E33}
+    25→body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif;
+    26→ background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+    27→.mono{font-family:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;font-variant-numeric:tabular-nums}
+    28→.muted{color:var(--mut)}.pos{color:var(--pos)}.neg{color:var(--neg)}.warn{color:var(--warn)}
+    29→.small{font-size:12.5px}.xs{font-size:11px}
+    30→.row{display:flex;align-items:center;gap:8px}.wrap{flex-wrap:wrap}.between{justify-content:space-between}
+    31→.right{text-align:right}.grow{flex:1}.minw{min-width:0}
+    32→.grid{display:grid;gap:14px}
+    33→.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+    34→.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);
+    35→ background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+    36→ cursor:pointer;transition:.15s;font-family:inherit;text-decoration:none}
+    37→.btn:hover{background:var(--soft)}
+    38→.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+    39→.btn.primary:hover{opacity:.88}
+    40→.btn.danger{background:var(--neg);border-color:var(--neg);color:#fff}
+    41→.btn.danger:hover{opacity:.9}
+    42→.btn.mini{padding:5px 10px;font-size:11.5px;border-radius:8px;gap:5px}
+    43→.btn.icon{padding:8px}
+    44→.fld{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+    45→ padding:9px 12px;font-size:13px;outline:none;font-family:inherit;transition:.15s}
+    46→.fld:focus{border-color:var(--pos);box-shadow:0 0 0 3px var(--pos-soft)}
+    47→.lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin-bottom:5px}
+    48→select.fld{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238B8471' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+    49→
+    50→/* Layout */
+    51→.app{display:flex;min-height:100vh}
+    52→.sidebar{width:240px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);
+    53→ display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:60}
+    54→.brand{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+    55→.brand h1{font-size:16px;font-weight:800;letter-spacing:-.02em}
+    56→.brand span{font-size:10px;font-weight:600;background:var(--neg);color:#fff;padding:2px 7px;border-radius:99px;letter-spacing:.06em}
+    57→.sidebar nav{padding:10px 12px;flex:1;overflow-y:auto}
+    58→.navlink{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--mut);
+    59→ text-decoration:none;font-weight:600;font-size:13px;transition:.15s;width:100%;font-family:inherit;cursor:pointer;border:none;background:none;text-align:left}
+    60→.navlink:hover{color:var(--ink);background:var(--soft)}
+    61→.navlink.active{background:var(--ink);color:var(--bg)}
+    62→.sidebar-footer{padding:12px 16px;border-top:1px solid var(--line)}
+    63→.main{flex:1;min-width:0;display:flex;flex-direction:column}
+    64→.topbar{display:flex;align-items:center;gap:10px;padding:0 20px;height:56px;border-bottom:1px solid var(--line);
+    65→ background:var(--bg);position:sticky;top:0;z-index:20}
+    66→.topbar .email{font-size:12px;color:var(--mut)}
+    67→#view{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:22px 20px 40px}
+    68→
+    69→/* Responsive */
+    70→.menu-btn{display:none}
+    71→.scrim{position:fixed;inset:0;background:rgba(15,13,10,.45);z-index:55;display:none}
+    72→.scrim.show{display:block}
+    73→@media(max-width:900px){
+    74→ .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);
+    75→  transition:transform .25s ease;box-shadow:0 0 60px rgba(0,0,0,.25)}
+    76→ .sidebar.open{transform:none}
+    77→ .menu-btn{display:inline-flex}
+    78→}
+    79→
+    80→/* Tables */
+    81→.tblwrap{overflow-x:auto}
+    82→table{width:100%;border-collapse:collapse;font-size:13px}
+    83→th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+    84→ padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+    85→td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+    86→tbody tr:hover td{background:var(--soft)}
+    87→
+    88→/* Stat cards */
+    89→.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+    90→.stat-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+    91→.stat-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:6px}
+    92→.stat-card .value{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+    93→.stat-card .sub{font-size:11px;color:var(--mut);margin-top:4px}
+    94→
+    95→/* Plan badge */
+    96→.plan-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.04em}
+    97→.plan-free{background:var(--soft);color:var(--mut)}.plan-pro{background:var(--pos-soft);color:var(--pos)}
+    98→
+    99→/* Modal */
+   100→.modal-overlay{position:fixed;inset:0;background:rgba(15,13,10,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+   101→.modal{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+   102→.modal h3{font-size:16px;font-weight:800;margin-bottom:16px}
+   103→.modal .field{margin-bottom:14px}
+   104→
+   105→/* Login page */
+   106→.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+   107→.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:380px;width:100%;box-shadow:var(--shadow)}
+   108→.login-card h2{font-size:22px;font-weight:800;margin-bottom:4px}
+   109→.login-card p{color:var(--mut);font-size:13px;margin-bottom:20px}
+   110→.login-card .field{margin-bottom:14px}
+   111→.login-card .error{color:var(--neg);font-size:12px;margin-top:8px;display:none}
+   112→.login-card .error.show{display:block}
+   113→
+   114→/* Theme toggle */
+   115→.theme-toggle{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:8px;
+   116→ padding:6px 8px;cursor:pointer;font-size:14px;transition:.15s;display:inline-flex;align-items:center}
+   117→.theme-toggle:hover{background:var(--soft);color:var(--ink)}
+   118→
+   119→/* Toast */
+   120→.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:200;animation:toastin .3s ease;box-shadow:var(--shadow)}
+   121→@keyframes toastin{from{transform:translateY(20px);opacity:0}}
+   122→.toast.pos{background:var(--pos);color:#fff}
+   123→.toast.neg{background:var(--neg);color:#fff}
+   124→
+   125→/* Section title */
+   126→.section-title{font-size:18px;font-weight:800;margin-bottom:16px}
+   127→.section-sub{font-size:12px;color:var(--mut);margin-bottom:20px}
+   128→
+   129→/* Loading skeleton */
+   130→.skeleton{background:var(--soft);border-radius:6px;animation:skpulse 1.2s ease-in-out infinite}
+   131→@keyframes skpulse{0%,100%{opacity:.6}50%{opacity:.3}}
+   132→
+   133→/* Filter bar */
+   134→.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:end}
+   135→.filter-bar .field{display:flex;flex-direction:column;gap:4px}
+   136→
+   137→/* Scrollbar */
+   138→::-webkit-scrollbar{width:6px;height:6px}
+   139→::-webkit-scrollbar-track{background:transparent}
+   140→::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+   141→::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+   142→</style>
+   143→</head>
+   144→<body>
+   145→
+   146→<!-- ============ LOGIN SCREEN ============ -->
+   147→<div id="loginScreen" class="login-wrap">
+   148→  <div class="login-card">
+   149→    <div class="row between" style="margin-bottom:20px">
+   150→      <div>
+   151→        <h2>Arus Admin</h2>
+   152→        <p>Dashboard admin untuk Arus Kas</p>
+   153→      </div>
+   154→      <button class="theme-toggle" onclick="toggleTheme()" title="Ganti tema">🌓</button>
+   155→    </div>
+   156→    <div class="field">
+   157→      <label class="lbl">Email</label>
+   158→      <input id="loginEmail" type="email" class="fld" placeholder="admin@email.com" autocomplete="email">
+   159→    </div>
+   160→    <div class="field">
+   161→      <label class="lbl">Password</label>
+   162→      <input id="loginPass" type="password" class="fld" placeholder="••••••••" autocomplete="current-password">
+   163→    </div>
+   164→    <div id="loginError" class="error">Login gagal. Periksa email dan password.</div>
+   165→    <button id="loginBtn" class="btn primary" style="width:100%;margin-top:6px" onclick="doLogin()">Masuk</button>
+   166→  </div>
+   167→</div>
+   168→
+   169→<!-- ============ DASHBOARD SCREEN ============ -->
+   170→<div id="dashScreen" class="app" style="display:none">
+   171→  <!-- Sidebar -->
+   172→  <aside id="sidebar" class="sidebar">
+   173→    <div class="brand">
+   174→      <h1>Arus</h1><span>ADMIN</span>
+   175→    </div>
+   176→    <nav>
+   177→      <button class="navlink active" data-section="dashboard" onclick="switchSection('dashboard',this)">
+   178→        📊 Dashboard
+   179→      </button>
+   180→      <button class="navlink" data-section="pengguna" onclick="switchSection('pengguna',this)">
+   181→        👥 Pengguna
+   182→      </button>
+   183→      <button class="navlink" data-section="langganan" onclick="switchSection('langganan',this)">
+   184→        💳 Langganan
+   185→      </button>
+   186→      <button class="navlink" data-section="transaksi" onclick="switchSection('transaksi',this)">
+   187→        💰 Transaksi
+   188→      </button>
+   189→      <button class="navlink" data-section="pengaturan" onclick="switchSection('pengaturan',this)">
+   190→        ⚙️ Pengaturan
+   191→      </button>
+   192→      <button class="navlink" data-section="infra" onclick="switchSection('infra',this)">
+   193→        ☁️ Infra (KV/R2)
+   194→      </button>
+   195→    </nav>
+   196→    <div class="sidebar-footer">
+   197→      <button class="btn mini" style="width:100%" onclick="toggleTheme()">🌓 Ganti Tema</button>
+   198→    </div>
+   199→  </aside>
+   200→
+   201→  <div class="scrim" id="scrim" onclick="closeSidebar()"></div>
+   202→
+   203→  <!-- Main content -->
+   204→  <div class="main">
+   205→    <div class="topbar">
+   206→      <button class="btn icon menu-btn" onclick="openSidebar()">☰</button>
+   207→      <div class="grow"></div>
+   208→      <span id="adminEmail" class="email"></span>
+   209→      <button class="btn mini" onclick="doLogout()">Keluar</button>
+   210→    </div>
+   211→    <div id="view">
+   212→      <!-- Content injected by JS -->
+   213→    </div>
+   214→  </div>
+   215→</div>
+   216→
+   217→<!-- ============ MODAL CONTAINER ============ -->
+   218→<div id="modalContainer"></div>
+   219→
+   220→<!-- ============ TOAST CONTAINER ============ -->
+   221→<div id="toastContainer"></div>
+   222→
+   223→<script>
+   224→// ─── State ────────────────────────────────────────────────────
+   225→let token = sessionStorage.getItem('arus_admin_token') || '';
+   226→let currentSection = 'dashboard';
+   227→const ADMIN_EMAIL = 'riskiakbarp123@gmail.com';
+   228→const PRO_PRICE = 29000;
+   229→
+   230→// ─── Theme ────────────────────────────────────────────────────
+   231→function toggleTheme() {
+   232→  const isDark = document.documentElement.classList.toggle('dark');
+   233→  localStorage.setItem('arus-theme', isDark ? 'dark' : 'light');
+   234→}
+   235→
+   236→// ─── Toast ────────────────────────────────────────────────────
+   237→function toast(msg, type = '') {
+   238→  const el = document.createElement('div');
+   239→  el.className = 'toast ' + type;
+   240→  el.textContent = msg;
+   241→  document.getElementById('toastContainer').appendChild(el);
+   242→  setTimeout(() => el.remove(), 3000);
+   243→}
+   244→
+   245→// ─── API helper ───────────────────────────────────────────────
+   246→async function api(path, opts = {}) {
+   247→  const maxRetries = (opts._retries || 0);
+   248→  const retryLimit = 2;
+   249→  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+   250→  if (token) headers['Authorization'] = 'Bearer ' + token;
+   251→  try {
+   252→    const res = await fetch('/api' + path, { ...opts, headers });
+   253→    const text = await res.text();
+   254→    try {
+   255→      const data = JSON.parse(text);
+   256→      if (!res.ok) throw new Error(data.error || 'Gagal memuat data');
+   257→      return data;
+   258→    } catch(e) {
+   259→      if (!res.ok) throw new Error('Server error (HTTP ' + res.status + ')');
+   260→      throw e;
+   261→    }
+   262→  } catch(e) {
+   263→    if (maxRetries < retryLimit) {
+   264→      await new Promise(r => setTimeout(r, Math.pow(2, maxRetries) * 1000));
+   265→      return api(path, {...opts, _retries: maxRetries + 1});
+   266→    }
+   267→    throw e;
+   268→  }
+   269→}
+   270→
+   271→// ─── Format helpers ───────────────────────────────────────────
+   272→function fmtRp(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
+   273→function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'}); }
+   274→function fmtRelTime(d) {
+   275→  if (!d) return '—';
+   276→  const diff = Date.now() - new Date(d).getTime();
+   277→  const days = Math.floor(diff / 86400000);
+   278→  if (days < 1) return 'Hari ini';
+   279→  if (days < 7) return days + ' hari lalu';
+   280→  return fmtDate(d);
+   281→}
+   282→
+   283→// ─── Login ────────────────────────────────────────────────────
+   284→async function doLogin() {
+   285→  const email = document.getElementById('loginEmail').value.trim();
+   286→  const pass = document.getElementById('loginPass').value;
+   287→  const errEl = document.getElementById('loginError');
+   288→  const btn = document.getElementById('loginBtn');
+   289→  errEl.classList.remove('show');
+   290→  btn.disabled = true; btn.textContent = 'Memproses...';
+   291→
+   292→  try {
+   293→    // Step 1: Login to get token
+   294→    const loginRes = await fetch('/api/auth/login', {
+   295→      method: 'POST',
+   296→      headers: { 'Content-Type': 'application/json' },
+   297→      body: JSON.stringify({ email, password: pass })
+   298→    });
+   299→    const loginData = await loginRes.json();
+   300→    if (!loginRes.ok) throw new Error(loginData.error_description || loginData.error || 'Login gagal');
+   301→
+   302→    token = loginData.access_token;
+   303→    if (!token) throw new Error('Token tidak ditemukan');
+   304→
+   305→    // Step 2: Verify user with /api/auth/me
+   306→    const meRes = await fetch('/api/auth/me', {
+   307→      headers: { 'Authorization': 'Bearer ' + token }
+   308→    });
+   309→    const meData = await meRes.json();
+   310→    if (!meRes.ok) throw new Error('Verifikasi gagal');
+   311→
+   312→    // Step 3: Check admin email
+   313→    const userEmail = meData.data?.email || meData.email;
+   314→    if (userEmail !== ADMIN_EMAIL) {
+   315→      throw new Error('Akses ditolak. Halaman ini hanya untuk admin.');
+   316→    }
+   317→
+   318→    // Success
+   319→    sessionStorage.setItem('arus_admin_token', token);
+   320→    document.getElementById('adminEmail').textContent = userEmail;
+   321→    document.getElementById('loginScreen').style.display = 'none';
+   322→    document.getElementById('dashScreen').style.display = 'flex';
+   323→    loadSection('dashboard');
+   324→
+   325→  } catch (e) {
+   326→    errEl.textContent = e.message;
+   327→    errEl.classList.add('show');
+   328→    token = '';
+   329→  } finally {
+   330→    btn.disabled = false; btn.textContent = 'Masuk';
+   331→  }
+   332→}
+   333→
+   334→function doLogout() {
+   335→  token = '';
+   336→  sessionStorage.removeItem('arus_admin_token');
+   337→  document.getElementById('dashScreen').style.display = 'none';
+   338→  document.getElementById('loginScreen').style.display = 'flex';
+   339→  document.getElementById('loginEmail').value = '';
+   340→  document.getElementById('loginPass').value = '';
+   341→}
+   342→
+   343→// ─── Sidebar (mobile) ─────────────────────────────────────────
+   344→function openSidebar() {
+   345→  document.getElementById('sidebar').classList.add('open');
+   346→  document.getElementById('scrim').classList.add('show');
+   347→}
+   348→function closeSidebar() {
+   349→  document.getElementById('sidebar').classList.remove('open');
+   350→  document.getElementById('scrim').classList.remove('show');
+   351→}
+   352→
+   353→// ─── Section switching ────────────────────────────────────────
+   354→function switchSection(name, btn) {
+   355→  document.querySelectorAll('.navlink').forEach(n => n.classList.remove('active'));
+   356→  if (btn) btn.classList.add('active');
+   357→  currentSection = name;
+   358→  loadSection(name);
+   359→  closeSidebar();
+   360→}
+   361→
+   362→async function loadSection(name) {
+   363→  const view = document.getElementById('view');
+   364→  view.innerHTML = '<div class="small muted" style="padding:20px">Memuat...</div>';
+   365→
+   366→  try {
+   367→    switch (name) {
+   368→      case 'dashboard': await renderDashboard(view); break;
+   369→      case 'pengguna': await renderPengguna(view); break;
+   370→      case 'langganan': await renderLangganan(view); break;
+   371→      case 'transaksi': await renderTransaksi(view); break;
+   372→      case 'pengaturan': await renderPengaturan(view); break;
+   373→      case 'infra': await renderInfra(view); break;
+   374→    }
+   375→  } catch (e) {
+   376→    view.innerHTML = '<div class="small neg" style="padding:20px">Error: ' + e.message + '</div>';
+   377→  }
+   378→}
+   379→
+   380→// ═══════════════════════════════════════════════════════════════
+   381→// SECTION: Dashboard
+   382→// ═══════════════════════════════════════════════════════════════
+   383→async function renderDashboard(el) {
+   384→  const stats = await api('/admin/stats');
+   385→  const d = stats.data || stats;
+   386→
+   387→  el.innerHTML = `
+   388→    <div class="section-title">📊 Dashboard</div>
+   389→    <div class="stats-grid">
+   390→      <div class="stat-card">
+   391→        <div class="label">Total Pengguna</div>
+   392→        <div class="value">${d.totalUsers ?? 0}</div>
+   393→        <div class="sub">${d.recentSignups ?? 0} mendaftar 7 hari terakhir</div>
+   394→      </div>
+   395→      <div class="stat-card">
+   396→        <div class="label">Pelanggan Pro</div>
+   397→        <div class="value pos">${d.proCount ?? 0}</div>
+   398→        <div class="sub">dari total ${d.totalUsers ?? 0} pengguna</div>
+   399→      </div>
+   400→      <div class="stat-card">
+   401→        <div class="label">Pengguna Gratis</div>
+   402→        <div class="value muted">${d.freeCount ?? 0}</div>
+   403→      </div>
+   404→      <div class="stat-card">
+   405→        <div class="label">Pendapatan Bulanan</div>
+   406→        <div class="value" style="color:var(--pos)">${fmtRp((d.proCount ?? 0) * PRO_PRICE)}</div>
+   407→        <div class="sub">${d.proCount ?? 0} × ${fmtRp(PRO_PRICE)}/bulan</div>
+   408→      </div>
+   409→      <div class="stat-card">
+   410→        <div class="label">Pro Aktif</div>
+   411→        <div class="value pos">${d.activePro ?? 0}</div>
+   412→      </div>
+   413→      <div class="stat-card">
+   414→        <div class="label">Pro Expired</div>
+   415→        <div class="value neg">${d.expiredPro ?? 0}</div>
+   416→      </div>
+   417→    </div>
+   418→    <div class="card" style="margin-top:8px">
+   419→      <div style="font-weight:700;margin-bottom:8px">Ringkasan</div>
+   420→      <div class="small muted">
+   421→        Aplikasi Arus Kas berjalan normal. Semua data tersimpan di Supabase.
+   422→        Gunakan menu di kiri untuk mengelola pengguna, langganan, dan transaksi.
+   423→      </div>
+   424→    </div>
+   425→  `;
+   426→}
+   427→
+   428→// ═══════════════════════════════════════════════════════════════
+   429→// SECTION: Pengguna
+   430→// ═══════════════════════════════════════════════════════════════
+   431→let usersData = [];
+   432→
+   433→async function renderPengguna(el) {
+   434→  el.innerHTML = `
+   435→    <div class="section-title">👥 Pengguna</div>
+   436→    <div class="filter-bar">
+   437→      <div class="field">
+   438→        <label class="lbl">Cari</label>
+   439→        <input id="userSearch" class="fld" placeholder="Nama atau email..." oninput="filterUsers()" style="width:240px">
+   440→      </div>
+   441→      <button class="btn mini" onclick="loadPengguna()">↻ Refresh</button>
+   442→    </div>
+   443→    <div class="tblwrap">
+   444→      <table>
+   445→        <thead><tr>
+   446→          <th>Nama</th><th>Email</th><th>Paket</th><th>Bergabung</th><th>Aksi</th>
+   447→        </tr></thead>
+   448→        <tbody id="usersTbody"><tr><td colspan="5" class="muted">Memuat...</td></tr></tbody>
+   449→      </table>
+   450→    </div>
+   451→  `;
+   452→  await loadPengguna();
+   453→}
+   454→
+   455→async function loadPengguna() {
+   456→  try {
+   457→    const res = await api('/admin/users');
+   458→    usersData = res.data || [];
+   459→    filterUsers();
+   460→  } catch (e) {
+   461→    toast('Gagal memuat pengguna: ' + e.message, 'neg');
+   462→  }
+   463→}
+   464→
+   465→function filterUsers() {
+   466→  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
+   467→  const filtered = usersData.filter(u => {
+   468→    const name = (u.name || '').toLowerCase();
+   469→    const email = (u.email || '').toLowerCase();
+   470→    return name.includes(q) || email.includes(q);
+   471→  });
+   472→
+   473→  const tbody = document.getElementById('usersTbody');
+   474→  if (!tbody) return;
+   475→
+   476→  if (!filtered.length) {
+   477→    tbody.innerHTML = '<tr><td colspan="5" class="muted">Tidak ada data</td></tr>';
+   478→    return;
+   479→  }
+   480→
+   481→  tbody.innerHTML = filtered.map(u => `
+   482→    <tr>
+   483→      <td style="font-weight:600">${esc(u.name || '—')}</td>
+   484→      <td class="mono small">${esc(u.email || '—')}</td>
+   485→      <td><span class="plan-pill ${u.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${u.plan === 'pro' ? 'PRO' : 'GRATIS'}</span></td>
+   486→      <td class="small">${fmtDate(u.created_at)}</td>
+   487→      <td><button class="btn mini" onclick="showUserDetail('${u.user_id || u.id}')">Detail</button></td>
+   488→    </tr>
+   489→  `).join('');
+   490→}
+   491→
+   492→async function showUserDetail(userId) {
+   493→  const modal = document.getElementById('modalContainer');
+   494→  modal.innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><h3>Detail Pengguna</h3><p class="muted">Memuat...</p></div></div>';
+   495→
+   496→  try {
+   497→    const [wallets, transactions, debts] = await Promise.all([
+   498→      api('/wallets?user_id=' + userId).catch(() => ({ data: [] })),
+   499→      api('/transactions?user_id=' + userId + '&limit=0').catch(() => ({ data: [] })),
+   500→      api('/debts?user_id=' + userId).catch(() => ({ data: [] }))
+   501→    ]);
+   502→
+   503→    const user = usersData.find(u => (u.user_id || u.id) === userId) || {};
+   504→    const wc = (wallets.data || []).length;
+   505→    const tc = (transactions.data || []).length;
+   506→    const dc = (debts.data || []).length;
+   507→
+   508→    modal.innerHTML = `
+   509→      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+   510→        <div class="modal">
+   511→          <h3>Detail Pengguna</h3>
+   512→          <div style="margin-bottom:12px">
+   513→            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Nama</span><span style="font-weight:600">${esc(user.name || '—')}</span></div>
+   514→            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Email</span><span class="mono small">${esc(user.email || '—')}</span></div>
+   515→            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Paket</span><span class="plan-pill ${user.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${user.plan === 'pro' ? 'PRO' : 'GRATIS'}</span></div>
+   516→            <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:100px">Bergabung</span><span class="small">${fmtDate(user.created_at)}</span></div>
+   517→          </div>
+   518→          <div style="border-top:1px solid var(--line);padding-top:12px">
+   519→            <div class="row between" style="margin-bottom:8px"><span class="small muted">Jumlah Dompet</span><span style="font-weight:700">${wc}</span></div>
+   520→            <div class="row between" style="margin-bottom:8px"><span class="small muted">Jumlah Transaksi</span><span style="font-weight:700">${tc}</span></div>
+   521→            <div class="row between"><span class="small muted">Jumlah Utang/Piutang</span><span style="font-weight:700">${dc}</span></div>
+   522→          </div>
+   523→          <button class="btn" style="width:100%;margin-top:16px" onclick="closeModal()">Tutup</button>
+   524→        </div>
+   525→      </div>
+   526→    `;
+   527→  } catch (e) {
+   528→    modal.innerHTML = `
+   529→      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+   530→        <div class="modal"><h3>Error</h3><p class="neg">${esc(e.message)}</p><button class="btn" style="margin-top:12px" onclick="closeModal()">Tutup</button></div>
+   531→      </div>
+   532→    `;
+   533→  }
+   534→}
+   535→
+   536→function closeModal() {
+   537→  document.getElementById('modalContainer').innerHTML = '';
+   538→}
+   539→
+   540→// ═══════════════════════════════════════════════════════════════
+   541→// SECTION: Langganan
+   542→// ═══════════════════════════════════════════════════════════════
+   543→let subsData = [];
+   544→
+   545→async function renderLangganan(el) {
+   546→  el.innerHTML = `
+   547→    <div class="section-title">💳 Langganan</div>
+   548→    <div class="filter-bar">
+   549→      <div class="field">
+   550→        <label class="lbl">Filter Paket</label>
+   551→        <select id="subFilter" class="fld" onchange="filterSubs()" style="width:140px">
+   552→          <option value="">Semua</option>
+   553→          <option value="pro">Pro</option>
+   554→          <option value="free">Gratis</option>
+   555→        </select>
+   556→      </div>
+   557→      <button class="btn mini" onclick="loadLangganan()">↻ Refresh</button>
+   558→    </div>
+   559→    <div class="tblwrap">
+   560→      <table>
+   561→        <thead><tr>
+   562→          <th>Email</th><th>Paket</th><th>Mulai</th><th>Berakhir</th><th>Pembayaran</th><th>Aksi</th>
+   563→        </tr></thead>
+   564→        <tbody id="subsTbody"><tr><td colspan="6" class="muted">Memuat...</td></tr></tbody>
+   565→      </table>
+   566→    </div>
+   567→  `;
+   568→  await loadLangganan();
+   569→}
+   570→
+   571→async function loadLangganan() {
+   572→  try {
+   573→    const res = await api('/admin/subscriptions');
+   574→    subsData = res.data || [];
+   575→    filterSubs();
+   576→  } catch (e) {
+   577→    toast('Gagal memuat langganan: ' + e.message, 'neg');
+   578→  }
+   579→}
+   580→
+   581→function filterSubs() {
+   582→  const filter = document.getElementById('subFilter')?.value || '';
+   583→  const filtered = filter ? subsData.filter(s => s.plan === filter) : subsData;
+   584→
+   585→  const tbody = document.getElementById('subsTbody');
+   586→  if (!tbody) return;
+   587→
+   588→  if (!filtered.length) {
+   589→    tbody.innerHTML = '<tr><td colspan="6" class="muted">Tidak ada data</td></tr>';
+   590→    return;
+   591→  }
+   592→
+   593→  const now = new Date();
+   594→  tbody.innerHTML = filtered.map(s => {
+   595→    const expired = s.expires_at && new Date(s.expires_at) < now;
+   596→    return `
+   597→      <tr>
+   598→        <td class="mono small">${esc(s.email || s.user_id || '—')}</td>
+   599→        <td>
+   600→          <span class="plan-pill ${s.plan === 'pro' ? 'plan-pro' : 'plan-free'}">${s.plan === 'pro' ? 'PRO' : 'GRATIS'}</span>
+   601→          ${expired ? '<span class="xs neg" style="margin-left:4px">expired</span>' : ''}
+   602→        </td>
+   603→        <td class="small">${fmtDate(s.started_at)}</td>
+   604→        <td class="small">${fmtDate(s.expires_at)}</td>
+   605→        <td class="small">${esc(s.payment_method || '—')}</td>
+   606→        <td>
+   607→          <button class="btn mini" onclick="showEditSub('${s.user_id}','${s.plan}','${s.expires_at || ''}')">Edit</button>
+   608→        </td>
+   609→      </tr>
+   610→    `;
+   611→  }).join('');
+   612→}
+   613→
+   614→function showEditSub(userId, currentPlan, currentExpires) {
+   615→  const modal = document.getElementById('modalContainer');
+   616→  modal.innerHTML = `
+   617→    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+   618→      <div class="modal">
+   619→        <h3>Edit Langganan</h3>
+   620→        <div class="field">
+   621→          <label class="lbl">User ID</label>
+   622→          <input class="fld mono xs" value="${esc(userId)}" readonly>
+   623→        </div>
+   624→        <div class="field">
+   625→          <label class="lbl">Paket</label>
+   626→          <select id="editSubPlan" class="fld">
+   627→            <option value="free" ${currentPlan==='free'?'selected':''}>Gratis</option>
+   628→            <option value="pro" ${currentPlan==='pro'?'selected':''}>Pro</option>
+   629→          </select>
+   630→        </div>
+   631→        <div class="field">
+   632→          <label class="lbl">Tanggal Berakhir</label>
+   633→          <input id="editSubExpires" type="datetime-local" class="fld" value="${currentExpires ? currentExpires.slice(0,16) : ''}">
+   634→        </div>
+   635→        <div class="row" style="gap:8px;margin-top:4px">
+   636→          <button class="btn primary grow" onclick="saveSubEdit('${userId}')">Simpan</button>
+   637→          <button class="btn grow" onclick="closeModal()">Batal</button>
+   638→        </div>
+   639→      </div>
+   640→    </div>
+   641→  `;
+   642→}
+   643→
+   644→async function saveSubEdit(userId) {
+   645→  const plan = document.getElementById('editSubPlan').value;
+   646→  const expiresVal = document.getElementById('editSubExpires').value;
+   647→
+   648→  try {
+   649→    const body = { user_id: userId, plan };
+   650→    if (expiresVal) body.expires_at = new Date(expiresVal).toISOString();
+   651→
+   652→    await api('/admin/subscription/update', {
+   653→      method: 'POST',
+   654→      body: JSON.stringify(body)
+   655→    });
+   656→
+   657→    toast('Langganan berhasil diperbarui', 'pos');
+   658→    closeModal();
+   659→    await loadLangganan();
+   660→  } catch (e) {
+   661→    toast('Gagal: ' + e.message, 'neg');
+   662→  }
+   663→}
+   664→
+   665→// ═══════════════════════════════════════════════════════════════
+   666→// SECTION: Transaksi
+   667→// ═══════════════════════════════════════════════════════════════
+   668→let txnsData = [];
+   669→let txnsOffset = 0;
+   670→const TXNS_LIMIT = 50;
+   671→
+   672→async function renderTransaksi(el) {
+   673→  txnsOffset = 0;
+   674→  el.innerHTML = `
+   675→    <div class="section-title">💰 Transaksi</div>
+   676→    <div class="filter-bar">
+   677→      <div class="field">
+   678→        <label class="lbl">Dari</label>
+   679→        <input id="txnFrom" type="date" class="fld" style="width:150px">
+   680→      </div>
+   681→      <div class="field">
+   682→        <label class="lbl">Sampai</label>
+   683→        <input id="txnTo" type="date" class="fld" style="width:150px">
+   684→      </div>
+   685→      <div class="field">
+   686→        <label class="lbl">Tipe</label>
+   687→        <select id="txnType" class="fld" style="width:120px">
+   688→          <option value="">Semua</option>
+   689→          <option value="income">Pemasukan</option>
+   690→          <option value="expense">Pengeluaran</option>
+   691→        </select>
+   692→      </div>
+   693→      <button class="btn mini" onclick="txnsOffset=0;loadTransaksi()">Filter</button>
+   694→      <button class="btn mini" onclick="txnsOffset=0;loadTransaksi()">↻</button>
+   695→    </div>
+   696→    <div class="tblwrap">
+   697→      <table>
+   698→        <thead><tr>
+   699→          <th>Pengguna</th><th>Deskripsi</th><th>Jumlah</th><th>Kategori</th><th>Tanggal</th>
+   700→        </tr></thead>
+   701→        <tbody id="txnsTbody"><tr><td colspan="5" class="muted">Memuat...</td></tr></tbody>
+   702→      </table>
+   703→    </div>
+   704→    <div class="row between" style="margin-top:12px">
+   705→      <span id="txnsInfo" class="small muted"></span>
+   706→      <div class="row" style="gap:6px">
+   707→        <button id="txnPrev" class="btn mini" onclick="txnsPrev()" disabled>← Sebelumnya</button>
+   708→        <button id="txnNext" class="btn mini" onclick="txnsNext()">Selanjutnya →</button>
+   709→      </div>
+   710→    </div>
+   711→  `;
+   712→  await loadTransaksi();
+   713→}
+   714→
+   715→async function loadTransaksi() {
+   716→  const from = document.getElementById('txnFrom')?.value || '';
+   717→  const to = document.getElementById('txnTo')?.value || '';
+   718→  const type = document.getElementById('txnType')?.value || '';
+   719→
+   720→  let path = '/admin/transactions?limit=' + TXNS_LIMIT + '&offset=' + txnsOffset;
+   721→  if (from) path += '&from=' + from;
+   722→  if (to) path += '&to=' + to;
+   723→  if (type) path += '&type=' + type;
+   724→
+   725→  try {
+   726→    const res = await api(path);
+   727→    txnsData = res.data || [];
+   728→
+   729→    const tbody = document.getElementById('txnsTbody');
+   730→    if (!tbody) return;
+   731→
+   732→    if (!txnsData.length) {
+   733→      tbody.innerHTML = '<tr><td colspan="5" class="muted">Tidak ada transaksi</td></tr>';
+   734→    } else {
+   735→      tbody.innerHTML = txnsData.map(t => `
+   736→        <tr>
+   737→          <td class="mono xs">${esc(t.user_email || t.user_id || '—')}</td>
+   738→          <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || '—')}</td>
+   739→          <td class="mono ${t.type === 'income' ? 'pos' : 'neg'}">${t.type === 'income' ? '+' : '−'}${fmtRp(t.amount)}</td>
+   740→          <td><span class="catchip">${esc(t.category || 'Lainnya')}</span></td>
+   741→          <td class="small">${fmtDate(t.occurred_at)}</td>
+   742→        </tr>
+   743→      `).join('');
+   744→    }
+   745→
+   746→    // Pagination info
+   747→    const info = document.getElementById('txnsInfo');
+   748→    if (info) info.textContent = `Menampilkan ${txnsOffset + 1}–${txnsOffset + txnsData.length}`;
+   749→
+   750→    const prevBtn = document.getElementById('txnPrev');
+   751→    const nextBtn = document.getElementById('txnNext');
+   752→    if (prevBtn) prevBtn.disabled = txnsOffset === 0;
+   753→    if (nextBtn) nextBtn.disabled = txnsData.length < TXNS_LIMIT;
+   754→
+   755→  } catch (e) {
+   756→    toast('Gagal memuat transaksi: ' + e.message, 'neg');
+   757→  }
+   758→}
+   759→
+   760→function txnsPrev() { txnsOffset = Math.max(0, txnsOffset - TXNS_LIMIT); loadTransaksi(); }
+   761→function txnsNext() { txnsOffset += TXNS_LIMIT; loadTransaksi(); }
+   762→
+   763→// ═══════════════════════════════════════════════════════════════
+   764→// SECTION: Pengaturan
+   765→// ═══════════════════════════════════════════════════════════════
+   766→async function renderPengaturan(el) {
+   767→  el.innerHTML = `
+   768→    <div class="section-title">⚙️ Pengaturan</div>
+   769→
+   770→    <div class="card" style="margin-bottom:16px">
+   771→      <div style="font-weight:700;margin-bottom:8px">Status Aplikasi</div>
+   772→      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Versi API</span><span class="mono small">v3.1</span></div>
+   773→      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Backend</span><span class="small">Cloudflare Workers + Supabase</span></div>
+   774→      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Paket Pro</span><span class="mono small">${fmtRp(PRO_PRICE)}/bulan</span></div>
+   775→      <div class="row" style="margin-bottom:6px"><span class="lbl" style="width:140px">Payment Gateway</span><span class="small">Midtrans</span></div>
+   776→      <div class="row"><span class="lbl" style="width:140px">Admin</span><span class="mono small">${esc(ADMIN_EMAIL)}</span></div>
+   777→    </div>
+   778→
+   779→    <div class="card" style="margin-bottom:16px">
+   780→      <div style="font-weight:700;margin-bottom:12px">Manajemen Paket Manual</div>
+   781→      <div class="small muted" style="margin-bottom:14px">Upgrade atau downgrade paket pengguna secara manual. Masukkan User ID dan pilih paket yang diinginkan.</div>
+   782→      <div class="filter-bar">
+   783→        <div class="field">
+   784→          <label class="lbl">User ID</label>
+   785→          <input id="manualUserId" class="fld mono" placeholder="UUID pengguna" style="width:280px">
+   786→        </div>
+   787→        <div class="field">
+   788→          <label class="lbl">Paket</label>
+   789→          <select id="manualPlan" class="fld" style="width:120px">
+   790→            <option value="free">Gratis</option>
+   791→            <option value="pro">Pro</option>
+   792→          </select>
+   793→        </div>
+   794→        <button class="btn primary mini" onclick="manualUpdatePlan()">Terapkan</button>
+   795→      </div>
+   796→    </div>
+   797→
+   798→    <div class="card">
+   799→      <div style="font-weight:700;margin-bottom:8px">Info</div>
+   800→      <div class="small muted">
+   801→        Halaman ini hanya bisa diakses oleh admin (${esc(ADMIN_EMAIL)}).
+   802→        Semua perubahan langsung diterapkan ke database Supabase.
+   803→        Gunakan dengan hati-hati.
+   804→      </div>
+   805→    </div>
+   806→  `;
+   807→}
+   808→
+   809→async function manualUpdatePlan() {
+   810→  const userId = document.getElementById('manualUserId')?.value.trim();
+   811→  const plan = document.getElementById('manualPlan')?.value;
+   812→  if (!userId) { toast('Masukkan User ID', 'neg'); return; }
+   813→
+   814→  try {
+   815→    await api('/admin/subscription/update', {
+   816→      method: 'POST',
+   817→      body: JSON.stringify({ user_id: userId, plan })
+   818→    });
+   819→    toast('Paket berhasil diperbarui ke ' + (plan === 'pro' ? 'Pro' : 'Gratis'), 'pos');
+   820→  } catch (e) {
+   821→    toast('Gagal: ' + e.message, 'neg');
+   822→  }
+   823→}
+   824→
+   825→// ═══════════════════════════════════════════════════════════════
+   826→// SECTION: Infra (KV + R2)
+   827→// ═══════════════════════════════════════════════════════════════
+   828→let featureFlags = {};
+   829→
+   830→async function renderInfra(el) {
+   831→  // Load feature flags
+   832→  try {
+   833→    const flagsRes = await api('/cache/flags');
+   834→    featureFlags = flagsRes.flags || flagsRes || {};
+   835→  } catch { featureFlags = {}; }
+   836→
+   837→  const flagRows = Object.entries(featureFlags).map(([k, v]) => {
+   838→    const isOn = v === 'true';
+   839→    const label = k.replace('ff:', '');
+   840→    return `<div class="row between" style="padding:7px 0;border-bottom:1px solid var(--line)">
+   841→      <div><span class="small" style="font-weight:600">${esc(label)}</span>
+   842→      <span class="xs muted" style="margin-left:8px">${esc(k)}</span></div>
+   843→      <div class="row" style="gap:6px">
+   844→        <span class="xs ${isOn ? 'pos' : 'neg'}" style="font-weight:700">${isOn ? 'ON' : (v === 'false' ? 'OFF' : v)}</span>
+   845→        <button class="btn mini" onclick="toggleFlag('${esc(k)}','${esc(v)}')">Toggle</button>
+   846→      </div></div>`;
+   847→  }).join('');
+   848→
+   849→  el.innerHTML = `
+   850→    <div class="section-title">☁️ Infra (KV & R2)</div>
+   851→
+   852→    <div class="card" style="margin-bottom:16px">
+   853→      <div style="font-weight:700;margin-bottom:4px">KV — Feature Flags</div>
+   854→      <div class="small muted" style="margin-bottom:12px">Kontrol fitur aplikasi secara real-time tanpa redeploy. Cache TTL 0 = permanen sampai diubah manual.</div>
+   855→      ${flagRows || '<div class="muted small">Tidak ada flags.</div>'}
+   856→      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+   857→        <div style="font-weight:600;margin-bottom:8px" class="small">Tambah/Edit Flag</div>
+   858→        <div class="filter-bar">
+   859→          <div class="field"><label class="lbl">Nama</label><input id="ffName" class="fld" placeholder="cth: maintenance" style="width:200px"></div>
+   860→          <div class="field"><label class="lbl">Nilai</label><select id="ffVal" class="fld" style="width:120px"><option value="true">true (ON)</option><option value="false">false (OFF)</option></select></div>
+   861→          <button class="btn primary mini" onclick="setFlag()">Simpan</button>
+   862→        </div>
+   863→      </div>
+   864→    </div>
+   865→
+   866→    <div class="card" style="margin-bottom:16px">
+   867→      <div style="font-weight:700;margin-bottom:4px">KV — Cache & Rate Limit</div>
+   868→      <div class="small muted" style="margin-bottom:12px">Lihat keys di KV namespace. Prefix: rl: = rate limit, session: = auth cache, sub: = subscription cache, ff: = feature flags.</div>
+   869→      <div class="filter-bar">
+   870→        <div class="field"><label class="lbl">Prefix</label><input id="kvPrefix" class="fld" placeholder="cth: rl: atau session:" style="width:200px" value="rl:"></div>
+   871→        <button class="btn mini" onclick="loadKvKeys()">Lihat Keys</button>
+   872→      </div>
+   873→      <div id="kvKeysList" class="small" style="margin-top:8px"></div>
+   874→    </div>
+   875→
+   876→    <div class="card">
+   877→      <div style="font-weight:700;margin-bottom:4px">R2 — Cloud Storage</div>
+   878→      <div class="small muted" style="padding:8px 10px;background:var(--soft);border-radius:8px">R2 belum dikonfigurasi — fitur cloud storage dinonaktifkan untuk penghematan biaya.</div>
+   879→    </div>
+   880→  `;
+   881→}
+   882→
+   883→async function toggleFlag(key, currentVal) {
+   884→  const newVal = currentVal === 'true' ? 'false' : 'true';
+   885→  const flagName = key.replace('ff:', '');
+   886→  try {
+   887→    await api('/cache/flags', {
+   888→      method: 'PUT',
+   889→      body: JSON.stringify({ flag: flagName, value: newVal })
+   890→    });
+   891→    toast('Flag ' + flagName + ' → ' + newVal, 'pos');
+   892→    loadSection('infra');
+   893→  } catch (e) {
+   894→    toast('Gagal: ' + e.message, 'neg');
+   895→  }
+   896→}
+   897→
+   898→async function setFlag() {
+   899→  const name = document.getElementById('ffName')?.value.trim();
+   900→  const value = document.getElementById('ffVal')?.value;
+   901→  if (!name) { toast('Isi nama flag', 'neg'); return; }
+   902→  try {
+   903→    await api('/cache/flags', {
+   904→      method: 'PUT',
+   905→      body: JSON.stringify({ flag: name, value })
+   906→    });
+   907→    toast('Flag ' + name + ' disimpan → ' + value, 'pos');
+   908→    loadSection('infra');
+   909→  } catch (e) {
+   910→    toast('Gagal: ' + e.message, 'neg');
+   911→  }
+   912→}
+   913→
+   914→async function loadKvKeys() {
+   915→  const prefix = document.getElementById('kvPrefix')?.value || '';
+   916→  const list = document.getElementById('kvKeysList');
+   917→  if (!list) return;
+   918→  list.innerHTML = '<span class="muted">Memuat...</span>';
+   919→  try {
+   920→    const res = await api('/cache?prefix=' + encodeURIComponent(prefix));
+   921→    const keys = res.keys || [];
+   922→    if (!keys.length) {
+   923→      list.innerHTML = '<span class="muted">Tidak ada keys dengan prefix "' + esc(prefix) + '"</span>';
+   924→    } else {
+   925→      list.innerHTML = '<table style="width:100%"><thead><tr><th>Key</th><th>Expiry</th><th>Aksi</th></tr></thead><tbody>' +
+   926→        keys.slice(0, 50).map(k => `<tr><td class="mono xs">${esc(k.name)}</td><td class="xs muted">${k.expiration ? new Date(k.expiration * 1000).toLocaleString('id') : 'Permanen'}</td><td><button class="btn mini" onclick="deleteKvKey('${esc(k.name)}')">Hapus</button></td></tr>`).join('') +
+   927→        '</tbody></table>';
+   928→    }
+   929→  } catch (e) {
+   930→    list.innerHTML = '<span class="neg">Error: ' + esc(e.message) + '</span>';
+   931→  }
+   932→}
+   933→
+   934→async function deleteKvKey(key) {
+   935→  if (!confirm('Hapus KV key "' + key + '"?')) return;
+   936→  try {
+   937→    await api('/cache?key=' + encodeURIComponent(key), { method: 'DELETE' });
+   938→    toast('Key "' + key + '" dihapus', 'pos');
+   939→    loadKvKeys();
+   940→  } catch (e) {
+   941→    toast('Gagal: ' + e.message, 'neg');
+   942→  }
+   943→}
+   944→
+   945→// R2 functions removed — R2 not bound (cost control)
+   946→
+   947→// ─── XSS escape ───────────────────────────────────────────────
+   948→function esc(s) {
+   949→  const d = document.createElement('div');
+   950→  d.textContent = s;
+   951→  return d.innerHTML;
+   952→}
+   953→
+   954→// ─── Auto-login check on load ─────────────────────────────────
+   955→(async function init() {
+   956→  if (!token) return;
+   957→  try {
+   958→    const meRes = await fetch('/api/auth/me', {
+   959→      headers: { 'Authorization': 'Bearer ' + token }
+   960→    });
+   961→    const meData = await meRes.json();
+   962→    if (!meRes.ok) throw new Error('invalid');
+   963→    const userEmail = meData.data?.email || meData.email;
+   964→    if (userEmail !== ADMIN_EMAIL) throw new Error('not admin');
+   965→    document.getElementById('adminEmail').textContent = userEmail;
+   966→    document.getElementById('loginScreen').style.display = 'none';
+   967→    document.getElementById('dashScreen').style.display = 'flex';
+   968→    loadSection('dashboard');
+   969→  } catch {
+   970→    token = '';
+   971→    sessionStorage.removeItem('arus_admin_token');
+   972→  }
+   973→})();
+   974→
+   975→// Enter key on login
+   976→document.getElementById('loginPass').addEventListener('keydown', function(e) {
+   977→  if (e.key === 'Enter') doLogin();
+   978→});
+   979→document.getElementById('loginEmail').addEventListener('keydown', function(e) {
+   980→  if (e.key === 'Enter') document.getElementById('loginPass').focus();
+   981→});
+   982→</script>
+   983→</body>
+   984→</html>
+   985→

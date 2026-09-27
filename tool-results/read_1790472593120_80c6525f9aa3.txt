@@ -668,150 +668,152 @@
    668→                </div>
    669→              </div>
    670→              <ul className="pricing-features">
-   671→                <li className="pricing-feature"><span className="pf-check" />2 dompet</li>
-   672→                <li className="pricing-feature"><span className="pf-check" />5 utang/piutang</li>
-   673→                <li className="pricing-feature"><span className="pf-check" />3 budget</li>
-   674→                <li className="pricing-feature"><span className="pf-check" />3 kategori kustom</li>
-   675→                <li className="pricing-feature"><span className="pf-check" />Kategori otomatis</li>
-   676→                <li className="pricing-feature"><span className="pf-check" />Backup JSON</li>
-   677→                <li className="pricing-feature"><span className="pf-check" />PIN kunci</li>
-   678→                <li className="pricing-feature"><span className="pf-check" />Laporan dasar</li>
-   679→              </ul>
-   680→              <div className="pricing-card-cta">
-   681→                <a
-   682→                  className="btn btn-ghost"
-   683→                  href="#"
-   684→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-   685→                >
-   686→                  Mulai Gratis
-   687→                </a>
-   688→              </div>
-   689→            </div>
-   690→            {/* PRO */}
-   691→            <div className="pricing-card recommended">
-   692→              <div className="pricing-badge">COCOK UMKM</div>
-   693→              <div className="pricing-card-header">
-   694→                <h3>Pro</h3>
-   695→                <div className="pricing-card-price">
-   696→                  <span className="pricing-card-amount">Rp 29.000</span>
-   697→                  <span className="pricing-card-per">/bln</span>
-   698→                </div>
-   699→                <div className="pricing-card-annual">Rp 278.400/thn <span className="pricing-save">hemat 20%</span></div>
-   700→              </div>
-   701→              <ul className="pricing-features">
-   702→                <li className="pricing-feature"><span className="pf-check" />Unlimited dompet</li>
-   703→                <li className="pricing-feature"><span className="pf-check" />Unlimited utang/piutang</li>
-   704→                <li className="pricing-feature"><span className="pf-check" />Unlimited budget</li>
-   705→                <li className="pricing-feature"><span className="pf-check" />Unlimited kategori</li>
-   706→                <li className="pricing-feature"><span className="pf-check" />Cloud sync</li>
-   707→                <li className="pricing-feature"><span className="pf-check" />Laporan branded PDF</li>
-   708→                <li className="pricing-feature"><span className="pf-check" />Notifikasi push</li>
-   709→                <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
-   710→                <li className="pricing-feature"><span className="pf-check" />Faktur</li>
-   711→              </ul>
-   712→              <div className="pricing-card-cta">
-   713→                <a
-   714→                  className="btn btn-accent"
-   715→                  href="#"
-   716→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-   717→                >
-   718→                  Upgrade ke Pro
-   719→                  <span className="btn-icon"><ArrowIcon /></span>
-   720→                </a>
-   721→              </div>
-   722→            </div>
-   723→          </div>
-   724→        </div>
-   725→      </section>
-   726→
-   727→      {/* ═══ FAQ ═══ */}
-   728→      <section id="faq" className="lp-section" style={{ borderTop: '1px solid var(--line)' }}>
-   729→        <div className="wrap">
-   730→          <div className="reveal" style={{ marginBottom: 8 }}>
-   731→            <div className="eyebrow">FAQ</div>
-   732→            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)' }}>
-   733→              Yang biasa ditanyain
-   734→            </h2>
-   735→          </div>
-   736→          <div className="faq reveal" style={{ transitionDelay: '.1s' }}>
-   737→            {FAQ_DATA.map((item, idx) => (
-   738→              <div key={idx} className={`qa${openFaq === idx ? ' open' : ''}`}>
-   739→                <button onClick={() => toggleFaq(idx)}>
-   740→                  {item.q}
-   741→                  <span className="pm">+</span>
-   742→                </button>
-   743→                <div
-   744→                  className="ans"
-   745→                  style={{ maxHeight: openFaq === idx ? 500 : 0 }}
-   746→                >
-   747→                  <p>{item.a}</p>
-   748→                </div>
-   749→              </div>
-   750→            ))}
-   751→          </div>
-   752→        </div>
-   753→      </section>
-   754→
-   755→      {/* ═══ CTA FINAL — Cinematic ═══ */}
-   756→      <section className="lp-section final" style={{ borderTop: '1px solid var(--line)' }}>
-   757→        <div className="wrap reveal">
-   758→          <div className="final-card-shell">
-   759→            <div className="final-card">
-   760→              <h2>
-   761→                Uangmu, <span style={{ color: 'var(--accent)' }}>aturanmu</span>.
-   762→              </h2>
-   763→              <p className="sub">Buka aplikasinya, catat transaksi pertamamu. Nggak perlu daftar, nggak perlu nunggu.</p>
-   764→              <a
-   765→                className="btn btn-accent"
-   766→                href="#"
-   767→                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-   768→              >
-   769→                Buka Arus
-   770→                <span className="btn-icon"><ArrowIcon /></span>
-   771→              </a>
-   772→              <span className="mini">gratis untuk mulai · pro untuk tumbuh · data tetap aman</span>
-   773→            </div>
-   774→          </div>
-   775→        </div>
-   776→      </section>
-   777→
-   778→      {/* ═══ FOOTER ═══ */}
-   779→      <footer className="lp-footer">
-   780→        <div className="wrap">
-   781→          <div className="footer-inner">
-   782→            <div>
-   783→              <div className="footer-brand">
-   784→                <span className="logomark"><i /></span>Arus
-   785→              </div>
-   786→              <div className="footer-tagline" style={{ marginTop: 6 }}>
-   787→                Buku kas pribadi & UMKM. Gratis untuk mulai.
-   788→              </div>
-   789→            </div>
-   790→            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-   791→              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-   792→                <a
-   793→                  className="footer-link"
-   794→                  href="#"
-   795→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
-   796→                >
-   797→                  Buka Aplikasi →
-   798→                </a>
-   799→              </div>
-   800→              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-   801→                <a className="footer-link" href="/terms.html" style={{ fontSize: 11, opacity: 0.7 }}>Syarat & Ketentuan</a>
-   802→                <a className="footer-link" href="/privacy.html" style={{ fontSize: 11, opacity: 0.7 }}>Privasi</a>
-   803→                <a className="footer-link" href="/refund.html" style={{ fontSize: 11, opacity: 0.7 }}>Refund</a>
-   804→                <a className="footer-link" href="/contact.html" style={{ fontSize: 11, opacity: 0.7 }}>Kontak</a>
-   805→                <a className="footer-link" href="/admin.html" style={{ fontSize: 11, opacity: 0.4 }}>Admin</a>
-   806→              </div>
-   807→              <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>
-   808→                © {new Date().getFullYear()} Arus — Riski Akbar P
-   809→              </div>
-   810→            </div>
-   811→          </div>
-   812→        </div>
-   813→      </footer>
-   814→    </>
-   815→  );
-   816→}
-   817→
+   671→                <li className="pricing-feature"><span className="pf-check" />Transaksi unlimited</li>
+   672→                <li className="pricing-feature"><span className="pf-check" />2 dompet</li>
+   673→                <li className="pricing-feature"><span className="pf-check" />5 utang/piutang</li>
+   674→                <li className="pricing-feature"><span className="pf-check" />3 budget</li>
+   675→                <li className="pricing-feature"><span className="pf-check" />3 kategori kustom</li>
+   676→                <li className="pricing-feature"><span className="pf-check" />Kategori otomatis</li>
+   677→                <li className="pricing-feature"><span className="pf-check" />Backup JSON</li>
+   678→                <li className="pricing-feature"><span className="pf-check" />PIN kunci</li>
+   679→                <li className="pricing-feature"><span className="pf-check" />Laporan dasar</li>
+   680→              </ul>
+   681→              <div className="pricing-card-cta">
+   682→                <a
+   683→                  className="btn btn-ghost"
+   684→                  href="#"
+   685→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   686→                >
+   687→                  Mulai Gratis
+   688→                </a>
+   689→              </div>
+   690→            </div>
+   691→            {/* PRO */}
+   692→            <div className="pricing-card recommended">
+   693→              <div className="pricing-badge">COCOK UMKM</div>
+   694→              <div className="pricing-card-header">
+   695→                <h3>Pro</h3>
+   696→                <div className="pricing-card-price">
+   697→                  <span className="pricing-card-amount">Rp 29.000</span>
+   698→                  <span className="pricing-card-per">/bln</span>
+   699→                </div>
+   700→                <div className="pricing-card-annual">Rp 278.400/thn <span className="pricing-save">hemat 20%</span></div>
+   701→              </div>
+   702→              <ul className="pricing-features">
+   703→                <li className="pricing-feature"><span className="pf-check" />Semua fitur Gratis</li>
+   704→                <li className="pricing-feature"><span className="pf-check" />Unlimited dompet</li>
+   705→                <li className="pricing-feature"><span className="pf-check" />Unlimited utang/piutang</li>
+   706→                <li className="pricing-feature"><span className="pf-check" />Unlimited budget & kategori</li>
+   707→                <li className="pricing-feature"><span className="pf-check" />Cloud sync</li>
+   708→                <li className="pricing-feature"><span className="pf-check" />Laporan P&L (laba-rugi)</li>
+   709→                <li className="pricing-feature"><span className="pf-check" />PDF dengan logo usaha</li>
+   710→                <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
+   711→                <li className="pricing-feature"><span className="pf-check" />Notifikasi jatuh tempo</li>
+   712→                <li className="pricing-feature"><span className="pf-check" />Buat & kirim invoice</li>
+   713→              </ul>
+   714→              <div className="pricing-card-cta">
+   715→                <a
+   716→                  className="btn btn-accent"
+   717→                  href="#"
+   718→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   719→                >
+   720→                  Upgrade ke Pro
+   721→                  <span className="btn-icon"><ArrowIcon /></span>
+   722→                </a>
+   723→              </div>
+   724→            </div>
+   725→          </div>
+   726→        </div>
+   727→      </section>
+   728→
+   729→      {/* ═══ FAQ ═══ */}
+   730→      <section id="faq" className="lp-section" style={{ borderTop: '1px solid var(--line)' }}>
+   731→        <div className="wrap">
+   732→          <div className="reveal" style={{ marginBottom: 8 }}>
+   733→            <div className="eyebrow">FAQ</div>
+   734→            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 38px)' }}>
+   735→              Yang biasa ditanyain
+   736→            </h2>
+   737→          </div>
+   738→          <div className="faq reveal" style={{ transitionDelay: '.1s' }}>
+   739→            {FAQ_DATA.map((item, idx) => (
+   740→              <div key={idx} className={`qa${openFaq === idx ? ' open' : ''}`}>
+   741→                <button onClick={() => toggleFaq(idx)}>
+   742→                  {item.q}
+   743→                  <span className="pm">+</span>
+   744→                </button>
+   745→                <div
+   746→                  className="ans"
+   747→                  style={{ maxHeight: openFaq === idx ? 500 : 0 }}
+   748→                >
+   749→                  <p>{item.a}</p>
+   750→                </div>
+   751→              </div>
+   752→            ))}
+   753→          </div>
+   754→        </div>
+   755→      </section>
+   756→
+   757→      {/* ═══ CTA FINAL — Cinematic ═══ */}
+   758→      <section className="lp-section final" style={{ borderTop: '1px solid var(--line)' }}>
+   759→        <div className="wrap reveal">
+   760→          <div className="final-card-shell">
+   761→            <div className="final-card">
+   762→              <h2>
+   763→                Uangmu, <span style={{ color: 'var(--accent)' }}>aturanmu</span>.
+   764→              </h2>
+   765→              <p className="sub">Buka aplikasinya, catat transaksi pertamamu. Nggak perlu daftar, nggak perlu nunggu.</p>
+   766→              <a
+   767→                className="btn btn-accent"
+   768→                href="#"
+   769→                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   770→              >
+   771→                Buka Arus
+   772→                <span className="btn-icon"><ArrowIcon /></span>
+   773→              </a>
+   774→              <span className="mini">gratis untuk mulai · pro untuk tumbuh · data tetap aman</span>
+   775→            </div>
+   776→          </div>
+   777→        </div>
+   778→      </section>
+   779→
+   780→      {/* ═══ FOOTER ═══ */}
+   781→      <footer className="lp-footer">
+   782→        <div className="wrap">
+   783→          <div className="footer-inner">
+   784→            <div>
+   785→              <div className="footer-brand">
+   786→                <span className="logomark"><i /></span>Arus
+   787→              </div>
+   788→              <div className="footer-tagline" style={{ marginTop: 6 }}>
+   789→                Buku kas pribadi & UMKM. Gratis untuk mulai.
+   790→              </div>
+   791→            </div>
+   792→            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+   793→              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+   794→                <a
+   795→                  className="footer-link"
+   796→                  href="#"
+   797→                  onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   798→                >
+   799→                  Buka Aplikasi →
+   800→                </a>
+   801→              </div>
+   802→              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+   803→                <a className="footer-link" href="/terms.html" style={{ fontSize: 11, opacity: 0.7 }}>Syarat & Ketentuan</a>
+   804→                <a className="footer-link" href="/privacy.html" style={{ fontSize: 11, opacity: 0.7 }}>Privasi</a>
+   805→                <a className="footer-link" href="/refund.html" style={{ fontSize: 11, opacity: 0.7 }}>Refund</a>
+   806→                <a className="footer-link" href="/contact.html" style={{ fontSize: 11, opacity: 0.7 }}>Kontak</a>
+   807→                <a className="footer-link" href="/admin.html" style={{ fontSize: 11, opacity: 0.4 }}>Admin</a>
+   808→              </div>
+   809→              <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>
+   810→                © {new Date().getFullYear()} Arus — Riski Akbar P
+   811→              </div>
+   812→            </div>
+   813→          </div>
+   814→        </div>
+   815→      </footer>
+   816→    </>
+   817→  );
+   818→}
+   819→

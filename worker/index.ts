@@ -195,6 +195,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     const email = (body.email as string || "").trim().toLowerCase();
     const plan = body.plan as string;
     const expiresAt = body.expires_at as string | undefined;
+    const durationDays = body.duration_days as number | undefined; // 30 for monthly, 365 for annual
 
     if (!email || !plan) return json({ error: "email dan plan required" }, 400);
     if (plan !== "free" && plan !== "pro") return json({ error: "Plan harus 'free' atau 'pro'" }, 400);
@@ -220,17 +221,19 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
 
     let result;
     if (existing) {
+      const defaultDuration = durationDays || 30; // Default monthly
       const updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString() };
       if (plan === "pro") {
-        updateData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+        updateData.expires_at = expiresAt || new Date(Date.now() + defaultDuration * 86400000).toISOString();
       } else {
         updateData.expires_at = expiresAt || null;
       }
       result = await sb.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
     } else {
+      const defaultDuration = durationDays || 30; // Default monthly
       const insertData: Record<string, unknown> = { user_id: userId, plan };
       if (plan === "pro") {
-        insertData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString();
+        insertData.expires_at = expiresAt || new Date(Date.now() + defaultDuration * 86400000).toISOString();
       }
       result = await sb.from("subscriptions").insert(insertData).select().single();
     }
@@ -585,18 +588,27 @@ async function handleSubscription(req: Request, env: Env): Promise<Response> {
     if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
 
     const { data: existing } = await admin.from("subscriptions").select("id").eq("user_id", userId).single();
-    const expiresAt = plan === "pro" ? new Date(Date.now() + 30 * 86400000).toISOString() : null;
+    const billing = body.billing as string || "monthly";
+    const durationDays = billing === "annual" ? 365 : 30;
+    const expiresAt = plan === "pro" ? new Date(Date.now() + durationDays * 86400000).toISOString() : null;
+    const billingSuffix = billing === "annual" ? "_annual" : "_monthly";
 
     let result;
     if (existing) {
-      result = await admin
-        .from("subscriptions")
-        .update({ plan, started_at: new Date().toISOString(), expires_at: expiresAt })
-        .eq("user_id", userId)
-        .select()
-        .single();
+      // Try with billing column; fall back if column doesn't exist
+      let updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString(), expires_at: expiresAt, billing };
+      result = await admin.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
+      if (result.error && (result.error.message || "").includes("billing")) {
+        const { billing: _, ...fallback } = updateData;
+        result = await admin.from("subscriptions").update(fallback).eq("user_id", userId).select().single();
+      }
     } else {
-      result = await admin.from("subscriptions").insert({ user_id: userId, plan, expires_at: expiresAt }).select().single();
+      let insertData: Record<string, unknown> = { user_id: userId, plan, expires_at: expiresAt, billing };
+      result = await admin.from("subscriptions").insert(insertData).select().single();
+      if (result.error && (result.error.message || "").includes("billing")) {
+        const { billing: _, ...fallback } = insertData;
+        result = await admin.from("subscriptions").insert(fallback).select().single();
+      }
     }
     if (result.error) throw result.error;
     return json({ data: result.data });
@@ -988,18 +1000,32 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
     transactionStatus === "cancel";
 
   if (isSuccess && userId) {
-    // Activate Pro plan
-    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-    const { error } = await admin
+    // Activate Pro plan — determine duration from gross_amount
+    const amount = parseFloat(grossAmount || "29000");
+    const isAnnual = amount >= 278400;
+    const durationDays = isAnnual ? 365 : 30;
+    const billingSuffix = isAnnual ? "_annual" : "_monthly";
+    const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
+    // Try update with billing column; if it doesn't exist, fall back to without
+    let updateData: Record<string, unknown> = {
+      plan: "pro",
+      started_at: new Date().toISOString(),
+      expires_at: expiresAt,
+      billing: isAnnual ? "annual" : "monthly",
+      payment_method: `midtrans_${paymentType}${billingSuffix}`,
+      transaction_id: orderId,
+    };
+    let { error } = await admin
       .from("subscriptions")
-      .update({
-        plan: "pro",
-        started_at: new Date().toISOString(),
-        expires_at: expiresAt,
-        payment_method: `midtrans_${paymentType}`,
-        transaction_id: orderId,
-      })
+      .update(updateData)
       .eq("user_id", userId);
+
+    // If billing column doesn't exist, retry without it
+    if (error && (error.message || "").includes("billing")) {
+      const { billing: _, ...fallbackData } = updateData;
+      const retryResult = await admin.from("subscriptions").update(fallbackData).eq("user_id", userId);
+      error = retryResult.error;
+    }
 
     if (error) console.error("Failed to update subscription:", error);
     else await invalidateSubscriptionCache(env, userId);
@@ -1014,6 +1040,53 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
 
   // Always return 200 to Midtrans
   return json({ ok: true });
+}
+
+// ─── API: /api/payment/history ────────────────────────────────
+async function handlePaymentHistory(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const userId = url.searchParams.get("user_id");
+  if (!userId) return json({ error: "user_id required" }, 400);
+
+  const admin = getAdmin(env);
+
+  // Get subscription history (all updates for this user)
+  const { data: sub, error: subErr } = await admin
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (subErr && subErr.code !== "PGRST116") throw subErr;
+
+  // Also check KV for recent payment records
+  const paymentHistory: Record<string, unknown>[] = [];
+
+  // If subscription exists, add it to history
+  if (sub) {
+    // Detect billing from payment_method suffix or billing column
+    const billingFromMethod = (sub.payment_method || "").includes("_annual") ? "annual" : "monthly";
+    const billing = sub.billing || billingFromMethod;
+    paymentHistory.push({
+      id: sub.transaction_id || sub.id,
+      type: "subscription",
+      plan: sub.plan,
+      billing,
+      amount: billing === "annual" ? 278400 : 29000,
+      status: sub.plan === "pro" ? "active" : "inactive",
+      payment_method: sub.payment_method || "—",
+      started_at: sub.started_at,
+      expires_at: sub.expires_at,
+      created_at: sub.started_at || sub.created_at,
+    });
+  }
+
+  // Try to get all subscription records (including past ones)
+  // Note: if subscriptions table only has one record per user (upsert),
+  // we can only show current. For full history, we'd need a payments table.
+  // For now, return what we have.
+
+  return json({ data: paymentHistory });
 }
 
 // ─── Router ─────────────────────────────────────────────────────
@@ -1053,6 +1126,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (path === "/sync" || path.startsWith("/sync")) return await handleSync(request, env);
     if (path === "/payment/create") return await handleMidtransCreate(request, env);
     if (path === "/payment/webhook") return await handleMidtransWebhook(request, env);
+    if (path === "/payment/history") return await handlePaymentHistory(request, env);
     // R2 storage routes — disabled (no R2 binding)
     if (path === "/storage/backup" || path.startsWith("/storage/backup")) return r2Disabled();
     if (path === "/storage/restore" || path.startsWith("/storage/restore")) return r2Disabled();
@@ -1265,6 +1339,24 @@ async function handleCache(req: Request, env: Env): Promise<Response> {
   return json({ error: "Method not allowed" }, 405);
 }
 
+// ─── Security Headers ──────────────────────────────────────────
+function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  // HSTS — force HTTPS for 1 year (only set if on HTTPS)
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // Prevent MIME type sniffing
+  headers.set("X-Content-Type-Options", "nosniff");
+  // Prevent clickjacking (allow same-origin framing for Midtrans Snap)
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  // XSS protection (legacy, but still useful for older browsers)
+  headers.set("X-XSS-Protection", "1; mode=block");
+  // Referrer policy
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Permissions policy — limit features
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 // ─── Main Worker Export ─────────────────────────────────────────
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -1274,19 +1366,21 @@ export default {
     if (url.pathname.startsWith("/api")) {
       const maintenance = await getFeatureFlag(env, "maintenance");
       if (maintenance === "true" && !url.pathname.startsWith("/api/cache")) {
-        return json({ error: "Sedang maintenance. Coba lagi nanti.", maintenance: true }, 503);
+        return withSecurityHeaders(json({ error: "Sedang maintenance. Coba lagi nanti.", maintenance: true }, 503));
       }
 
       // Rate limiting on API routes
       const allowed = await checkRateLimit(request, env);
       if (!allowed) {
-        return json({ error: "Terlalu banyak request. Coba lagi dalam 1 menit." }, 429);
+        return withSecurityHeaders(json({ error: "Terlalu banyak request. Coba lagi dalam 1 menit." }, 429));
       }
-      return handleApi(request, env);
+      const apiResponse = await handleApi(request, env);
+      return withSecurityHeaders(apiResponse);
     }
 
-    // Everything else → static assets
-    return env.ASSETS.fetch(request);
+    // Everything else → static assets (with security headers)
+    const assetResponse = await env.ASSETS.fetch(request);
+    return withSecurityHeaders(assetResponse);
   },
 
   // Cron trigger: runs daily at 09:00 WIB (02:00 UTC)

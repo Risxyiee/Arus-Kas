@@ -708,7 +708,7 @@ export default function LandingPage({ onOpenApp }: LandingPageProps) {
                 <li className="pricing-feature"><span className="pf-check" />Laporan P&L (laba-rugi)</li>
                 <li className="pricing-feature"><span className="pf-check" />PDF dengan logo usaha</li>
                 <li className="pricing-feature"><span className="pf-check" />Transaksi berulang</li>
-                <li className="pricing-feature"><span className="pf-check" />Notifikasi push jatuh tempo</li>
+                <li className="pricing-feature"><span className="pf-check" />Notifikasi jatuh tempo</li>
                 <li className="pricing-feature"><span className="pf-check" />Buat & kirim invoice</li>
               </ul>
               <div className="pricing-card-cta">

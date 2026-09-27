@@ -15,6 +15,21 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Tambah Transaksi",
+      "short_name": "Tambah",
+      "url": "/arus.html#/transaksi",
+      "description": "Catat transaksi baru"
     }
   ]
 }

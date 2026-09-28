@@ -1,7 +1,7 @@
 // Arus — Service Worker (selective cache for PWA)
-const CACHE_NAME = 'arus-v2';
-// Only precache the dashboard shell (NOT the Next.js landing page)
-const PRECACHE_URLS = ['/arus.html', '/manifest.json'];
+const CACHE_NAME = 'arus-v3';
+// Only precache the manifest (arus.html uses network-first for freshness)
+const PRECACHE_URLS = ['/manifest.json'];
 
 // URLs that should NEVER be cached (always network-first)
 const NEVER_CACHE = [
@@ -10,11 +10,19 @@ const NEVER_CACHE = [
   '/',               // Landing page (SSR, changes every deploy)
 ];
 
+// URLs that use network-first (freshness matters, cache for offline fallback)
+const NETWORK_FIRST = [
+  '/arus.html',      // Dashboard — always serve latest, cache for offline
+];
+
 function shouldNeverCache(url) {
   return NEVER_CACHE.some(prefix => url.pathname.startsWith(prefix));
 }
+function isNetworkFirst(url) {
+  return NETWORK_FIRST.some(path => url.pathname === path);
+}
 
-// Install: precache dashboard shell only
+// Install: precache manifest only
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
@@ -54,12 +62,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Dashboard static assets: cache-first, fall back to network
+  // Dashboard (arus.html): network-first, fall back to cache for offline
+  if (isNetworkFirst(url)) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        // Cache the fresh response for offline fallback
+        if (event.request.method === 'GET' && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => {
+        // Network failed — try cache (offline mode)
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return new Response('Offline — periksa koneksi internet.', { status: 503 });
+        });
+      })
+    );
+    return;
+  }
+
+  // Other static assets: cache-first, fall back to network
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        // Cache successful GET responses for dashboard assets only
+        // Cache successful GET responses
         if (event.request.method === 'GET' && response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));

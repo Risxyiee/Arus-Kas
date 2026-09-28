@@ -159,3 +159,27 @@ Stage Summary:
 - Invoice builder with PDF export
 - Push notifications for due dates
 - No errors, all features verified
+---
+Task ID: 1
+Agent: main
+Task: Debug and fix blank white page on dashboard (arus.html), then push to GitHub
+
+Work Log:
+- Read and analyzed public/arus.html (2771 lines) for JS syntax errors
+- Verified JS syntax with multiple methods: new Function(), Acorn parser, node --check — all passed
+- Checked HTML structure: all tags properly balanced, 5 script blocks, 2 style blocks
+- Traced div balance in pageLangganan() function — found original code had 54 opens / 55 closes (-1 imbalance)
+- Previous edit had removed one `</div>`, making it 54/54 (balanced) — this was actually correct
+- Identified root cause of blank page: Service Worker was using cache-first strategy for /arus.html, serving stale/broken cached version
+- Applied fixes:
+  1. Kept the corrected div balance (removed extra `</div>`)
+  2. Added global JS error handler that catches unhandled errors and displays them with a reset button (prevents silent blank page)
+  3. Bumped SW cache version from arus-v2 to arus-v3 (forces cache invalidation for all users)
+  4. Changed /arus.html from cache-first to network-first in SW (users always get latest, cache only for offline fallback)
+  5. Removed /arus.html from SW precache list
+- Committed and pushed to GitHub (cc80fb0)
+
+Stage Summary:
+- Fixed blank white page issue by addressing service worker caching (primary cause)
+- Added error boundary UI for JS errors (secondary safety net)
+- Pushed to GitHub: https://github.com/Risxyiee/Arus-Kas.git (main branch)

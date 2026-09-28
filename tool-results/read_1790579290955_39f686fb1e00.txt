@@ -1,0 +1,502 @@
+  2000→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  2001→ const H=doc.internal.pageSize.getHeight();
+  2002→ pdfHead(doc,'ARUS — LAPORAN KEUANGAN','Ringkasan transaksi, utang & piutang','Periode: '+period,'Dicetak: '+stamp);
+  2003→ pdfBoxes(doc,[
+  2004→  ['Pemasukan',money(F.inc),[14,123,79]],
+  2005→  ['Pengeluaran',money(F.exp),[193,78,51]],
+  2006→  ['Arus kas net',(F.net>=0?'+ ':'- ')+money(Math.abs(F.net)),F.net>=0?[14,123,79]:[193,78,51]],
+  2007→  ['Utang berjalan',money(T.pay),PDF.ink],
+  2008→  ['Piutang berjalan',money(T.rec),PDF.ink]]);
+  2009→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('Laporan '+period)});
+  2010→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  2011→ doc.text('Transaksi',48,186);
+  2012→ doc.autoTable(Object.assign(base,{startY:194,
+  2013→  head:[['Tanggal','Keterangan','Kategori','Jenis','Jumlah']],
+  2014→  body:F.txns.length?F.txns.map(t=>[fmtDate(t.occurred_at),t.description,t.category,t.type==='income'?'Masuk':'Keluar',(t.type==='income'?'+ ':'- ')+money(t.amount)]):[['-','Tidak ada transaksi pada periode ini','','','']],
+  2015→  columnStyles:{0:{cellWidth:64},2:{cellWidth:95},3:{cellWidth:46},4:{cellWidth:95,halign:'right'}},
+  2016→  didParseCell:d=>{if(d.section==='body'&&d.column.index===4&&String(d.row.raw[4]).length>1){
+  2017→   d.cell.styles.fontStyle='bold';
+  2018→   d.cell.styles.textColor=String(d.row.raw[4]).trim().charAt(0)==='+'?[14,123,79]:[193,78,51];}}}));
+  2019→ let y=doc.lastAutoTable.finalY+28;
+  2020→ if(y>H-150){doc.addPage();y=64;}
+  2021→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  2022→ doc.text('Utang & Piutang',48,y);
+  2023→ doc.autoTable(Object.assign(base,{startY:y+8,
+  2024→  head:[['Nama','Jenis','Tagihan','Dibayar','Jatuh Tempo','Status','Keterangan']],
+  2025→  body:F.debts.length?F.debts.map(d=>[d.name,d.type==='debt'?'Utang':'Piutang',money(d.amount),money(d.paid_amount),d.due_date?fmtDate(d.due_date):'-',STATUS[d.status][0],d.note||'-']):[['Tidak ada entri pada periode ini','','','','','','']],
+  2026→  columnStyles:{2:{halign:'right',cellWidth:86},3:{halign:'right',cellWidth:78},4:{cellWidth:68},5:{cellWidth:82}}}));
+  2027→ pdfFooter(doc,'Laporan '+period);
+  2028→ doc.save('arus-laporan-'+(F.ym||'semua')+'.pdf');
+  2029→ toast('Laporan '+period+' diunduh.');
+  2030→ }catch(err){printFallback('Laporan Keuangan — Arus',reportHTML(F,T,period,stamp));toast('PDF gagal — membuka menu cetak.','info');}}
+  2031→
+  2032→/* ── P&L PDF Export (Pro) ── */
+  2033→function exportPLPDF(){
+  2034→ if(!canDo('plReport')){showUpgrade('plReport');return;}
+  2035→ const F=reportData();
+  2036→ const period=F.ym?monthName(F.ym):'Semua waktu';
+  2037→ const stamp=new Date().toLocaleString('id-ID');
+  2038→ const cats={};
+  2039→ F.txns.forEach(t=>{if(!cats[t.category])cats[t.category]={inc:0,exp:0};if(t.type==='income')cats[t.category].inc+=t.amount;else cats[t.category].exp+=t.amount;});
+  2040→ const incCats=Object.entries(cats).filter(([_,v])=>v.inc>0).sort((a,b)=>b[1].inc-a[1].inc);
+  2041→ const expCats=Object.entries(cats).filter(([_,v])=>v.exp>0).sort((a,b)=>b[1].exp-a[1].exp);
+  2042→ const totalInc=incCats.reduce((s,[_,v])=>s+v.inc,0);
+  2043→ const totalExp=expCats.reduce((s,[_,v])=>s+v.exp,0);
+  2044→ const netIncome=totalInc-totalExp;
+  2045→ const margin=totalInc>0?Math.round(netIncome/totalInc*100):0;
+  2046→ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+  2047→ try{
+  2048→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  2049→ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  2050→ const businessName=(db.profile&&db.profile.name)||'Arus';
+  2051→ /* Branded header for Pro */
+  2052→ pdfHead(doc,'ARUS — LAPORAN P&L (LABA-RUGI)',businessName,'Periode: '+period,'Dicetak: '+stamp);
+  2053→ pdfBoxes(doc,[
+  2054→  ['Total Pemasukan',money(totalInc),[14,123,79]],
+  2055→  ['Total Pengeluaran',money(totalExp),[193,78,51]],
+  2056→  ['Laba Bersih',(netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),netIncome>=0?[14,123,79]:[193,78,51]],
+  2057→  ['Margin',margin+'%',PDF.ink]]);
+  2058→ const base=Object.assign(pdfBase(),{didDrawPage:pdfContHead('P&L '+period)});
+  2059→ /* Income table */
+  2060→ let y=186;
+  2061→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(14,123,79);
+  2062→ doc.text('Pemasukan per Kategori',48,y);y+=8;
+  2063→ doc.autoTable(Object.assign(base,{startY:y,
+  2064→  head:[['Kategori','Jumlah']],
+  2065→  body:incCats.map(([c,v])=>[c,money(v.inc)]),
+  2066→  columnStyles:{1:{halign:'right',cellWidth:120}},
+  2067→  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[14,123,79];}}));
+  2068→ y=doc.lastAutoTable.finalY+24;
+  2069→ if(y>H-120){doc.addPage();y=64;}
+  2070→ /* Expense table */
+  2071→ doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(193,78,51);
+  2072→ doc.text('Pengeluaran per Kategori',48,y);y+=8;
+  2073→ doc.autoTable(Object.assign(base,{startY:y,
+  2074→  head:[['Kategori','Jumlah']],
+  2075→  body:expCats.map(([c,v])=>[c,money(v.exp)]),
+  2076→  columnStyles:{1:{halign:'right',cellWidth:120}},
+  2077→  didParseCell:d=>{if(d.section==='body'&&d.column.index===1)d.cell.styles.textColor=[193,78,51];}}));
+  2078→ /* Summary box */
+  2079→ y=doc.lastAutoTable.finalY+24;
+  2080→ if(y>H-100){doc.addPage();y=64;}
+  2081→ doc.setFillColor(247,245,238);doc.roundedRect(48,y,W-96,50,6,6,'F');
+  2082→ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  2083→ doc.text('Laba Bersih = Pemasukan − Pengeluaran',62,y+18);
+  2084→ doc.setFontSize(14);doc.setTextColor(netIncome>=0?14:193,netIncome>=0?123:78,netIncome>=0?79:51);
+  2085→ doc.text((netIncome>=0?'+ ':'- ')+money(Math.abs(netIncome)),W-62,y+36,{align:'right'});
+  2086→ pdfFooter(doc,'P&L '+period);
+  2087→ doc.save('arus-pnl-'+(F.ym||'semua')+'.pdf');
+  2088→ toast('Laporan P&L '+period+' diunduh.');
+  2089→ }catch(err){toast('PDF gagal: '+err.message,'error');}}
+  2090→
+  2091→/* ── Invoice Builder (Pro) ── */
+  2092→function openInvoiceBuilder(){
+  2093→ if(!canDo('invoice')){showUpgrade('invoice');return;}
+  2094→ const invNum='INV-'+new Date().getFullYear()+p2(new Date().getMonth()+1)+p2(new Date().getDate())+'-'+(Math.random()*900+100|0);
+  2095→ openModal(
+  2096→  '<div style="padding:4px 0">'+
+  2097→  '<div class="row" style="gap:8px;margin-bottom:12px"><span style="display:inline-flex;color:var(--pos)">'+ic('file','w18')+'</span><h3 style="margin:0;font-weight:800;font-size:16px">Buat Invoice</h3></div>'+
+  2098→  '<label class="lbl">Nama klien / penerima</label><input id="inv-to" class="fld" placeholder="PT Contoso" maxlength="60">'+
+  2099→  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  2100→  '<div><label class="lbl">No. Invoice</label><input id="inv-no" class="fld mono" value="'+invNum+'" maxlength="30"></div>'+
+  2101→  '<div><label class="lbl">Tanggal</label><input id="inv-date" type="date" class="fld" value="'+todayISO()+'"></div></div>'+
+  2102→  '<label class="lbl" style="margin-top:10px">Item / Jasa</label><input id="inv-item" class="fld" placeholder="Jasa desain brand" maxlength="80">'+
+  2103→  '<div class="grid g2" style="margin-top:10px;gap:10px">'+
+  2104→  '<div><label class="lbl">Jumlah (Rp)</label><input id="inv-amt" class="fld mono6" type="number" inputmode="numeric" placeholder="500000"></div>'+
+  2105→  '<div><label class="lbl">Catatan</label><input id="inv-note" class="fld" placeholder="Terima kasih" maxlength="100"></div></div>'+
+  2106→  '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">'+
+  2107→  '<button class="btn" data-close>Batal</button><button class="btn primary" id="inv-ok">Buat PDF</button></div></div>');
+  2108→ $('#inv-ok').onclick=exportInvoicePDF;
+  2109→}
+  2110→function exportInvoicePDF(){
+  2111→ const to=$('#inv-to').value.trim()||'Klien';
+  2112→ const invNo=$('#inv-no').value.trim()||'INV-001';
+  2113→ const invDate=$('#inv-date').value||todayISO();
+  2114→ const item=$('#inv-item').value.trim()||'Jasa';
+  2115→ const amt=parseInt($('#inv-amt').value)||0;
+  2116→ const note=$('#inv-note').value.trim();
+  2117→ if(!amt){toast('Isi jumlah invoice.','error');return;}
+  2118→ closeModal();
+  2119→ if(!window.jspdf){toast('Pustaka PDF belum termuat.','info');return;}
+  2120→ try{
+  2121→ const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  2122→ const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  2123→ const businessName=(db.profile&&db.profile.name)||'Arus';
+  2124→ const ppn=window.jspdf.jsPDF.API;
+  2125→ /* Header */
+  2126→ doc.setFillColor(PDF.hdr[0],PDF.hdr[1],PDF.hdr[2]);doc.rect(0,0,W,72,'F');
+  2127→ doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(PDF.paper[0],PDF.paper[1],PDF.paper[2]);doc.text('INVOICE',48,42);
+  2128→ doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(businessName,48,60);
+  2129→ doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);
+  2130→ doc.text('Kepada:',48,100);doc.setFont('helvetica','normal');doc.text(to,48,114);
+  2131→ doc.setFont('helvetica','bold');doc.text('No. Invoice:',W-200,100);doc.setFont('helvetica','normal');doc.text(invNo,W-200,114);
+  2132→ doc.setFont('helvetica','bold');doc.text('Tanggal:',W-200,130);doc.setFont('helvetica','normal');doc.text(fmtDate(invDate),W-200,144);
+  2133→ /* Items table */
+  2134→ doc.autoTable({startY:170,theme:'grid',
+  2135→  styles:{font:'helvetica',fontSize:9,cellPadding:{top:6,bottom:6,left:8,right:8},lineColor:PDF.boxLine,lineWidth:.5,textColor:PDF.ink},
+  2136→  headStyles:{fillColor:PDF.hdr,textColor:PDF.paper,fontSize:8.5,lineWidth:0},
+  2137→  head:[['No','Deskripsi','Jumlah']],
+  2138→  body:[['1',item,money(amt)]],
+  2139→  columnStyles:{0:{cellWidth:40},2:{halign:'right',cellWidth:120}}});
+  2140→ /* Total */
+  2141→ let y=doc.lastAutoTable.finalY+16;
+  2142→ doc.setDrawColor(PDF.ink[0],PDF.ink[1],PDF.ink[2]);doc.setLineWidth(1);doc.line(W-168,y,W-48,y);y+=16;
+  2143→ doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Total',W-168,y);
+  2144→ doc.text(money(amt),W-48,y,{align:'right'});y+=24;
+  2145→ if(note){doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);doc.text('Catatan: '+note,48,y);y+=16;}
+  2146→ /* Footer */
+  2147→ doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(PDF.mut[0],PDF.mut[1],PDF.mut[2]);
+  2148→ doc.text('Terima kasih atas kepercayaan Anda.',48,H-40);
+  2149→ doc.text(businessName+' — Invoice via Arus Pro',48,H-26);
+  2150→ doc.save(invNo+'.pdf');
+  2151→ toast('Invoice diunduh ✅');
+  2152→ }catch(err){toast('PDF gagal: '+err.message,'error');}
+  2153→}
+  2154→
+  2155→/* ── Push Notifications for due dates (Pro) ── */
+  2156→function initPushNotifications(){
+  2157→ if(!canDo('notifPush'))return;
+  2158→ if(!('Notification' in window))return;
+  2159→ if(Notification.permission==='default'){Notification.requestPermission();}
+  2160→ if(Notification.permission!=='granted')return;
+  2161→ const items=dueItems().filter(x=>x.days<=1);
+  2162→ items.forEach(x=>{
+  2163→  try{new Notification('Arus — Jatuh Tempo',{
+  2164→   body:x.d.name+': '+dueLabel(x.d)+' ('+money(x.d.amount-x.d.paid_amount)+')',
+  2165→   icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34"><rect x="1" y="1" width="32" height="32" rx="9" fill="%23242019"/><path d="M10 12.5h14M10 17h14M10 21.5h9" stroke="%23F4F1E8" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+  2166→   tag:'arus-due-'+x.d.id
+  2167→  });}catch(e){}
+  2168→ });
+  2169→}/* ══════ Notifikasi bell ══════ */
+  2170→function bellModal(){
+  2171→ const items=dueItems();
+  2172→ openModal('<h3 style="font-weight:800;font-size:16px">Jatuh tempo &amp; terlambat</h3>'+
+  2173→  '<div style="margin-top:12px;max-height:340px;overflow:auto">'+
+  2174→  (items.length?items.map(x=>
+  2175→   '<div class="row trow"><span class="sicon '+(x.d.type==='debt'?'sic-neg':'sic-pos')+'">'+ic(x.d.type==='debt'?'down':'up','w12')+'</span>'+
+  2176→   '<div class="grow minw"><div class="tname">'+esc(x.d.name)+'</div>'+
+  2177→   '<div class="xs '+(x.days<0?'neg':'muted')+'" style="font-weight:'+(x.days<0?'700':'400')+'">'+dueLabel(x.d)+'</div></div>'+
+  2178→   '<span class="mono small" style="font-weight:700">'+money(x.d.amount-x.d.paid_amount)+'</span>'+
+  2179→   '<button class="btn mini primary" data-settle="'+x.d.id+'">'+(x.d.type==='debt'?'Bayar':'Terima')+'</button></div>').join('')
+  2180→  :emptyState('Tidak ada yang jatuh tempo dalam 3 hari ke depan. Tenang.','check'))+'</div>'+
+  2181→  '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-close>Tutup</button></div>');}
+  2182→
+  2183→/* ══════ Onboarding pertama ══════ */
+  2184→function onboardModal(){
+  2185→ openModal('<div class="center"><div style="display:inline-flex;margin-bottom:10px;color:var(--pos)">'+ic('wallet','w20')+'</div>'+
+  2186→  '<h3 style="font-weight:800;font-size:17px">Selamat datang di Arus</h3>'+
+  2187→  '<p class="small muted" style="margin-top:8px;line-height:1.65">Buku kas pribadi & UMKM. Gratis untuk mulai, Pro untuk tumbuh.</p></div>'+
+  2188→  '<div style="display:grid;gap:8px;margin-top:18px">'+
+  2189→  '<button class="btn primary" id="ob-login" style="justify-content:flex-start">'+ic('user','w14')+' Masuk dengan akun<span class="xs muted" style="margin-left:auto">sinkronisasi cloud ☁️</span></button>'+
+  2190→  '<button class="btn" id="ob-demo" style="justify-content:flex-start">'+ic('bar','w14')+' Mulai dengan data contoh<span class="xs muted" style="margin-left:auto">lihat dulu rasanya</span></button>'+
+  2191→  '<button class="btn" id="ob-clean" style="justify-content:flex-start">'+ic('plus','w14')+' Mulai bersih (lokal)<span class="xs muted" style="margin-left:auto">tanpa akun</span></button>'+
+  2192→  '<button class="btn" id="ob-import" style="justify-content:flex-start">'+ic('upload','w14')+' Pulihkan backup JSON<span class="xs muted" style="margin-left:auto">pindah perangkat</span></button>'+
+  2193→  '<input type="file" id="ob-file" accept="application/json,.json" hidden></div>');
+  2194→ $('#ob-login').onclick=()=>{closeModal();openAuthModal('login');};
+  2195→ $('#ob-demo').onclick=()=>{db.settings.onboarded=true;save();closeModal();render();toast('Data contoh dimuat — bebas diubah-ubah.');};
+  2196→ $('#ob-clean').onclick=()=>{const keep={profile:db.profile,settings:Object.assign({},db.settings,{onboarded:true})};
+  2197→  db=Object.assign(defaultDb(),keep,{demo:false});save();closeModal();render();toast('Kanvas kosong siap — catat transaksi pertamamu!');};
+  2198→ $('#ob-import').onclick=()=>$('#ob-file').click();
+  2199→ $('#ob-file').addEventListener('change',e=>{
+  2200→  const f=e.target.files[0];if(!f)return;
+  2201→  const rd=new FileReader();
+  2202→  rd.onload=()=>{try{
+  2203→   const j=JSON.parse(rd.result);
+  2204→   if(!j||!Array.isArray(j.transactions))throw 0;
+  2205→   db=j.version===3?j:migrateOld(j);
+  2206→   db.settings.onboarded=true;applyCustomCats();save();updateProfileUI();closeModal();render();
+  2207→   toast('Backup dipulihkan — selamat datang kembali!');
+  2208→  }catch(err){toast('File backup tidak valid.','error');}};
+  2209→  rd.readAsText(f);});}
+  2210→
+  2211→/* ══════ PIN lock ══════ */
+  2212→function hashPin(p){let h=5381;for(let i=0;i<p.length;i++)h=((h<<5)+h+p.charCodeAt(i))>>>0;return 'h'+h.toString(16);}
+  2213→function showPinLock(){
+  2214→ const lk=$('#pinlock');
+  2215→ lk.style.display='flex';
+  2216→ lk.innerHTML='<div class="panel" style="max-width:320px;text-align:center">'+
+  2217→  '<div style="display:inline-flex;color:var(--mut);margin-bottom:8px">'+ic('lock','w20')+'</div>'+
+  2218→  '<h3 style="font-weight:800;font-size:16px">Arus terkunci</h3>'+
+  2219→  '<p class="xs muted" style="margin-top:4px">Masukkan PIN untuk melanjutkan</p>'+
+  2220→  '<input id="pin-in" class="fld mono" type="password" inputmode="numeric" maxlength="8" style="text-align:center;font-size:20px;letter-spacing:.4em;margin-top:14px" aria-label="PIN">'+
+  2221→  '<button class="btn primary" id="pin-ok" style="width:100%;margin-top:12px">Buka</button>'+
+  2222→  '<div class="xs muted" style="margin-top:10px">Lupa PIN? Hapus data browser (localStorage "arus-data-v3") — atau pulihkan dari backup.</div></div>';
+  2223→ const check=()=>{
+  2224→  if($('#pin-in').value.length>=4&&hashPin($('#pin-in').value)===db.profile.pin){
+  2225→   lk.style.display='none';lk.innerHTML='';}
+  2226→  else{lk.classList.add('shake');$('#pin-in').value='';
+  2227→   setTimeout(()=>lk.classList.remove('shake'),420);}};
+  2228→ $('#pin-ok').onclick=check;
+  2229→ $('#pin-in').addEventListener('keydown',e=>{if(e.key==='Enter')check();});
+  2230→ setTimeout(()=>$('#pin-in').focus(),60);}
+  2231→
+  2232→/* ══════ LANGGANAN / PRICING ══════ */
+  2233→function pageLangganan(){
+  2234→ const curPlan=getPlan();
+  2235→ const ck=v=>v===true?ic('check2','w12'):(v===Infinity?'<span class="mono">∞</span>':String(v));
+  2236→ const xn=ic('x','w12');
+  2237→ const featRow=(label,freeV,proV)=>{
+  2238→  const fCls=freeV===false?'neg':'ink';
+  2239→  return '<div class="price-feat"><span class="grow minw">'+esc(label)+'</span>'+
+  2240→   '<span style="width:56px;text-align:center" class="xs '+fCls+'">'+(freeV===false?xn:ck(freeV))+'</span>'+
+  2241→   '<span style="width:56px;text-align:center;color:var(--pos)">'+ck(proV)+'</span></div>';};
+  2242→ const featureRows=[
+  2243→  featRow('Transaksi',Infinity,Infinity),
+  2244→  featRow('Dompet',2,Infinity),
+  2245→  featRow('Utang & piutang aktif',5,Infinity),
+  2246→  featRow('Budget per kategori',3,Infinity),
+  2247→  featRow('Kategori kustom',3,Infinity),
+  2248→  featRow('Transaksi berulang',false,true),
+  2249→  featRow('Sinkronisasi cloud',false,true),
+  2250→  featRow('Laporan P&L (laba-rugi)',false,true),
+  2251→  featRow('PDF dengan logo usaha',false,true),
+  2252→  featRow('Notifikasi jatuh tempo',false,true),
+  2253→  featRow('Buat & kirim invoice',false,true)];
+  2254→ const isPro=curPlan.id==='pro';
+  2255→ const proAnnual=Math.round(29000*12*0.8);
+  2256→ const proFeatures=[
+  2257→  'Semua fitur Gratis','Dompet unlimited','Utang & piutang unlimited',
+  2258→  'Budget & kategori unlimited','Transaksi berulang otomatis',
+  2259→  'Sinkronisasi cloud (multi-device)','Laporan P&L laba-rugi',
+  2260→  'PDF dengan logo usaha sendiri','Notifikasi jatuh tempo',
+  2261→  'Buat & kirim invoice ke klien'];
+  2262→ const freeFeatures=[
+  2263→  'Transaksi unlimited','2 dompet','5 utang/piutang aktif',
+  2264→  '3 budget per kategori','3 kategori kustom','Laporan dasar','Ekspor PDF/CSV'];
+  2265→ return '<div style="text-align:center;padding:8px 0 16px">'+
+  2266→  '<div style="display:inline-flex;color:var(--pos);margin-bottom:4px">'+ic('crown','w20')+'</div>'+
+  2267→  '<div style="font-weight:800;font-size:22px;letter-spacing:-.02em">Paket untuk UMKM</div>'+
+  2268→  '<div class="muted" style="margin-top:6px;font-size:13.5px;line-height:1.5">Mulai gratis, upgrade kalau usaha udah berkembang. Bisa batalkan kapan aja.</div>'+
+  2269→  '</div>'+
+  2270→  /* Current plan banner */
+  2271→  (isPro?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
+  2272→   '<div class="row between wrap" style="gap:8px">'+
+  2273→   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket Pro aktif</span></div>'+
+  2274→   '<div class="row" style="gap:8px">'+
+  2275→   (db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
+  2276→   '<button class="btn mini danger" id="cancel-sub">Batalkan</button></div></div></div>':'')+
+  2277→  /* Two plan cards side by side */
+  2278→  '<div class="plan-grid">'+
+  2279→  /* FREE */
+  2280→  '<div class="price-card" style="display:flex;flex-direction:column">'+
+  2281→   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Gratis</div>'+
+  2282→   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px">Rp 0</div>'+
+  2283→   '<div class="xs muted" style="margin-top:2px">selamanya</div>'+
+  2284→   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
+  2285→   freeFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
+  2286→   '</div></div>'+
+  2287→   (!isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
+  2288→    '<button class="btn" style="width:100%;margin-top:16px;justify-content:center" data-downgrade="free">Kembali ke Gratis</button>')+
+  2289→  '</div>'+
+  2290→  /* PRO */
+  2291→  '<div class="price-card popular" style="display:flex;flex-direction:column">'+
+  2292→   (isPro?'<div style="position:absolute;top:12px;right:12px"><span class="plan-pill plan-pro">AKTIF</span></div>':'')+
+  2293→   '<div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Pro</div>'+
+  2294→   '<div class="mono" style="font-size:32px;font-weight:800;margin-top:10px;color:var(--pos)">Rp 29.000</div>'+
+  2295→   '<div class="xs muted" style="margin-top:2px">per bulan</div>'+
+  2296→   '<div class="xs" style="color:var(--pos);margin-top:3px">'+money(proAnnual)+'/thn — hemat 20%</div>'+
+  2297→   '<div style="margin-top:16px;flex:1"><div style="display:grid;gap:6px">'+
+  2298→   proFeatures.map(f=>'<div class="price-feat">'+ic('check2','w12')+'<span>'+esc(f)+'</span></div>').join('')+
+  2299→   '</div></div>'+
+  2300→   (isPro?'<button class="btn" style="width:100%;margin-top:16px;justify-content:center" disabled>Paket saat ini</button>':
+  2301→    '<div style="margin-top:16px"><div class="row" style="gap:6px;justify-content:center;margin-bottom:8px"><button class="btn mini active" id="bill-m" style="font-size:11px">Bulanan</button><button class="btn mini" id="bill-y" style="font-size:11px">Tahunan</button></div>'+
+  2302→    '<button class="btn primary" style="width:100%;justify-content:center;gap:8px" data-upgrade="pro">'+ic('crown','w14')+' Upgrade ke Pro</button></div>')+
+  2303→  '</div>'+
+  2304→  '</div>'+
+  2305→  '</div>'+
+  2306→  /* Feature comparison table */
+  2307→  '<div class="card" style="padding:18px 20px;margin-top:20px">'+
+  2308→   '<div style="font-weight:700;font-size:14.5px;margin-bottom:10px">Perbandingan fitur</div>'+
+  2309→   '<div class="row" style="gap:0;margin-bottom:4px;padding:0 0 4px;border-bottom:1px solid var(--line)">'+
+  2310→   '<span class="grow"></span>'+
+  2311→   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)">Gratis</span>'+
+  2312→   '<span style="width:56px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--pos)">Pro</span></div>'+
+  2313→   featureRows.join('')+
+  2314→  '</div>'+
+  2315→  /* FAQ */
+  2316→  '<div class="card" style="padding:18px 20px;margin-top:14px">'+
+  2317→   '<div style="font-weight:700;font-size:14.5px;margin-bottom:8px">Pertanyaan umum</div>'+
+  2318→   '<div style="display:grid;gap:10px">'+
+  2319→   '<div><div style="font-weight:700;font-size:12.5px">Kalau saya batalkan, data saya hilang?</div><div class="small muted" style="margin-top:2px">Tidak — semua data tetap tersimpan. Tapi fitur Pro akan terkunci kembali, dan entri di atas limit gratis tidak bisa ditambah (yang sudah ada tetap bisa dilihat).</div></div>'+
+  2320→   '<div><div style="font-weight:700;font-size:12.5px">Metode pembayaran apa?</div><div class="small muted" style="margin-top:2px">QRIS, GoPay, OVO, virtual account BCA/Mandiri/BRI, kartu kredit/debit via Midtrans. Untuk sekarang ini simulasi.</div></div>'+
+  2321→   '<div><div style="font-weight:700;font-size:12.5px">Bisa bayar tahunan?</div><div class="small muted" style="margin-top:2px">Ya! Bayar tahunan hemat 20% — cukup '+money(proAnnual)+'/thn untuk paket Pro.</div></div>'+
+  2322→   '<div><div style="font-weight:700;font-size:12.5px">Paket Gratis bisa dipakai selamanya?</div><div class="small muted" style="margin-top:2px">Ya, tanpa batas waktu. Tidak ada trial yang habis. Cukup untuk catat keuangan harian 1 orang.</div></div>'+
+  2323→   '<div><div style="font-weight:700;font-size:12.5px">Kenapa Rp 29.000/bulan?</div><div class="small muted" style="margin-top:2px">Harga ini dirancang untuk UMKM Indonesia — lebih murah dari secangkir kopi per hari, tapi fiturnya sudah lengkap untuk kelola keuangan usaha kecil-menengah.</div></div>'+
+  2324→   '</div></div>'+
+  2325→  /* Payment history (Pro) — fetched from API */
+  2326→  (isPro?'<div class="card" style="padding:18px 20px;margin-top:14px">'+
+  2327→   '<div style="font-weight:700;font-size:14.5px;margin-bottom:8px">'+ic('file','w14')+' Riwayat Pembayaran</div>'+
+  2328→   '<div id="pay-history"><div class="skel skel-line w90"></div><div class="skel skel-line w70"></div></div>'+
+  2329→   '</div>':'');}
+  2330→function afterLangganan(){
+  2331→ const cb=$('#cancel-sub');
+  2332→ if(cb)cb.onclick=()=>{confirmModal('Batalkan langganan?','Data tetap aman, tapi fitur Pro akan terkunci. Entri di atas limit gratis tetap bisa dilihat.',cancelPlan);};
+  2333→ let billingType='monthly';
+  2334→ const bm=$('#bill-m'),by=$('#bill-y');
+  2335→ if(bm)bm.onclick=()=>{billingType='monthly';bm.classList.add('active');if(by)by.classList.remove('active');};
+  2336→ if(by)by.onclick=()=>{billingType='annual';by.classList.add('active');if(bm)bm.classList.remove('active');};
+  2337→ $$('[data-upgrade]').forEach(b=>b.onclick=()=>{
+  2338→  const billing=billingType;
+  2339→  const isAnnual=billing==='annual';
+  2340→  confirmModal('Upgrade ke Pro?',isAnnual?'Paket Pro Rp 278.400/tahun (hemat 20%). Bisa batalkan kapan aja.':'Paket Pro Rp 29.000/bulannya. Bisa batalkan kapan aja. Di produksi: redirect ke Midtrans untuk pembayaran.',()=>activatePlan('pro',billing));});
+  2341→ $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur Pro akan terkunci. Data tetap aman.',cancelPlan);});
+  2342→ /* Load payment history from API */
+  2343→ if(currentUser&&$('#pay-history')){
+  2344→  api('/payment/history?user_id='+currentUser.id).then(r=>{
+  2345→   const el=$('#pay-history');
+  2346→   if(!el)return;
+  2347→   if(r.error){el.innerHTML='<div class="small muted">Gagal memuat riwayat.</div>';return;}
+  2348→   const hist=r.data||[];
+  2349→   /* Also show local subscription info */
+  2350→   let html='';
+  2351→   if(db.subscription.transactionId){
+  2352→    html+='<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+  2353→     '<span class="small grow" style="font-weight:600">'+esc(db.subscription.transactionId)+'</span>'+
+  2354→     '<span class="xs muted">'+(db.subscription.billing||'bulanan')+'</span>'+
+  2355→     '<span class="tagx" style="background:var(--pos-soft);color:var(--pos)">Aktif</span></div>';
+  2356→   }
+  2357→   if(db.subscription.startedAt) html+='<div class="xs muted" style="margin-top:4px">Berlangganan sejak '+fmtDate(db.subscription.startedAt)+'</div>';
+  2358→   if(db.subscription.expiresAt) html+='<div class="xs muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</div>';
+  2359→   /* API history items */
+  2360→   if(hist.length>0){
+  2361→    hist.forEach(h=>{
+  2362→     const amt=h.billing==='annual'?278400:29000;
+  2363→     const statusCls=h.status==='active'?'background:var(--pos-soft);color:var(--pos)':'background:var(--neg-soft);color:var(--neg)';
+  2364→     html+='<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+  2365→      '<div class="grow minw"><div class="small" style="font-weight:600">'+esc(h.id||'—')+'</div>'+
+  2366→      '<div class="xs muted">'+money(amt)+' · '+(h.billing||'bulanan')+'</div></div>'+
+  2367→      '<span class="tagx" style="'+statusCls+'">'+(h.status==='active'?'Aktif':'Nonaktif')+'</span></div>';
+  2368→    });
+  2369→   }
+  2370→   if(!html) html='<div class="small muted">Belum ada riwayat pembayaran.</div>';
+  2371→   el.innerHTML=html;
+  2372→  });
+  2373→ }}
+  2374→
+  2375→/* ══════ Router & init ══════ */
+  2376→const ROUTES={
+  2377→ dashboard:{t:'Dashboard',sub:'Ringkasan keuangan',p:pageDashboard,a:afterDashboard},
+  2378→ transaksi:{t:'Transaksi',sub:'Input pintar & daftar',p:pageTransactions,a:afterTransactions},
+  2379→ utang:{t:'Utang & Piutang',sub:'Kewajiban & tagihan',p:pageDebts,a:afterDebts},
+  2380→ statistik:{t:'Statistik',sub:'Analisis & budget',p:pageStatistik,a:afterStatistik},
+  2381→ laporan:{t:'Laporan',sub:'Rekap & unduh PDF/CSV',p:pageReports,a:afterReports},
+  2382→ langganan:{t:'Langganan',sub:'Paket & fitur',p:pageLangganan,a:afterLangganan},
+  2383→ pengaturan:{t:'Pengaturan',sub:'Dompet, budget, keamanan & data',p:pagePengaturan,a:afterPengaturan}};
+  2384→function route(){const h=location.hash.replace(/^#\//,'');return ROUTES[h]?h:'dashboard';}
+  2385→function render(){
+  2386→ const r=route();ui.route=r;
+  2387→ $$('.navlink').forEach(a=>a.classList.toggle('active',a.getAttribute('data-route')===r));
+  2388→ $('#page-title').textContent=ROUTES[r].t;
+  2389→ $('#page-sub').textContent=ROUTES[r].sub;
+  2390→ $('#view').innerHTML=ROUTES[r].p();
+  2391→ if(ROUTES[r].a)ROUTES[r].a();
+  2392→ $('#nav-badge').textContent=db.debts.filter(d=>d.status!=='paid').length;
+  2393→ const due=dueItems();
+  2394→ $('#bell-badge').style.display=due.length?'flex':'none';
+  2395→ $('#bell-badge').textContent=due.length;
+  2396→ renderFlags();
+  2397→ renderPlanBadge();
+  2398→ syncTop();closeNav();
+  2399→ if(currentUser&&!db.settings.onboarded&&!db.demo)showOnboarding();}
+  2400→function renderFlags(){
+  2401→ $('#demo-flag').innerHTML=db.demo
+  2402→  ?'<div class="alert info" style="padding:8px 10px;font-size:11px;margin-bottom:8px">'+ic('info','w12')+'<span class="grow">Data contoh aktif.</span><button class="btn mini" id="demo-clean">Mulai bersih</button></div>':'';
+  2403→ const dc=$('#demo-clean');
+  2404→ if(dc)dc.onclick=()=>{const keep={profile:db.profile,settings:Object.assign({},db.settings,{onboarded:true})};
+  2405→  db=Object.assign(defaultDb(),keep,{demo:false});save();render();toast('Mulai dari kosong. Semangat!');};
+  2406→ const lb=db.settings.lastBackup;
+  2407→ $('#backup-flag').innerHTML=(lb&&Math.round((Date.now()-new Date(lb).getTime())/864e5)>=14&&db.transactions.length>3)
+  2408→  ?'<div class="alert" style="padding:8px 10px;font-size:11px;margin-bottom:8px">'+ic('warn','w12')+'<span class="grow">Backup sudah lama.</span><button class="btn mini" id="flag-backup">Backup</button></div>':'';
+  2409→ const fb=$('#flag-backup');
+  2410→ if(fb)fb.onclick=exportJSON;}
+  2411→function goAdd(){
+  2412→ if(ui.route==='transaksi'){const el=$('#f-desc');if(el)el.focus();else pendingFocus=true;}
+  2413→ else{pendingFocus=true;location.hash='#/transaksi';}}
+  2414→function closeNav(){$('#sidebar').classList.remove('open');$('#scrim').classList.remove('show');}
+  2415→function updateProfileUI(){
+  2416→ $('#avatar').textContent=initials(db.profile.name||'Saya');
+  2417→ $('#profile-name').textContent=db.profile.name||'Saya';
+  2418→ const ai=$('#auth-indicator');
+  2419→ if(ai){if(currentUser){ai.innerHTML='<span style="color:var(--pos)" title="Tersinkron ☁️">☁️</span> <span onclick="doLogout()" style="color:var(--neg);cursor:pointer;margin-left:4px" title="Keluar">⏻</span>';}else{ai.innerHTML='<a onclick="openAuthModal(\'login\')" style="color:var(--pos);font-weight:700;cursor:pointer">Masuk</a>';}}
+  2420→ const ab=$('#admin-btn');
+  2421→ if(ab)ab.style.display=isAdmin()?'inline-flex':'none';
+  2422→}
+  2423→function applyThemeUI(){
+  2424→ const dk=document.documentElement.classList.contains('dark');
+  2425→ $('#theme-ic').innerHTML=ic(dk?'sun':'moon');
+  2426→ $('#theme-ic2').innerHTML=ic(dk?'sun':'moon');
+  2427→ $('#theme-lbl').textContent=dk?'Mode terang':'Mode gelap';}
+  2428→function toggleTheme(){
+  2429→ document.documentElement.classList.toggle('dark');
+  2430→ try{localStorage.setItem('arus-theme',document.documentElement.classList.contains('dark')?'dark':'light');}catch(e){}
+  2431→ applyThemeUI();render();}
+  2432→
+  2433→/* ══════ Forgot Password ══════ */
+  2434→function openForgotModal(){
+  2435→ openModal('<div style="text-align:center;padding:24px">'+
+  2436→  '<div style="font-size:28px;margin-bottom:4px">🔑</div>'+
+  2437→  '<h3 style="margin:0 0 8px;color:var(--ink)">Reset Password</h3>'+
+  2438→  '<p class="muted" style="margin-bottom:16px;font-size:13px">Masukkan email untuk link reset password.</p>'+
+  2439→  '<input id="forgot-email" type="email" placeholder="Email" style="width:100%;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
+  2440→  '<button onclick="doForgotPassword()" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px">Kirim Link Reset</button>'+
+  2441→  '</div>');
+  2442→}
+  2443→async function doForgotPassword(){
+  2444→ const email=document.getElementById('forgot-email')?.value;
+  2445→ if(!email){toast('Masukkan email');return;}
+  2446→ const r=await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})});
+  2447→ closeModal();
+  2448→ if(r.ok)toast('Cek email untuk link reset password 📧','info');
+  2449→ else toast(r.error||'Gagal');
+  2450→}
+  2451→
+  2452→/* ══════ Admin Panel ══════ */
+  2453→function isAdmin(){return currentUser&&currentUser.email==='riskiakbarp123@gmail.com';}
+  2454→
+  2455→function openAdmin(){
+  2456→ if(!isAdmin()){toast('Hanya admin yang bisa akses');return;}
+  2457→ let p=document.getElementById('admin-panel');
+  2458→ if(!p){
+  2459→  p=document.createElement('div');
+  2460→  p.id='admin-panel';
+  2461→  p.style.cssText='display:none;position:fixed;top:0;right:0;width:min(420px,90vw);height:100vh;background:var(--card);border-left:1px solid var(--line);z-index:9999;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.15)';
+  2462→  p.innerHTML=
+  2463→   '<div style="padding:16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">'+
+  2464→   '<span style="font-size:18px">🛡️</span>'+
+  2465→   '<span style="font-weight:700;flex:1">Admin Panel</span>'+
+  2466→   '<button onclick="closeAdmin()" style="border:none;background:var(--soft);color:var(--ink);font-size:16px;cursor:pointer;border-radius:8px;padding:4px 10px">✕</button></div>'+
+  2467→   '<div style="padding:12px;display:flex;gap:6px;border-bottom:1px solid var(--line)">'+
+  2468→   '<button class="admin-tab active" data-atab="dashboard">Dashboard</button>'+
+  2469→   '<button class="admin-tab" data-atab="users">Users</button>'+
+  2470→   '<button class="admin-tab" data-atab="txns">Transaksi</button>'+
+  2471→   '<button class="admin-tab" data-atab="fulladmin">Full Admin ↗</button></div>'+
+  2472→   '<div id="admin-content" style="padding:16px"></div>';
+  2473→  document.body.appendChild(p);
+  2474→  p.querySelectorAll('.admin-tab').forEach(b=>b.onclick=()=>loadAdminTab(b.dataset.atab));
+  2475→ }
+  2476→ p.style.display='block';
+  2477→ loadAdminTab('dashboard');
+  2478→}
+  2479→function closeAdmin(){const p=document.getElementById('admin-panel');if(p)p.style.display='none';}
+  2480→
+  2481→function loadAdminTab(tab){
+  2482→ document.querySelectorAll('.admin-tab').forEach(b=>{b.classList.toggle('active',b.dataset.atab===tab);});
+  2483→ const c=document.getElementById('admin-content');
+  2484→ if(!c)return;
+  2485→ c.innerHTML='<div style="text-align:center;padding:32px;color:var(--mut)">Memuat...</div>';
+  2486→ if(tab==='dashboard')loadAdminDashboard(c);
+  2487→ else if(tab==='users')loadAdminUsers(c);
+  2488→ else if(tab==='txns')loadAdminTransactions(c);
+  2489→ else if(tab==='fulladmin')window.open('/admin.html','_blank');
+  2490→}
+  2491→
+  2492→async function loadAdminDashboard(c){
+  2493→ c.innerHTML='<div style="text-align:center;padding:24px">'+skeletonCard(1)+'</div>';
+  2494→ const r=await api('/admin/stats');
+  2495→ if(r.error){c.innerHTML=errorBoundary('Gagal memuat statistik',r.error);const rb=c.querySelector('#err-retry');if(rb)rb.onclick=()=>loadAdminDashboard(c);return;}
+  2496→ const d=r.data||{};
+  2497→ c.innerHTML=
+  2498→  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'+
+  2499→  statBox('👥','Total User',d.totalUsers||0)+
+
+[showing lines 2000-2499 of 2765; use offset=2500 with limit to continue reading]

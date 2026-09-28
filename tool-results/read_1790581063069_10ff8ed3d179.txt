@@ -1,0 +1,502 @@
+     1→<!DOCTYPE html>
+     2→<html lang="id">
+     3→<head>
+     4→<meta charset="UTF-8">
+     5→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→<title>Arus — Buku Kas Pribadi & UMKM | Gratis + Pro</title>
+     7→<meta name="description" content="Catat keuangan pribadi & UMKM: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF. Paket Gratis selamanya, Pro Rp 29.000/bulan dengan cloud sync & unlimited fitur.">
+     8→<meta property="og:title" content="Arus — Buku Kas Pribadi & UMKM | Gratis + Pro Rp 29.000/bln">
+     9→<meta property="og:description" content="Catat keuangan pribadi & UMKM: kategori otomatis, multi-dompet, budget, utang-piutang, laporan PDF. Paket Gratis selamanya, Pro Rp 29.000/bulan.">
+    10→<meta property="og:type" content="website">
+    11→<meta property="og:locale" content="id_ID">
+    12→<!-- Favicon inline (SVG data-URI) -->
+    13→<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect x='1' y='1' width='32' height='32' rx='9' fill='%23242019'/%3E%3Cpath d='M10 12.5h14M10 17h14M10 21.5h9' stroke='%23F4F1E8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='21.5' r='2.2' fill='%230E7B4F'/%3E%3C/svg%3E">
+    14→<!-- PWA -->
+    15→<link rel="manifest" href="/manifest.json">
+    16→<meta name="mobile-web-app-capable" content="yes">
+    17→<meta name="apple-mobile-web-app-capable" content="yes">
+    18→<meta name="apple-mobile-web-app-status-bar-style" content="default">
+    19→<meta name="apple-mobile-web-app-title" content="Arus">
+    20→<meta name="theme-color" content="#242019">
+    21→<script>
+    22→(function(){try{var s=localStorage.getItem('arus-theme');
+    23→ var dk=s?s==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+    24→ if(dk)document.documentElement.classList.add('dark');}catch(e){}})();
+    25→</script>
+    26→<style>
+    27→*{margin:0;padding:0;box-sizing:border-box}
+    28→:root{--bg:#F4F1E8;--card:#FFFFFF;--soft:#ECE8DB;--line:#E2DCCC;--ink:#242019;--mut:#8B8471;
+    29→ --pos:#0E7B4F;--pos-soft:#DFF0E6;--neg:#C14E33;--neg-soft:#F9E8E1;--warn:#97741F;--warn-soft:#F5EDD5;
+    30→ --shadow:0 12px 32px rgba(30,27,21,.10);
+    31→ --inv:#242019;--invfg:#F4F1E8;--invmut:#9B947F;--invpos:#63D6A0;--invneg:#F09A7E}
+    32→.dark{--bg:#16140F;--card:#211E17;--soft:#2B2820;--line:#393428;--ink:#EFEBDE;--mut:#A39B85;
+    33→ --pos:#4EC38A;--pos-soft:#20342A;--neg:#E8825F;--neg-soft:#3C2820;--warn:#D8A94E;--warn-soft:#39311C;
+    34→ --shadow:0 12px 32px rgba(0,0,0,.4);
+    35→ --inv:#F1EDE1;--invfg:#1C1912;--invmut:#6F6957;--invpos:#0E7B4F;--invneg:#C14E33}
+    36→body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif;
+    37→ background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+    38→.mono{font-family:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;font-variant-numeric:tabular-nums}
+    39→.w10{width:10px;height:10px}.w12{width:12px;height:12px}.w14{width:14px;height:14px}.w16{width:16px;height:16px}.w20{width:20px;height:20px}
+    40→.muted{color:var(--mut)}.pos{color:var(--pos)}.neg{color:var(--neg)}
+    41→.small{font-size:12.5px}.xs{font-size:11px}
+    42→.row{display:flex;align-items:center;gap:8px}.wrap{flex-wrap:wrap}.between{justify-content:space-between}
+    43→.right{text-align:right}.grow{flex:1}.minw{min-width:0}
+    44→.grid{display:grid;gap:14px}
+    45→.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+    46→.app{display:flex;min-height:100vh}
+    47→.sidebar{width:252px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);
+    48→ display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:60}
+    49→.brand{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+    50→.sidebar nav{padding:10px 12px;flex:1;overflow-y:auto}
+    51→.navlink{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--mut);
+    52→ text-decoration:none;font-weight:600;font-size:13.5px;transition:.15s;width:100%;font-family:inherit;cursor:pointer;border:none;background:none;text-align:left}
+    53→.navlink svg{flex-shrink:0}
+    54→.navlink:hover{color:var(--ink);background:var(--soft)}
+    55→.navlink.active{background:var(--ink);color:var(--bg)}
+    56→.bcount{margin-left:auto;font-family:ui-monospace,Consolas,monospace;font-size:10px;background:var(--soft);color:var(--mut);padding:1px 7px;border-radius:6px}
+    57→.navlink.active .bcount{background:rgba(255,255,255,.2);color:var(--bg)}
+    58→.main{flex:1;min-width:0;display:flex;flex-direction:column}
+    59→.topbar{display:flex;align-items:center;gap:10px;padding:0 20px;height:62px;border-bottom:1px solid var(--line);
+    60→ background:var(--bg);position:sticky;top:0;z-index:20}
+    61→.balpill{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px}
+    62→.menu-btn{display:none}
+    63→.scrim{position:fixed;inset:0;background:rgba(15,13,10,.45);z-index:55;display:none}
+    64→.scrim.show{display:block}
+    65→#view{flex:1;width:100%;max-width:1160px;margin:0 auto;padding:22px 20px 40px}
+    66→@media(max-width:900px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);
+    67→ transition:transform .25s ease;box-shadow:0 0 60px rgba(0,0,0,.25)}.sidebar.open{transform:none}
+    68→ .menu-btn{display:inline-flex}.balpill{display:none}}
+    69→.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);
+    70→ background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+    71→ cursor:pointer;transition:.15s;font-family:inherit;text-decoration:none}
+    72→.btn:hover{background:var(--soft)}
+    73→.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+    74→.btn.primary:hover{opacity:.88;background:var(--ink)}
+    75→.btn.danger{background:var(--neg);border-color:var(--neg);color:#fff}
+    76→.btn.danger:hover{background:var(--neg);opacity:.9}
+    77→.btn.mini{padding:5px 10px;font-size:11.5px;border-radius:8px;gap:5px}
+    78→.btn.icon{padding:8px;position:relative}
+    79→.btn:focus-visible,.fld:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+    80→.fld{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+    81→ padding:9px 12px;font-size:13px;outline:none;font-family:inherit;transition:.15s}
+    82→.fld:focus{border-color:var(--pos);box-shadow:0 0 0 3px var(--pos-soft)}
+    83→.lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin-bottom:5px}
+    84→.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+    85→.seg button{border:none;background:transparent;color:var(--mut);font:inherit;font-size:12px;font-weight:600;
+    86→ padding:6px 12px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+    87→.seg button.on{background:var(--ink);color:var(--bg)}
+    88→.tblwrap{overflow-x:auto}
+    89→table{width:100%;border-collapse:collapse;font-size:13px}
+    90→th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+    91→ padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+    92→td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+    93→tbody tr:hover td{background:var(--soft)}
+    94→tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none;background:var(--card)}
+    95→.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700}
+    96→.b-unpaid{background:var(--soft);color:var(--mut)}
+    97→.b-part{background:var(--warn-soft);color:var(--warn)}
+    98→.b-paid{background:var(--pos-soft);color:var(--pos)}
+    99→.catchip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;background:var(--soft);border-radius:99px;padding:3px 9px;white-space:nowrap}
+   100→.cdot{width:8px;height:8px;border-radius:99px;display:inline-block;flex-shrink:0}
+   101→.pchip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;margin:0 6px 6px 0}
+   102→.pop{animation:pop .2s ease}
+   103→@keyframes pop{from{transform:scale(.85);opacity:0}}
+   104→.tagx{background:var(--soft);border-radius:4px;padding:1px 5px;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+   105→.prog{height:6px;border-radius:99px;background:var(--soft);overflow:hidden}
+   106→.prog i{display:block;height:100%;border-radius:99px;transition:width .4s ease}
+   107→.avatar{width:34px;height:34px;border-radius:99px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+   108→.sicon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+   109→.sic-neg{background:var(--neg-soft);color:var(--neg)}
+   110→.sic-pos{background:var(--pos-soft);color:var(--pos)}
+   111→.rank{width:22px;height:22px;border-radius:7px;background:var(--soft);color:var(--mut);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;font-family:ui-monospace,Consolas,monospace}
+   112→.plan-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.04em}
+   113→.plan-free{background:var(--soft);color:var(--mut)}.plan-pro{background:var(--pos-soft);color:var(--pos)}
+   114→.price-card{border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;transition:.2s}
+   115→.price-card:hover{border-color:var(--mut);box-shadow:var(--shadow)}
+   116→.price-card.popular{border-color:var(--pos);box-shadow:0 0 0 1px var(--pos)}
+   117→.price-card.popular::before{content:'COCOK UMKM';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--pos);color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;padding:3px 12px;border-radius:99px}
+   118→.price-feat{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:12.5px}
+   119→.price-feat svg{flex-shrink:0;margin-top:2px}
+   120→.upgrade-strip{background:linear-gradient(135deg,var(--pos-soft),var(--warn-soft));border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-top:14px}
+   121→.locked{opacity:.45;pointer-events:none;position:relative}
+   122→.locked::after{content:'Pro';position:absolute;top:6px;right:6px;background:var(--pos);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.06em}
+   123→.iconbtn{border:none;background:none;color:var(--mut);cursor:pointer;padding:4px;border-radius:6px;display:inline-flex}
+   124→.iconbtn:hover{color:var(--neg);background:var(--soft)}
+   125→.navmore{text-decoration:none;font-weight:600}.navmore:hover{color:var(--ink)}
+   126→.mbtn{border:none;background:none;color:var(--mut);padding:8px 10px;cursor:pointer;display:flex;align-items:center;position:relative}
+   127→.mbtn:hover{color:var(--ink);background:var(--soft)}
+   128→.bellb{position:absolute;top:4px;right:4px;min-width:15px;height:15px;border-radius:99px;background:var(--neg);color:#fff;
+   129→ font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px}
+   130→.alert{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:12px 14px;display:flex;gap:9px;font-size:13px;font-weight:600;align-items:flex-start}
+   131→.alert.danger{background:var(--neg-soft);color:var(--neg)}
+   132→.alert.info{background:var(--soft);color:var(--ink)}
+   133→.setrow{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
+   134→.setrow:last-child{border-bottom:none}
+   135→.lrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+   136→.lrow:last-child{border-bottom:none}
+   137→.trow{padding:10px 0;border-bottom:1px solid var(--line)}
+   138→.trow:last-child{border-bottom:none}
+   139→.tname{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+   140→.tamount{font-size:13px;font-weight:700;flex-shrink:0}
+   141→.dayhead{padding:12px 0 4px}
+   142→.dayline{flex:1;height:1px;background:var(--line)}
+   143→.drow{display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;row-gap:10px}
+   144→.drow:last-child{border-bottom:none}
+   145→.hero{background:var(--inv);color:var(--invfg);border-radius:16px;padding:24px;position:relative;overflow:hidden;
+   146→ display:flex;flex-direction:column;min-height:300px}
+   147→.hero::before{content:'';position:absolute;inset:0;pointer-events:none;
+   148→ background:repeating-linear-gradient(180deg,transparent 0 30px,rgba(128,128,128,.09) 30px 31px)}
+   149→.dot{width:8px;height:8px;border-radius:99px;background:var(--invpos);position:relative;flex-shrink:0}
+   150→.dot::after{content:'';position:absolute;inset:-4px;border-radius:99px;border:2px solid var(--invpos);animation:ping 1.6s infinite}
+   151→@keyframes ping{0%{transform:scale(.5);opacity:.8}80%,100%{transform:scale(1.4);opacity:0}}
+   152→.hbar{display:flex;align-items:center;gap:10px;font-size:12px;margin-top:9px}
+   153→.hbar span{width:78px;color:var(--invmut);flex-shrink:0}
+   154→.hbar .prog{flex:1;background:rgba(128,128,128,.22)}
+   155→.hbar b{width:112px;text-align:right;flex-shrink:0;font-weight:600}
+   156→.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+   157→.grid4{grid-template-columns:repeat(4,1fr)}
+   158→.dashgrid{grid-template-columns:5fr 7fr}
+   159→.dashgrid2{grid-template-columns:7fr 5fr}
+   160→.txgrid{grid-template-columns:4fr 8fr}
+   161→.sg2{grid-template-columns:5fr 7fr}
+   162→.g2{grid-template-columns:1fr 1fr}
+   163→.wstrip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+   164→.wcard{min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;flex-shrink:0}
+   165→.wcard b{display:block;font-size:12px;font-weight:700}
+   166→.wcard .mono{font-size:16px;font-weight:700;margin-top:6px}
+   167→@media(max-width:980px){.grid4{grid-template-columns:1fr 1fr}.dashgrid,.dashgrid2,.txgrid,.sg2{grid-template-columns:1fr}
+   168→ #formcard{position:static!important}}
+   169→@media(max-width:860px){.dform{grid-template-columns:1fr 1fr!important}.dform>div:last-child{grid-column:1/-1}}
+   170→@media(max-width:560px){.g2{grid-template-columns:1fr}}
+   171→@media(max-width:640px){.price-card{padding:18px}}
+   172→.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;margin:0 auto}
+   173→@media(max-width:560px){.plan-grid{grid-template-columns:1fr;max-width:400px}}
+   174→@media(max-width:640px){.hide-sm{display:none}}
+   175→.overlay{position:fixed;inset:0;background:rgba(15,13,10,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:16px;animation:fade .15s}
+   176→.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;width:100%;max-width:440px;box-shadow:var(--shadow);animation:rise .2s ease;max-height:90vh;overflow-y:auto}
+   177→@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}}
+   178→@keyframes fade{from{opacity:0}}
+   179→#toasts{position:fixed;bottom:18px;right:18px;z-index:100;display:flex;flex-direction:column;gap:8px}
+   180→.toast{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:13px;
+   181→ box-shadow:var(--shadow);display:flex;gap:9px;align-items:flex-start;max-width:360px;animation:tin .25s cubic-bezier(.2,.9,.3,1.2)}
+   182→@keyframes tin{from{opacity:0;transform:translateY(8px) scale(.97)}}
+   183→::-webkit-scrollbar{width:10px;height:10px}
+   184→::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+   185→/* Kunci PIN */
+   186→#pinlock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+   187→#pinlock.shake .panel{animation:shake .4s}
+   188→@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+   189→.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
+   190→.chk input{width:15px;height:15px;accent-color:var(--pos);cursor:pointer}
+   191→.admin-tab{padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-size:12px;font-weight:600;cursor:pointer}
+   192→.admin-tab.active{background:var(--ink);color:var(--invfg);border-color:var(--ink)}
+   193→.admin-tab:hover{opacity:.85}
+   194→/* Cookie consent */
+   195→#cookie-consent{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--card);border-top:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 20px rgba(30,27,21,.08)}
+   196→#cookie-consent .cc-text{flex:1;min-width:200px;font-size:12.5px;line-height:1.5}
+   197→#cookie-consent .cc-text a{color:var(--pos);font-weight:600}
+   198→/* Loading skeleton */
+   199→.skel{background:linear-gradient(90deg,var(--soft) 25%,var(--line) 50%,var(--soft) 75%);background-size:200% 100%;animation:skelpulse 1.5s ease infinite;border-radius:6px}
+   200→@keyframes skelpulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+   201→.skel-card{border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+   202→.skel-line{height:14px;margin:8px 0;border-radius:4px}
+   203→.skel-line.w50{width:50%}.skel-line.w70{width:70%}.skel-line.w30{width:30%}.skel-line.w90{width:90%}
+   204→/* Error boundary */
+   205→.err-boundary{background:var(--neg-soft);border:1px solid var(--neg);border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+   206→.err-boundary .err-icon{font-size:20px}
+   207→.err-boundary .err-msg{font-size:13px;font-weight:600;color:var(--neg)}
+   208→.err-boundary .err-detail{font-size:11px;color:var(--mut)}
+   209→</style>
+   210→<script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-environment="sandbox"></script>
+   211→</head>
+   212→<body>
+   213→<!-- Cookie Consent -->
+   214→<div id="cookie-consent" style="display:none">
+   215→ <div class="cc-text">🍪 Kami menggunakan cookie untuk menyimpan preferensi &amp; data lokal (dompet, transaksi). Tanpa cookie, aplikasi tidak bisa berfungsi. <a href="/privacy.html" target="_blank">Kebijakan privasi</a></div>
+   216→ <button class="btn mini primary" id="cc-accept">Oke, mengerti</button>
+   217→</div>
+   218→<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+   219→ <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></symbol>
+   220→ <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></symbol>
+   221→ <symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 21h8"/><path d="M4 7h16"/><path d="m7 7-3 7h6l-3-7z"/><path d="m17 7-3 7h6l-3-7z"/></symbol>
+   222→ <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V8"/><path d="M17 15V6"/></symbol>
+   223→ <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h4"/></symbol>
+   224→ <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+   225→ <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+   226→ <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></symbol>
+   227→ <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+   228→ <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+   229→ <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+   230→ <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+   231→ <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+   232→ <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+   233→ <symbol id="i-chl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol>
+   234→ <symbol id="i-chr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol>
+   235→ <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></symbol>
+   236→ <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></symbol>
+   237→ <symbol id="i-dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+   238→ <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+   239→ <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+   240→ <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></symbol>
+   241→ <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2 2 2 0 0 1 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4z"/></symbol>
+   242→ <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+   243→ <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+   244→ <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+   245→ <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+   246→ <symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-5 4-4-6-4 6z"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></symbol>
+   247→ <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></symbol>
+   248→ <symbol id="i-check2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+   249→ <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.3A5 5 0 0 0 7 9a3 3 0 0 0-.6 5.9A3.5 3.5 0 0 0 9.5 19H18a4 4 0 0 0 0-8z"/></symbol>
+   250→ <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+   251→ <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+   252→ <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+   253→</svg>
+   254→
+   255→<div class="app">
+   256→ <aside class="sidebar" id="sidebar">
+   257→  <a class="brand" href="#/dashboard">
+   258→   <svg viewBox="0 0 34 34" style="width:32px;height:32px;flex-shrink:0;color:var(--ink)">
+   259→    <rect x="1" y="1" width="32" height="32" rx="9" fill="currentColor"/>
+   260→    <path d="M10 12.5h14M10 17h14M10 21.5h9" stroke="var(--card)" stroke-width="2" stroke-linecap="round" fill="none"/>
+   261→    <circle cx="24" cy="21.5" r="2.2" fill="var(--pos)"/></svg>
+   262→   <div><div style="font-weight:800;letter-spacing:-.02em;font-size:15px">Arus</div>
+   263→    <div class="mono" style="font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--mut)">buku kas pribadi</div></div>
+   264→  </a>
+   265→  <nav>
+   266→   <div class="lbl" style="padding:6px 10px 8px">Menu</div>
+   267→   <a href="#/dashboard" data-route="dashboard" class="navlink active"><svg class="w16"><use href="#i-grid"/></svg>Dashboard</a>
+   268→   <a href="#/transaksi" data-route="transaksi" class="navlink"><svg class="w16"><use href="#i-swap"/></svg>Transaksi</a>
+   269→   <a href="#/utang" data-route="utang" class="navlink"><svg class="w16"><use href="#i-scale"/></svg>Utang &amp; Piutang
+   270→    <span class="bcount" id="nav-badge">0</span></a>
+   271→   <a href="#/statistik" data-route="statistik" class="navlink"><svg class="w16"><use href="#i-chart"/></svg>Statistik</a>
+   272→   <a href="#/laporan" data-route="laporan" class="navlink"><svg class="w16"><use href="#i-file"/></svg>Laporan</a>
+   273→   <a href="#/langganan" data-route="langganan" class="navlink"><svg class="w16"><use href="#i-crown"/></svg>Langganan</a>
+   274→   <a href="#/pengaturan" data-route="pengaturan" class="navlink"><svg class="w16"><use href="#i-gear"/></svg>Pengaturan</a>
+   275→  </nav>
+   276→  <div style="padding:10px 12px;border-top:1px solid var(--line)">
+   277→   <div id="demo-flag"></div>
+   278→   <div id="backup-flag"></div>
+   279→   <button class="navlink" id="theme-row"><span id="theme-ic2"></span><span id="theme-lbl">Mode gelap</span></button>
+   280→   <button id="profile-btn" style="margin-top:8px;width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:none;border-radius:12px;padding:9px;cursor:pointer;text-align:left;font-family:inherit;color:var(--ink)">
+   281→    <span id="avatar" style="width:32px;height:32px;border-radius:99px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">AL</span>
+   282→    <span style="min-width:0"><span id="profile-name" style="display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Alex Laurel</span>
+   283→    <span class="mono" style="display:block;font-size:8.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.12em;margin-top:1px">klik untuk ganti nama</span></span>
+   284→    <span id="auth-indicator" style="margin-left:auto;font-size:12px;cursor:pointer" title="Login/Logout"></span>
+   285→   </button>
+   286→  </div>
+   287→ </aside>
+   288→ <div id="scrim" class="scrim"></div>
+   289→
+   290→ <div class="main">
+   291→  <header class="topbar">
+   292→   <button class="btn icon menu-btn" id="menu-btn" aria-label="Buka menu"><svg class="w16"><use href="#i-menu"/></svg></button>
+   293→   <div style="min-width:0"><h1 id="page-title" style="font-size:16px;font-weight:800;letter-spacing:-.01em">Dashboard</h1>
+   294→    <div class="mono" id="page-sub" style="font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--mut);margin-top:1px"></div></div>
+   295→   <span style="flex:1"></span>
+   296→   <div class="balpill"><svg class="w14" style="color:var(--mut)"><use href="#i-wallet"/></svg>
+   297→    <span class="mono" style="font-size:9px;letter-spacing:.16em;color:var(--mut)">SALDO</span>
+   298→    <b class="mono" id="top-bal" style="font-size:13px">—</b></div>
+   299→   <button class="btn icon" id="bell-btn" aria-label="Notifikasi jatuh tempo"><svg class="w16"><use href="#i-bell"/></svg><span id="bell-badge" style="display:none" class="bellb">0</span></button>
+   300→   <span id="plan-badge-top" class="plan-pill plan-free" style="cursor:pointer" title="Paket langganan">GRATIS</span>
+   301→   <button class="btn icon" id="theme-top" aria-label="Ganti tema"><span id="theme-ic"></span></button>
+   302→   <button class="btn icon" id="admin-btn" style="display:none" onclick="openAdmin()" aria-label="Admin panel">🛡️</button>
+   303→   <button class="btn primary" id="add-btn"><svg class="w16"><use href="#i-plus"/></svg><span class="hide-sm">Transaksi baru</span></button>
+   304→  </header>
+   305→  <main id="view"></main>
+   306→  <footer style="max-width:1160px;margin:0 auto;width:100%;padding:0 20px 22px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+   307→   <span class="mono" style="font-size:9px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase">Arus v3.0 — pencatatan keuangan pribadi</span>
+   308→   <span class="mono" style="font-size:9px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase">Data tersimpan lokal di browser ini</span>
+   309→  </footer>
+   310→ </div>
+   311→</div>
+   312→
+   313→<div id="toasts" aria-live="polite"></div>
+   314→<div id="modal-root" role="dialog" aria-modal="true"></div>
+   315→<div id="pinlock" style="display:none"></div>
+   316→
+   317→<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+   318→<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+   319→
+   320→<script>
+   321→'use strict';
+   322→/* ═══════════════════════════════════════════════════════════
+   323→   ARUS v3.0 — skema mengikuti Supabase + tabel baru:
+   324→   wallets(id,name,color,initial) · budgets · customCats
+   325→   transactions(+wallet_id,recur,recur_parent) · debts
+   326→   ═══════════════════════════════════════════════════════════ */
+   327→const $=(s,r)=>(r||document).querySelector(s);
+   328→const $$=(s,r)=>Array.prototype.slice.call((r||document).querySelectorAll(s));
+   329→const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+   330→const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('id-'+Date.now().toString(36)+Math.random().toString(36).slice(2,9));
+   331→const ic=(n,c)=>'<svg class="'+(c||'w16')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';
+   332→const p2=n=>String(n).padStart(2,'0');
+   333→const iso=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+   334→const todayISO=()=>iso(new Date());
+   335→const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+   336→const parseISO=s=>{const a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2]);};
+   337→const addMonthsISO=dstr=>{const d=parseISO(dstr);const n=new Date(d.getFullYear(),d.getMonth()+1,1);
+   338→ n.setDate(Math.min(d.getDate(),new Date(n.getFullYear(),n.getMonth()+1,0).getDate()));return iso(n);};
+   339→const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+   340→const MONF=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+   341→const fmtDate=s=>{const d=parseISO(s);return d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear();};
+   342→const monthName=ym=>{const a=ym.split('-');return MONF[a[1]-1]+' '+a[0];};
+   343→function fmtDay(s){const diff=Math.round((parseISO(todayISO())-parseISO(s))/864e5);
+   344→ if(diff===0)return 'Hari ini';if(diff===1)return 'Kemarin';if(diff===-1)return 'Besok';return fmtDate(s);}
+   345→const FMT=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
+   346→const money=n=>FMT.format(Math.round(n)).replace(/\u00A0/g,' ');
+   347→function shortMoney(n){const a=Math.abs(n),s=n<0?'-':'';
+   348→ if(a>=1e9)return s+(a/1e9).toFixed(1).replace('.0','')+'M';
+   349→ if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.0','')+'jt';
+   350→ if(a>=1e3)return s+Math.round(a/1e3)+'rb';return s+Math.round(a);}
+   351→const initials=n=>{const w=String(n||'?').trim().split(/\s+/).slice(0,2);return (w.map(x=>x[0]).join('')||'?').toUpperCase();};
+   352→const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'entri';
+   353→function parseAmt(str){
+   354→ let s=String(str||'').toLowerCase().trim().replace(/^rp\.?\s*/,'').replace(/\s/g,'');
+   355→ const m=s.match(/^([\d.,]+)(k|rb|jt|juta)?$/);if(!m)return 0;
+   356→ let num=m[1];const suf=m[2]||'';
+   357→ const dec=/^\d+[.,]\d{1,2}$/.test(num);
+   358→ if(!dec)num=num.replace(/[.,]/g,'');else num=num.replace(',','.');
+   359→ let n=parseFloat(num);if(isNaN(n))return 0;
+   360→ if(suf==='k'||suf==='rb')n*=1e3;if(suf==='jt'||suf==='juta')n*=1e6;
+   361→ return Math.round(n);}
+   362→function detectAmt(desc){
+   363→ const re=/(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(k|rb|jt|juta)?(?!\d)/gi;
+   364→ let m,best=0;
+   365→ while((m=re.exec(desc||''))){const val=parseAmt(m[0]);
+   366→  if(!m[2]&&!/[.,]\d{3}/.test(m[1])&&val<10000)continue;
+   367→  if(val>best)best=val;}
+   368→ return best;}
+   369→
+   370→/* ── Kategori (bawaan + kustom) ── */
+   371→const KW_EXP={
+   372→ 'Makanan & Minuman':['makan','bakso','mie','nasi','ayam','kopi','cafe','kafe','resto','restoran','warung','warteg','gofood','grabfood','shopeefood','snack','lunch','dinner','breakfast','food','minum','jus','roti','sate','soto','padang','seblak','boba','starbucks','kfc','mcd','burger','pizza','grocer','sarapan','catering'],
+   373→ 'Transportasi':['bensin','pertalite','pertamax','tol','e-toll','etoll','parkir','gojek','grab','uber','ojek','taksi','taxi','krl','mrt','transjakarta','busway','kereta','bus','commuter','transport','fuel','bbm'],
+   374→ 'Belanja':['shopee','tokopedia','lazada','bukalapak','blibli','uniqlo','zara','baju','kaos','celana','sepatu','sandal','tas','belanja','mall','skincare','kosmetik','amazon','clothes'],
+   375→ 'Tagihan':['listrik','pln','token','pdam','internet','wifi','indihome','biznet','pulsa','paket data','telkomsel','indosat','bpjs','iuran','tagihan'],
+   376→ 'Hiburan':['netflix','spotify','disney','vidio','youtube','bioskop','cgv','xxi','cinema','movie','game','steam','genshin','konser','tiket','hiburan'],
+   377→ 'Kesehatan':['apotek','obat','dokter','klinik','rumah sakit','hospital','vitamin','gym','fitness','puskesmas'],
+   378→ 'Pendidikan':['kursus','les','sekolah','kuliah','spp','buku','udemy','coursera','kelas','training','seminar'],
+   379→ 'Cicilan / Utang':['cicilan','angsuran','pinjam','pinjaman','utang','kredit','loan','paylater']};
+   380→const KW_INC={
+   381→ 'Gaji':['gaji','salary','payroll','paycheck','thr','upah'],
+   382→ 'Freelance':['freelance','proyek','project','klien','client','jasa','desain','invoice'],
+   383→ 'Investasi':['dividen','dividend','bunga','interest','saham','crypto','reksadana','kupon'],
+   384→ 'Pemasukan Lain':['jual','terjual','refund','cashback','hadiah','bonus','subsidi']};
+   385→const EXP_LIST0=Object.keys(KW_EXP).concat(['Lainnya']);
+   386→const INC_LIST0=Object.keys(KW_INC).concat(['Piutang','Pemasukan Lain']);
+   387→const CAT_COLOR={'Makanan & Minuman':'#C7723B','Transportasi':'#3E8FA8','Belanja':'#A75686','Tagihan':'#B8862F','Hiburan':'#7A6BC9','Kesehatan':'#4E9B6E','Pendidikan':'#5A72B8','Cicilan / Utang':'#C14E33','Lainnya':'#8B8474','Gaji':'#0E7C55','Freelance':'#2F9E77','Investasi':'#1F7A5C','Piutang':'#0E7C55','Pemasukan Lain':'#5C9E7E'};
+   388→const CUST_PAL=['#D0693B','#4A8FB5','#B05590','#C09A2E','#8468D6','#3FA070','#5F76C4','#A8643C'];
+   389→function applyCustomCats(){(db.customCats||[]).forEach(c=>{CAT_COLOR[c.name]=c.color;});}
+   390→function expCats(){return EXP_LIST0.concat((db.customCats||[]).filter(c=>c.type==='expense').map(c=>c.name));}
+   391→function incCats(){return INC_LIST0.concat((db.customCats||[]).filter(c=>c.type==='income').map(c=>c.name));}
+   392→const catDot=c=>CAT_COLOR[c]||'#8B8474';
+   393→function smartScan(desc,type){
+   394→ const s=String(desc||'').toLowerCase();if(!s)return null;
+   395→ const map=type==='income'?KW_INC:KW_EXP;
+   396→ const keys=Object.keys(map);
+   397→ for(let i=0;i<keys.length;i++){const cat=keys[i];
+   398→  for(let j=0;j<map[cat].length;j++)if(s.indexOf(map[cat][j])>-1)return cat;}
+   399→ for(let i=0;i<(db.customCats||[]).length;i++){const c=db.customCats[i];
+   400→  if(c.type===(type==='income'?'income':'expense')&&c.kw&&c.kw.some(k=>s.indexOf(k)>-1))return c.name;}
+   401→ return null;}
+   402→
+   403→/* ══════ PLANS & Monetisasi ══════ */
+   404→const PLANS={
+   405→ free:{id:'free',name:'Gratis',price:0,period:'',color:'plan-free',
+   406→  wallets:2,debts:5,budgets:3,recurring:false,cloudSync:false,
+   407→  customCats:3,invoice:false,plReport:false,brandedPdf:false,
+   408→  notifPush:false},
+   409→ pro:{id:'pro',name:'Pro',price:29000,period:'/bln',color:'plan-pro',
+   410→  wallets:Infinity,debts:Infinity,budgets:Infinity,recurring:true,cloudSync:true,
+   411→  customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
+   412→  notifPush:true}};
+   413→const PLAN_ORDER=['free','pro'];
+   414→function getPlan(){return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
+   415→function planName(){const p=getPlan();return p.id==='free'?'Gratis':p.name;}
+   416→function planBadge(){const p=getPlan();return '<span class="plan-pill '+p.color+'">'+p.name.toUpperCase()+'</span>';}
+   417→function canDo(feature){const p=getPlan();return p[feature]!==false&&p[feature]!==0;}
+   418→function planLimit(feature){const p=getPlan();return p[feature]||0;}
+   419→function planUsage(feature){
+   420→ if(feature==='wallets')return db.wallets.length;
+   421→ if(feature==='debts')return db.debts.filter(d=>d.status!=='paid').length;
+   422→ if(feature==='budgets')return Object.keys(db.budgets||{}).length;
+   423→ if(feature==='customCats')return(db.customCats||[]).length;
+   424→ return 0;}
+   425→function atLimit(feature){const lim=planLimit(feature);if(lim===Infinity)return false;return planUsage(feature)>=lim;}
+   426→function nearLimit(feature){const lim=planLimit(feature);if(lim===Infinity)return false;return planUsage(feature)>=lim*0.8;}
+   427→function limitLabel(feature){
+   428→ const lim=planLimit(feature),used=planUsage(feature);
+   429→ if(lim===Infinity)return used+' / ∞';
+   430→ return used+' / '+lim;}
+   431→function showUpgrade(feature,msg){
+   432→ const plan=getPlan();
+   433→ if(plan.id==='free'){openUpgradeModal(feature,msg);return true;}
+   434→ return false;}
+   435→function openUpgradeModal(feature,msg){
+   436→ const allFeats={
+   437→  wallets:'Multi-dompet unlimited',debts:'Utang & piutang unlimited',budgets:'Budget unlimited',
+   438→  recurring:'Transaksi berulang bulanan',cloudSync:'Sinkronisasi cloud (multi-device)',
+   439→  customCats:'Kategori kustom unlimited',invoice:'Buat & kirim invoice',
+   440→  plReport:'Laporan P&L (laba-rugi)',brandedPdf:'PDF dengan logo usaha',
+   441→  notifPush:'Notifikasi jatuh tempo'};
+   442→ const featLabel=allFeats[feature]||feature;
+   443→ openModal(
+   444→  '<div style="text-align:center;padding:8px 0">'+
+   445→  '<div style="display:inline-flex;color:var(--pos);margin-bottom:6px">'+ic('crown','w20')+'</div>'+
+   446→  '<h3 style="font-weight:800;font-size:17px">Upgrade ke Pro</h3>'+
+   447→  (msg?'<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(msg)+'</p>':
+   448→   '<p class="small muted" style="margin-top:6px;line-height:1.5">'+esc(featLabel)+' tersedia di paket <b>Pro</b>.</p>')+
+   449→  '<div class="mono" style="font-size:28px;font-weight:800;margin-top:14px;color:var(--pos)">Rp 29.000<span class="muted" style="font-size:12px;font-weight:400">/bln</span></div>'+
+   450→  '</div>'+
+   451→  '<div style="margin-top:16px">'+
+   452→  '<button class="btn primary" id="up-confirm" style="width:100%;justify-content:center;gap:8px">'+ic('crown','w14')+' Upgrade ke Pro</button>'+
+   453→  '<button class="btn" id="up-all" style="width:100%;margin-top:8px;justify-content:center">Lihat detail paket</button>'+
+   454→  '<button class="btn" data-close style="width:100%;margin-top:8px;justify-content:center">Nanti dulu</button>'+
+   455→  '</div>');
+   456→ $('#up-confirm').onclick=()=>{closeModal();activatePlan('pro');};
+   457→ $('#up-all').onclick=()=>{closeModal();location.hash='#/langganan';};}
+   458→function activatePlan(planId,billing){
+   459→ if(planId==='free'){db.subscription={plan:'free',startedAt:new Date().toISOString(),expiresAt:null};save();renderPlanBadge();toast('Beralih ke paket Gratis.');render();return;}
+   460→ if(planId!=='pro')return;
+   461→ if(!currentUser){toast('Daftar/login dulu sebelum upgrade 🔐');openAuthModal('login');return;}
+   462→ const isAnnual=billing==='annual';
+   463→ const amount=isAnnual?278400:29000;
+   464→ const label=isAnnual?'tahunan':'bulanan';
+   465→ // Create Midtrans Snap transaction
+   466→ api('/payment/create',{method:'POST',body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,name:db.profile.name,amount:amount,billing:label})}).then(r=>{
+   467→  if(r.error){toast('Gagal: '+r.error);return;}
+   468→  // Open Midtrans Snap popup
+   469→  if(window.snap&&r.token){
+   470→   window.snap.pay(r.token,{
+   471→    onSuccess:function(result){toast('Pembayaran berhasil! 🎉');const expMs=isAnnual?365:30;db.subscription={plan:'pro',startedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+expMs*864e5).toISOString(),paymentMethod:'midtrans',transactionId:r.order_id,billing:label};save();renderPlanBadge();render();if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'pro',billing:label})});}},
+   472→    onPending:function(result){toast('Menunggu pembayaran... ⏳');},
+   473→    onError:function(result){toast('Pembayaran gagal 😔');},
+   474→    onClose:function(){toast('Pembayaran dibatalkan');}
+   475→   });
+   476→  }else if(r.redirect_url){window.open(r.redirect_url,'_blank');}
+   477→ });
+   478→}
+   479→function cancelPlan(){
+   480→ db.subscription={plan:'free',startedAt:null,expiresAt:null};
+   481→ save();render();
+   482→ toast('Paket Pro dibatalkan');
+   483→ // Server-side sync will be handled by cloud sync
+   484→ if(currentUser){api('/subscription',{method:'POST',body:JSON.stringify({user_id:currentUser.id,plan:'free'})});}
+   485→}
+   486→function renderPlanBadge(){
+   487→ const p=getPlan(),el=$('#plan-badge-top');
+   488→ if(!el)return;
+   489→ el.className='plan-pill '+p.color;
+   490→ el.textContent=p.id==='free'?'GRATIS':p.name.toUpperCase();}
+   491→
+   492→/* ── Store & migrasi ── */
+   493→const KEY='arus-data-v3',KEY_OLD='arus-data-v2';
+   494→// ─── Cloud API (Cloudflare Worker) ─────────────────────────────
+   495→const API = location.hostname === 'localhost' ? '' : '';  // same origin
+   496→let authToken = localStorage.getItem('arus-auth-token') || null;
+   497→let currentUser = JSON.parse(localStorage.getItem('arus-current-user') || 'null');
+   498→
+   499→function apiHeaders() {
+   500→  const h = {'Content-Type':'application/json'};
+
+[showing lines 1-500 of 2764; use offset=501 with limit to continue reading]

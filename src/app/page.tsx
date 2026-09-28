@@ -1,11 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LandingPage from '@/components/landing-page'
 import '@/styles/landing.css'
 
 export default function Home() {
   const [showApp, setShowApp] = useState(false)
+
+  // Register/update service worker from landing page
+  // This ensures SW gets updated even if arus.html is cached/broken
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
 
   if (showApp) {
     return (

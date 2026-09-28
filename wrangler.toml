@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Build: generate Next.js static export before deploying
 [build]
-command = "npm run build"
+command = "bun run build"
 
 # Static assets (landing page + arus.html + admin.html + _next/static)
 [assets]

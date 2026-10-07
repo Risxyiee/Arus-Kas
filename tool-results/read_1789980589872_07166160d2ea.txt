@@ -1,0 +1,633 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useRef, useCallback } from 'react';
+     4→
+     5→/* ═══════════════════════════════════════════════════
+     6→   Arus Landing Page Component
+     7→   ═══════════════════════════════════════════════════ */
+     8→
+     9→interface LandingPageProps {
+    10→  onOpenApp?: () => void;
+    11→}
+    12→
+    13→/* ── Keyword DB for demo ── */
+    14→const KW: Record<string, { c: string; k: string[]; inc?: boolean }> = {
+    15→  'Makanan & Minuman': { c: '#C7723B', k: ['kopi', 'makan', 'gofood', 'grabfood', 'bakso', 'nasi', 'cafe', 'kafe', 'lunch', 'dinner', 'susu', 'warteg', 'resto', 'snack', 'pizza', 'burger', 'sarapan'] },
+    16→  'Transportasi': { c: '#3E8FA8', k: ['gojek', 'grab', 'uber', 'ojek', 'bensin', 'pertamax', 'parkir', 'tol', 'krl', 'mrt', 'bus', 'taksi', 'commuter'] },
+    17→  'Belanja': { c: '#A75686', k: ['shopee', 'tokopedia', 'baju', 'uniqlo', 'sepatu', 'belanja', 'mall', 'tas', 'skincare'] },
+    18→  'Tagihan': { c: '#B8862F', k: ['listrik', 'pln', 'token', 'internet', 'wifi', 'indihome', 'pulsa', 'pdam', 'bpjs'] },
+    19→  'Hiburan': { c: '#7A6BC9', k: ['netflix', 'spotify', 'bioskop', 'game', 'steam', 'konser', 'tiket', 'disney'] },
+    20→  'Kesehatan': { c: '#4E9B6E', k: ['apotek', 'obat', 'dokter', 'klinik', 'vitamin', 'gym'] },
+    21→  'Pendidikan': { c: '#5A72B8', k: ['kursus', 'les', 'buku', 'spp', 'kuliah', 'kelas'] },
+    22→  'Gaji': { c: '#0E7C55', k: ['gaji', 'salary', 'thr', 'upah'], inc: true },
+    23→  'Freelance': { c: '#2F9E77', k: ['proyek', 'freelance', 'klien', 'client', 'invoice', 'jasa'], inc: true },
+    24→  'Piutang': { c: '#0E7C55', k: ['piutang', 'diterima dari'], inc: true },
+    25→  'Cicilan / Utang': { c: '#C14E33', k: ['utang', 'cicilan', 'angsuran', 'pinjam'] },
+    26→};
+    27→
+    28→function parseAmt(s: string): number {
+    29→  const m = s.toLowerCase().replace(/\s/g, '').match(/(\d+(?:[.,]\d{3})*(?:[.,]\d{1,2})?)(rb|k|jt|juta)?/);
+    30→  if (!m) return 0;
+    31→  let n = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+    32→  if (m[2] === 'rb' || m[2] === 'k') n *= 1e3;
+    33→  if (m[2] === 'jt' || m[2] === 'juta') n *= 1e6;
+    34→  return Math.round(n);
+    35→}
+    36→
+    37→const FMT = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+    38→
+    39→interface DemoResult {
+    40→  cat: string;
+    41→  catColor: string;
+    42→  inc: boolean;
+    43→  amt: number;
+    44→}
+    45→
+    46→function scanDemo(s: string): DemoResult {
+    47→  const sl = s.toLowerCase();
+    48→  let cat: string | null = null;
+    49→  let catColor = '#6E6757';
+    50→  let inc = false;
+    51→  for (const [c, v] of Object.entries(KW)) {
+    52→    if (v.k.some(k => sl.includes(k))) {
+    53→      cat = c;
+    54→      catColor = v.c;
+    55→      inc = !!v.inc;
+    56→      break;
+    57→    }
+    58→  }
+    59→  const amt = parseAmt(s);
+    60→  return { cat: cat || (inc ? 'Pemasukan Lain' : 'Lainnya'), catColor, inc, amt };
+    61→}
+    62→
+    63→/* ── Arrow SVG ── */
+    64→const ArrowSvg = () => (
+    65→  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+    66→    <path d="M5 12h14M13 6l6 6-6 6" />
+    67→  </svg>
+    68→);
+    69→
+    70→/* ── Marquee content ── */
+    71→const MARQUEE_TEXT = 'Kategori otomatis ✦ Saldo real-time ✦ Kartu piutang PDF ✦ Statistik pengeluaran ✦ Mode gelap ✦ Backup JSON ✦ Laporan bulanan ✦ Tanpa akun ✦';
+    72→
+    73→/* ── FAQ data ── */
+    74→const FAQ_DATA = [
+    75→  {
+    76→    q: 'Apakah data saya dikirim ke internet?',
+    77→    a: 'Tidak. Arus berjalan sepenuhnya di browser perangkatmu dan menyimpan data di penyimpanan lokal. Tidak ada server, tidak ada akun, tidak ada pengiriman data. Kamu bahkan bisa memakainya dalam mode pesawat.',
+    78→  },
+    79→  {
+    80→    q: 'Bisa dipakai di ponsel?',
+    81→    a: 'Bisa. Seluruh halaman — dashboard sampai laporan PDF — dirancang responsif, dengan menu samping yang berubah menjadi layar geser di layar kecil.',
+    82→  },
+    83→  {
+    84→    q: 'Bagaimana cara backup datanya?',
+    85→    a: 'Buka halaman Pengaturan → "Unduh backup JSON". Seluruh profil, transaksi, dan utang-piutang tersimpan dalam satu berkas yang bisa diimpor kembali kapan pun, di perangkat mana pun.',
+    86→  },
+    87→  {
+    88→    q: 'Gratis sampai kapan?',
+    89→    a: 'Selamanya. Arus adalah satu berkas HTML yang kamu miliki penuh — tidak ada model langganan, tidak ada fitur premium tersembunyi.',
+    90→  },
+    91→  {
+    92→    q: 'Bisa dipindah ke Supabase atau server nanti?',
+    93→    a: 'Bisa. Struktur data Arus sudah mengikuti skema tabel Supabase (transactions dan debts), jadi saat kamu siap naik kelas ke sinkronisasi awan, cukup ganti fungsi penyimpanannya.',
+    94→  },
+    95→];
+    96→
+    97→/* ═══════════════════════════════════════════════════
+    98→   Main Component
+    99→   ═══════════════════════════════════════════════════ */
+   100→export default function LandingPage({ onOpenApp }: LandingPageProps) {
+   101→  /* ── State ── */
+   102→  const [scrolled, setScrolled] = useState(false);
+   103→  const [menuOpen, setMenuOpen] = useState(false);
+   104→  const [openFaq, setOpenFaq] = useState<number | null>(null);
+   105→  const [demoInput, setDemoInput] = useState('');
+   106→  const [userTyped, setUserTyped] = useState(false);
+   107→  const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
+   108→  const [counterValues, setCounterValues] = useState([0, 0, 0, 0]);
+   109→
+   110→  const demoInputRef = useRef<HTMLInputElement>(null);
+   111→  const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   112→  const countersObserved = useRef(false);
+   113→
+   114→  /* ── Nav scroll listener ── */
+   115→  useEffect(() => {
+   116→    const onScroll = () => setScrolled(window.scrollY > 24);
+   117→    window.addEventListener('scroll', onScroll, { passive: true });
+   118→    return () => window.removeEventListener('scroll', onScroll);
+   119→  }, []);
+   120→
+   121→  /* ── Scroll reveal ── */
+   122→  useEffect(() => {
+   123→    const io = new IntersectionObserver(
+   124→      (entries) => entries.forEach((x) => {
+   125→        if (x.isIntersecting) {
+   126→          x.target.classList.add('in');
+   127→          io.unobserve(x.target);
+   128→        }
+   129→      }),
+   130→      { threshold: 0.14 }
+   131→    );
+   132→    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+   133→    return () => io.disconnect();
+   134→  }, []);
+   135→
+   136→  /* ── Counter animation ── */
+   137→  useEffect(() => {
+   138→    const targets = [1, 14, 3, 0];
+   139→    const io = new IntersectionObserver(
+   140→      (entries) => entries.forEach((x) => {
+   141→        if (x.isIntersecting && !countersObserved.current) {
+   142→          countersObserved.current = true;
+   143→          const t0 = performance.now();
+   144→          const dur = 1400;
+   145→          const step = (t: number) => {
+   146→            const p = Math.min(1, (t - t0) / dur);
+   147→            const e = 1 - Math.pow(1 - p, 3);
+   148→            setCounterValues(targets.map((to) => Math.round(to * e)));
+   149→            if (p < 1) requestAnimationFrame(step);
+   150→          };
+   151→          requestAnimationFrame(step);
+   152→          io.disconnect();
+   153→        }
+   154→      }),
+   155→      { threshold: 0.5 }
+   156→    );
+   157→    const el = document.getElementById('nums-section');
+   158→    if (el) io.observe(el);
+   159→    return () => io.disconnect();
+   160→  }, []);
+   161→
+   162→  /* ── Demo typing animation ── */
+   163→  const demoExamples = ['kopi susu 35rb', 'gojek ke kantor 28rb', 'gaji bulanan 8,5jt', 'token listrik 100rb', 'bayar utang budi 500rb'];
+   164→  const exampleIdxRef = useRef(0);
+   165→
+   166→  const runDemoResult = useCallback((s: string) => {
+   167→    if (s.trim()) {
+   168→      setDemoResult(scanDemo(s));
+   169→    } else {
+   170→      setDemoResult(null);
+   171→    }
+   172→  }, []);
+   173→
+   174→  useEffect(() => {
+   175→    if (userTyped) return;
+   176→
+   177→    const typeLoop = () => {
+   178→      if (userTyped) return;
+   179→      const s = demoExamples[exampleIdxRef.current];
+   180→      let i = 0;
+   181→
+   182→      const type = () => {
+   183→        if (userTyped) return;
+   184→        i++;
+   185→        const val = s.slice(0, i);
+   186→        setDemoInput(val);
+   187→        runDemoResult(val);
+   188→        if (i < s.length) {
+   189→          typeTimerRef.current = setTimeout(type, 55 + Math.random() * 50);
+   190→        } else {
+   191→          typeTimerRef.current = setTimeout(() => {
+   192→            if (userTyped) return;
+   193→            const del = () => {
+   194→              if (userTyped) return;
+   195→              i--;
+   196→              const val2 = s.slice(0, i);
+   197→              setDemoInput(val2);
+   198→              runDemoResult(val2);
+   199→              if (i > 0) {
+   200→                typeTimerRef.current = setTimeout(del, 22);
+   201→              } else {
+   202→                exampleIdxRef.current = (exampleIdxRef.current + 1) % demoExamples.length;
+   203→                typeTimerRef.current = setTimeout(typeLoop, 450);
+   204→              }
+   205→            };
+   206→            del();
+   207→          }, 2100);
+   208→        }
+   209→      };
+   210→      type();
+   211→    };
+   212→
+   213→    typeTimerRef.current = setTimeout(typeLoop, 1600);
+   214→
+   215→    return () => {
+   216→      if (typeTimerRef.current) clearTimeout(typeTimerRef.current);
+   217→    };
+   218→  }, [userTyped, runDemoResult]);
+   219→
+   220→  /* ── Demo input change handler ── */
+   221→  const handleDemoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+   222→    const val = e.target.value;
+   223→    setUserTyped(true);
+   224→    setDemoInput(val);
+   225→    runDemoResult(val);
+   226→  };
+   227→
+   228→  /* ── FAQ toggle ── */
+   229→  const toggleFaq = (idx: number) => {
+   230→    setOpenFaq(openFaq === idx ? null : idx);
+   231→  };
+   232→
+   233→  /* ── Smooth scroll for anchor links ── */
+   234→  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+   235→    if (href.startsWith('#')) {
+   236→      e.preventDefault();
+   237→      setMenuOpen(false);
+   238→      const el = document.querySelector(href);
+   239→      if (el) el.scrollIntoView({ behavior: 'smooth' });
+   240→    }
+   241→  };
+   242→
+   243→  return (
+   244→    <>
+   245→      {/* Grain overlay */}
+   246→      <div className="grain" />
+   247→
+   248→      {/* ═══ NAV ═══ */}
+   249→      <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`}>
+   250→        <div className="wrap navin">
+   251→          <a className="logo" href="#top" onClick={(e) => handleNavClick(e, '#top')}>
+   252→            <span className="logomark"><i /></span>Arus<span className="navfree">GRATIS</span>
+   253→          </a>
+   254→          <div className={`nlinks${menuOpen ? ' open' : ''}`}>
+   255→            <a href="#preview" onClick={(e) => handleNavClick(e, '#preview')}>Pratinjau</a>
+   256→            <a href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>Fitur</a>
+   257→            <a href="#demo" onClick={(e) => handleNavClick(e, '#demo')}>Coba Demo</a>
+   258→            <a href="#testimoni" onClick={(e) => handleNavClick(e, '#testimoni')}>Testimoni</a>
+   259→            <a href="#harga" onClick={(e) => handleNavClick(e, '#harga')}>Harga</a>
+   260→            <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')}>FAQ</a>
+   261→          </div>
+   262→          <a
+   263→            className="btn btn-gold nav-cta"
+   264→            href="#"
+   265→            style={{ padding: '11px 20px' }}
+   266→            onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   267→          >
+   268→            Buka Aplikasi
+   269→          </a>
+   270→          <button
+   271→            className="menu-btn"
+   272→            aria-label="Menu"
+   273→            onClick={() => setMenuOpen(!menuOpen)}
+   274→          >
+   275→            ≡
+   276→          </button>
+   277→        </div>
+   278→      </nav>
+   279→
+   280→      {/* ═══ HERO ═══ */}
+   281→      <header className="hero" id="top">
+   282→        <div className="glow g1" />
+   283→        <div className="glow g2" />
+   284→        <div className="hero-frame" />
+   285→        <div className="wrap">
+   286→          <span
+   287→            className="eyebrow center"
+   288→            style={{ opacity: 0, animation: 'rise .8s .05s forwards', transform: 'translateY(16px)' }}
+   289→          >
+   290→            Buku Kas pribadi · Privat · Tanpa akun
+   291→          </span>
+   292→          <h1 className="h1big">
+   293→            <span className="line">Catat dalam sekejap.</span>
+   294→            <span className="line">Kelola dengan <em className="g">kelas</em>.</span>
+   295→          </h1>
+   296→          <p className="sub">
+   297→            Arus mencatat pemasukan, pengeluaran, utang &amp; piutang dengan kategori otomatis —
+   298→            secepat menulis catatan, selengkap pembukuan profesional. Semuanya berjalan di perangkatmu.
+   299→          </p>
+   300→          <div className="hero-cta">
+   301→            <a
+   302→              className="btn btn-gold"
+   303→              href="#"
+   304→              onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   305→            >
+   306→              Buka Aplikasi — Gratis <ArrowSvg />
+   307→            </a>
+   308→            <a className="btn btn-ghost" href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>
+   309→              Jelajahi fitur
+   310→            </a>
+   311→          </div>
+   312→          <div className="hero-stats">
+   313→            <div className="hstat"><b className="g">±2 dtk</b><span>mencatat 1 transaksi</span></div>
+   314→            <div className="hstat"><b className="g">14+</b><span>kategori pintar ID &amp; EN</span></div>
+   315→            <div className="hstat"><b className="g">100%</b><span>data di perangkatmu</span></div>
+   316→            <div className="hstat"><b className="g">Rp 0</b><span>biaya, selamanya</span></div>
+   317→          </div>
+   318→        </div>
+   319→      </header>
+   320→
+   321→      {/* ═══ MARQUEE ═══ */}
+   322→      <div className="marq">
+   323→        <div className="marq-in">
+   324→          {/* Duplicate content for seamless loop */}
+   325→          {[0, 1].map((dup) => (
+   326→            <span key={dup}>
+   327→              {MARQUEE_TEXT.split(' ✦ ').map((text, i, arr) => (
+   328→                <React.Fragment key={`${dup}-${i}`}>
+   329→                  {text}
+   330→                  {i < arr.length - 1 && <i>✦</i>}
+   331→                </React.Fragment>
+   332→              ))}
+   333→            </span>
+   334→          ))}
+   335→        </div>
+   336→      </div>
+   337→
+   338→      {/* ═══ PREVIEW ═══ */}
+   339→      <section id="preview" className="lp-section">
+   340→        <div className="wrap">
+   341→          <div className="prev-grid">
+   342→            <div className="reveal">
+   343→              <span className="eyebrow">Pratinjau</span>
+   344→              <h2 className="lp-h2">Satu dasbor,<br /><em className="g">seluruh</em> keuanganmu.</h2>
+   345→              <p className="sub" style={{ marginTop: 20 }}>
+   346→                Saldo aktif dihitung otomatis dari setiap transaksi. Utang &amp; piutang
+   347→                tersinkron — begitu ada pembayaran, buku kas dan statusnya ikut bergerak. Tanpa konfigurasi, langsung terasa rapi.
+   348→              </p>
+   349→              <div style={{ display: 'flex', gap: 12, marginTop: 32, flexWrap: 'wrap' }}>
+   350→                <span className="chip"><i className="cdot" style={{ background: '#C9A962' }} />Saldo real-time</span>
+   351→                <span className="chip"><i className="cdot" style={{ background: '#7FC79E' }} />Status lunas otomatis</span>
+   352→                <span className="chip"><i className="cdot" style={{ background: '#E08A6D' }} />Peringatan jatuh tempo</span>
+   353→              </div>
+   354→            </div>
+   355→            <div className="reveal" style={{ transitionDelay: '.15s' }}>
+   356→              <div className="appwin">
+   357→                <div className="float f1"><span className="ok">✓</span><span>Piutang Budi — <b className="mono" style={{ color: 'var(--pos)' }}>LUNAS</b></span></div>
+   358→                <div className="float f2"><span className="cat"><i className="cdot" style={{ background: '#3E8FA8' }} /><b>Transportasi</b></span><span><small style={{ display: 'block' }}>gojek 28rb</small></span></div>
+   359→                <div className="appbar"><i /><i /><i /></div>
+   360→                <div className="appbody">
+   361→                  <div className="bal-lbl">Saldo aktif</div>
+   362→                  <div className="bal">Rp 12.480.000 <span className="livedot" /></div>
+   363→                  <div className="mbars">
+   364→                    <div style={{ height: '34%' }} /><div style={{ height: '58%' }} /><div style={{ height: '44%' }} />
+   365→                    <div style={{ height: '72%' }} /><div style={{ height: '52%' }} /><div style={{ height: '88%' }} />
+   366→                    <div style={{ height: '64%' }} /><div style={{ height: '96%' }} />
+   367→                  </div>
+   368→                  <div className="trows">
+   369→                    <div className="trow"><i className="tdot" style={{ background: '#0E7C55' }} /><span className="n">Gaji bulanan</span><span className="d">Hari ini</span><span className="amt-p mono">+Rp 8.500.000</span></div>
+   370→                    <div className="trow"><i className="tdot" style={{ background: '#C7723B' }} /><span className="n">Kopi — cafe lokal</span><span className="d">Kemarin</span><span className="amt-n mono">−Rp 35.000</span></div>
+   371→                    <div className="trow"><i className="tdot" style={{ background: '#C14E33' }} /><span className="n">Pembayaran utang — Budi</span><span className="d">2 hari</span><span className="amt-n mono">−Rp 500.000</span></div>
+   372→                  </div>
+   373→                </div>
+   374→              </div>
+   375→            </div>
+   376→          </div>
+   377→        </div>
+   378→      </section>
+   379→
+   380→      {/* ═══ FITUR ═══ */}
+   381→      <section
+   382→        id="fitur"
+   383→        className="lp-section"
+   384→        style={{ background: 'var(--bg2)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}
+   385→      >
+   386→        <div className="wrap">
+   387→          <div className="center reveal">
+   388→            <span className="eyebrow center">Fitur</span>
+   389→            <h2 className="lp-h2">Dirancang seperti <em className="g">barang mewah</em> —<br />detailnya terasa.</h2>
+   390→          </div>
+   391→          <div className="feat-grid">
+   392→            {[
+   393→              { num: 'No. 01', title: 'Input Pintar', desc: 'Tulis "kopi 35rb" — kategori dan jumlah terisi sendiri. Ibarat asisten pribadi yang hafal kebiasaan belanjamu, dalam Bahasa Indonesia maupun Inggris.', delay: '' },
+   394→              { num: 'No. 02', title: 'Utang & Piutang', desc: 'Status berjalan sendiri: belum dibayar, sebagian, lunas. Setiap pembayaran langsung mengalir ke buku kas dan saldo diperbarui seketika.', delay: '.08s' },
+   395→              { num: 'No. 03', title: 'Kartu PDF per Orang', desc: 'Satu klik: seluruh riwayat tagihan, pembayaran, dan sisa utang seseorang — tercetak rapi dengan baris total. Ahli berkata: ini penghabisan debat "berberapa sisa?".', delay: '.16s' },
+   396→              { num: 'No. 04', title: 'Statistik Berkelas', desc: 'Donut komposisi pengeluaran, tren enam bulan, dan lima pengeluaran terbesar. Angka yang tidak hanya benar, tetapi berbicara.', delay: '' },
+   397→              { num: 'No. 05', title: 'Laporan PDF', desc: 'Filter per bulan, header mewah, ringkasan terhitung, nomor halaman. Siap dicetak, diarsipkan, atau dikirim ke siapa pun.', delay: '.08s' },
+   398→              { num: 'No. 06', title: 'Privat Sejak Desain', desc: 'Tanpa server, tanpa akun, tanpa pelacak. Data keuanganmu tinggal di perangkatmu — bukan di gudang data orang lain.', delay: '.16s' },
+   399→            ].map((feat, idx) => (
+   400→              <div key={idx} className="feat reveal" style={feat.delay ? { transitionDelay: feat.delay } : undefined}>
+   401→                <div className="fnum">{feat.num}</div>
+   402→                <h3>{feat.title}</h3>
+   403→                <p>{feat.desc}</p>
+   404→              </div>
+   405→            ))}
+   406→          </div>
+   407→        </div>
+   408→      </section>
+   409→
+   410→      {/* ═══ DEMO INTERAKTIF ═══ */}
+   411→      <section id="demo" className="lp-section">
+   412→        <div className="glow" style={{ width: 520, height: 520, top: '10%', left: '50%', transform: 'translateX(-50%)', opacity: .08 }} />
+   413→        <div className="wrap">
+   414→          <div className="center reveal">
+   415→            <span className="eyebrow center">Coba Sekarang</span>
+   416→            <h2 className="lp-h2">Rasakan input <em className="g">pintar</em>-nya.</h2>
+   417→            <p className="sub">
+   418→              Ketik apa saja — misalnya <b className="mono" style={{ color: 'var(--gold2)' }}>gojek ke kantor 28rb</b> —
+   419→              dan lihat kategori beserta jumlahnya terbentuk di depan mata.
+   420→            </p>
+   421→          </div>
+   422→          <div className="demo-box reveal" style={{ transitionDelay: '.12s' }}>
+   423→            <div className="demo-in">
+   424→              <span className="caret" />
+   425→              <input
+   426→                ref={demoInputRef}
+   427→                type="text"
+   428→                value={demoInput}
+   429→                onChange={handleDemoInput}
+   430→                placeholder="kopi susu 35rb"
+   431→                maxLength={60}
+   432→                aria-label="Coba input pintar"
+   433→              />
+   434→            </div>
+   435→            <div className="demo-res">
+   436→              {demoResult && demoInput.trim() && (
+   437→                <>
+   438→                  <span className="chip">
+   439→                    <i className="cdot" style={{ background: demoResult.catColor }} />
+   440→                    {demoResult.cat}{' '}
+   441→                    <span style={{ color: 'var(--dim)', fontWeight: 600, fontSize: 10, letterSpacing: '.1em' }}>OTOMATIS</span>
+   442→                  </span>
+   443→                  <span className="chip type">
+   444→                    {demoResult.inc ? 'Pemasukan ↑' : 'Pengeluaran ↓'}
+   445→                  </span>
+   446→                  {demoResult.amt > 0 && (
+   447→                    <span className="chip amt">{FMT.format(demoResult.amt)}</span>
+   448→                  )}
+   449→                </>
+   450→              )}
+   451→            </div>
+   452→            <div className="demo-hint">← ketik di atas, atau biarkan kami mendemokan otomatis</div>
+   453→          </div>
+   454→        </div>
+   455→      </section>
+   456→
+   457→      {/* ═══ ANGKA ═══ */}
+   458→      <section id="nums-section" className="nums" style={{ padding: '80px 0' }}>
+   459→        <div className="wrap num-grid">
+   460→          {[
+   461→            { val: counterValues[0], suffix: '', label: 'berkas untuk seluruh aplikasi' },
+   462→            { val: counterValues[1], suffix: '+', label: 'kategori otomatis ID & EN' },
+   463→            { val: counterValues[2], suffix: '', label: 'jenis laporan PDF siap cetak' },
+   464→            { val: counterValues[3], suffix: '', label: 'data yang dibagikan ke siapa pun' },
+   465→          ].map((n, idx) => (
+   466→            <div
+   467→              key={idx}
+   468→              className="num reveal"
+   469→              style={idx > 0 ? { transitionDelay: `${idx * 0.08}s` } : undefined}
+   470→            >
+   471→              <b className="g">{n.val}{n.suffix}</b>
+   472→              <span>{n.label}</span>
+   473→              <i />
+   474→            </div>
+   475→          ))}
+   476→        </div>
+   477→      </section>
+   478→
+   479→      {/* ═══ TESTIMONI ═══ */}
+   480→      <section id="testimoni" className="lp-section">
+   481→        <div className="wrap">
+   482→          <div className="center reveal">
+   483→            <span className="eyebrow center">Testimoni</span>
+   484→            <h2 className="lp-h2">Kata mereka yang <em className="g">sudah tenang</em>.</h2>
+   485→          </div>
+   486→          <div className="t-grid">
+   487→            {[
+   488→              { quote: 'Baru tiga minggu pakai Arus, tabungan terlihat jujur untuk pertama kalinya. Grafiknya tidak menyembunyikan apa pun.', initials: 'RA', name: 'Raka Adhitya', role: 'Freelance designer', delay: '' },
+   489→              { quote: 'Kartu PDF piutang mengakhiri semua debat "berapa sisa utangmu?". Tinggal kirim file-nya, selesai dengan sopan.', initials: 'SW', name: 'Sinta Wulandari', role: 'Pemilik toko kelontong', delay: '.08s' },
+   490→              { quote: 'Inputnya cepat banget, rasanya seperti kirim pesan singkat ke buku kas sendiri. Tidak ada alasan lagi untuk malas mencatat.', initials: 'DP', name: 'Dimas Prakoso', role: 'Analis keuangan', delay: '.16s' },
+   491→            ].map((t, idx) => (
+   492→              <div key={idx} className="tcard reveal" style={t.delay ? { transitionDelay: t.delay } : undefined}>
+   493→                <span className="qm">&ldquo;</span>
+   494→                <p>{t.quote}</p>
+   495→                <div className="twho">
+   496→                  <span className="tava">{t.initials}</span>
+   497→                  <div><b>{t.name}</b><span>{t.role}</span></div>
+   498→                </div>
+   499→              </div>
+   500→            ))}
+   501→          </div>
+   502→        </div>
+   503→      </section>
+   504→
+   505→      {/* ═══ HARGA ═══ */}
+   506→      <section
+   507→        id="harga"
+   508→        className="lp-section"
+   509→        style={{ background: 'var(--bg2)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}
+   510→      >
+   511→        <div className="wrap">
+   512→          <div className="center reveal">
+   513→            <span className="eyebrow center">Harga</span>
+   514→            <h2 className="lp-h2">Satu harga: <em className="g">gratis</em>.<br />Selamanya.</h2>
+   515→          </div>
+   516→          <div className="price-wrap">
+   517→            <div className="pside reveal">
+   518→              <h4>Tanpa langganan</h4>
+   519→              <p>Tidak ada tagihan tahunan yang menyelinap, tidak ada fitur yang dikunci di balik paywall. Semua halaman terbuka sejak menit pertama.</p>
+   520→            </div>
+   521→            <div className="pmain reveal" style={{ transitionDelay: '.1s' }}>
+   522→              <span className="ptag">PERMANEN</span>
+   523→              <div className="price g">Rp 0</div>
+   524→              <div className="per">selamanya · semua fitur · semua halaman</div>
+   525→              <div className="plist">
+   526→                <div><span className="ok">✓</span>Dashboard, transaksi, utang–piutang, statistik, laporan, pengaturan</div>
+   527→                <div><span className="ok">✓</span>Kategori otomatis + deteksi jumlah dari deskripsi</div>
+   528→                <div><span className="ok">✓</span>Kartu PDF per orang &amp; rekap gabungan</div>
+   529→                <div><span className="ok">✓</span>Backup &amp; impor JSON — datamu, kendalimu</div>
+   530→                <div><span className="ok">✓</span>Mode gelap &amp; tampilan penuh di ponsel</div>
+   531→              </div>
+   532→              <a
+   533→                className="btn btn-gold"
+   534→                href="#"
+   535→                onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   536→              >
+   537→                Mulai sekarang
+   538→              </a>
+   539→              <div className="pnote">Karena datamu milikmu, bukan komoditas.</div>
+   540→            </div>
+   541→            <div className="pside reveal" style={{ transitionDelay: '.2s' }}>
+   542→              <h4>Tanpa iklan</h4>
+   543→              <p>Tidak ada banner yang mengganggu, tidak ada data yang dijual. Satu-satunya yang kami minta: catat transaksimu dengan rutin.</p>
+   544→            </div>
+   545→          </div>
+   546→        </div>
+   547→      </section>
+   548→
+   549→      {/* ═══ FAQ ═══ */}
+   550→      <section id="faq" className="lp-section">
+   551→        <div className="wrap">
+   552→          <div className="center reveal">
+   553→            <span className="eyebrow center">FAQ</span>
+   554→            <h2 className="lp-h2">Pertanyaan yang <em className="g">sering</em> muncul.</h2>
+   555→          </div>
+   556→          <div className="faq reveal" style={{ transitionDelay: '.1s' }}>
+   557→            {FAQ_DATA.map((item, idx) => (
+   558→              <div key={idx} className={`qa${openFaq === idx ? ' open' : ''}`}>
+   559→                <button onClick={() => toggleFaq(idx)}>
+   560→                  {item.q}
+   561→                  <span className="pm">+</span>
+   562→                </button>
+   563→                <div
+   564→                  className="ans"
+   565→                  style={{ maxHeight: openFaq === idx ? 300 : 0 }}
+   566→                >
+   567→                  <p>{item.a}</p>
+   568→                </div>
+   569→              </div>
+   570→            ))}
+   571→          </div>
+   572→        </div>
+   573→      </section>
+   574→
+   575→      {/* ═══ CTA AKHIR ═══ */}
+   576→      <section className="lp-section final">
+   577→        <div className="glow" />
+   578→        <div className="wrap reveal">
+   579→          <span className="eyebrow center">Mulai malam ini</span>
+   580→          <h2 className="lp-h2">Waktunya uangmu <em className="g">tenang</em>.</h2>
+   581→          <p className="sub">Tanpa pendaftaran. Tanpa menunggu. Buka aplikasinya, catat transaksi pertamamu, dan rasakan bedanya.</p>
+   582→          <a
+   583→            className="btn btn-gold"
+   584→            href="#"
+   585→            onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}
+   586→          >
+   587→            Buka Arus — Gratis <ArrowSvg />
+   588→          </a>
+   589→          <span className="mini">Satu berkas · semua fitur · data tetap di perangkatmu</span>
+   590→        </div>
+   591→      </section>
+   592→
+   593→      {/* ═══ FOOTER ═══ */}
+   594→      <footer className="lp-footer">
+   595→        <div className="wrap">
+   596→          <div className="foot">
+   597→            <div className="brand">
+   598→              <a className="logo" href="#top" onClick={(e) => handleNavClick(e, '#top')}>
+   599→                <span className="logomark"><i /></span>Arus
+   600→              </a>
+   601→              <p>Buku kas pribadi dengan kategori otomatis, kartu utang–piutang, dan laporan PDF. Dibuat dengan teliti, untuk ketenangan finansialmu.</p>
+   602→            </div>
+   603→            <div className="fcol">
+   604→              <b>Navigasi</b>
+   605→              <a href="#preview" onClick={(e) => handleNavClick(e, '#preview')}>Pratinjau</a>
+   606→              <a href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>Fitur</a>
+   607→              <a href="#demo" onClick={(e) => handleNavClick(e, '#demo')}>Demo</a>
+   608→              <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')}>FAQ</a>
+   609→            </div>
+   610→            <div className="fcol">
+   611→              <b>Aplikasi</b>
+   612→              <a href="#" onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}>Buka Arus</a>
+   613→              <a href="#" onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}>Laporan</a>
+   614→              <a href="#" onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}>Utang &amp; Piutang</a>
+   615→              <a href="#" onClick={(e) => { e.preventDefault(); onOpenApp?.(); }}>Pengaturan</a>
+   616→            </div>
+   617→            <div className="fcol">
+   618→              <b>Prinsip</b>
+   619→              <a href="#harga" onClick={(e) => handleNavClick(e, '#harga')}>Gratis selamanya</a>
+   620→              <a href="#fitur" onClick={(e) => handleNavClick(e, '#fitur')}>Privat sejak desain</a>
+   621→              <a href="#harga" onClick={(e) => handleNavClick(e, '#harga')}>Tanpa iklan</a>
+   622→            </div>
+   623→          </div>
+   624→          <div className="fbot">
+   625→            <span>© 2025 ARUS — BUKU KAS PRIBADI</span>
+   626→            <span className="mono">SATU BERKAS · TANPA SERVER · TANPA JEJAK</span>
+   627→          </div>
+   628→        </div>
+   629→      </footer>
+   630→    </>
+   631→  );
+   632→}
+   633→

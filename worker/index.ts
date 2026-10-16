@@ -64,6 +64,43 @@ function getParams(url: URL): Record<string, string> {
   return p;
 }
 
+// ─── Bearer Auth (fix S1/S2/S5) ─────────────────────────────────
+// user_id SELALU berasal dari token Supabase, tidak pernah dari body/query.
+async function getUserFromToken(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
+
+  // KV session cache dulu (mengurangi panggilan Supabase)
+  const cached = await getCachedSession(env, token);
+  if (cached) return cached;
+
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) return null;
+  const user = await res.json() as { id?: string; email?: string };
+  if (!user?.id) return null;
+
+  const sessionData = { userId: user.id, email: user.email || "" };
+  await cacheSession(env, token, sessionData);
+  return sessionData;
+}
+
+function unauthorized(): Response {
+  return json({ error: "Unauthorized. Token tidak valid atau kedaluwarsa." }, 401);
+}
+
+// Whitelist field insert/update — menutup mass assignment.
+function pickFields(body: Record<string, unknown>, fields: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (body[f] !== undefined) out[f] = body[f];
+  }
+  return out;
+}
+
 // ─── SHA-512 helper (for Midtrans signature verification) ────────
 async function sha512(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
@@ -421,12 +458,14 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
 
 // ─── API: /api/wallets ──────────────────────────────────────────
 async function handleWallets(req: Request, env: Env): Promise<Response> {
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan body/query
+
   const url = new URL(req.url);
   const admin = getAdmin(env);
 
   if (req.method === "GET") {
-    const userId = url.searchParams.get("user_id");
-    if (!userId) return json({ error: "user_id required" }, 400);
     const { data, error } = await admin
       .from("wallets")
       .select("*")
@@ -438,7 +477,6 @@ async function handleWallets(req: Request, env: Env): Promise<Response> {
 
   if (req.method === "POST") {
     const body = await getBody(req);
-    const userId = body.user_id as string;
 
     // Check plan limit (with KV cache)
     const isPro = await isProUser(env, userId);
@@ -455,7 +493,17 @@ async function handleWallets(req: Request, env: Env): Promise<Response> {
       }
     }
 
-    const { data, error } = await admin.from("wallets").insert(body).select().single();
+    // Whitelist field insert (mass assignment ditutup)
+    const rec = pickFields(body, ["id", "name", "color", "initial_balance"]);
+    if (typeof rec.initial_balance !== "number" && typeof body.initial === "number") {
+      rec.initial_balance = body.initial; // kompatibel skema lama client
+    }
+    if (typeof rec.name !== "string" || !(rec.name as string).trim()) {
+      return json({ error: "name required" }, 400);
+    }
+    if (typeof rec.id !== "string" || !rec.id) delete rec.id;
+
+    const { data, error } = await admin.from("wallets").insert({ ...rec, user_id: userId }).select().single();
     if (error) throw error;
     return json({ data }, 201);
   }
@@ -463,8 +511,10 @@ async function handleWallets(req: Request, env: Env): Promise<Response> {
   if (req.method === "DELETE") {
     const id = url.searchParams.get("id");
     if (!id) return json({ error: "id required" }, 400);
-    const { error } = await admin.from("wallets").delete().eq("id", id);
+    // Ownership check: hanya data milik user dari token yang bisa dihapus
+    const { data, error } = await admin.from("wallets").delete().eq("id", id).eq("user_id", userId).select("id");
     if (error) throw error;
+    if (!data || data.length === 0) return json({ error: "Data tidak ditemukan" }, 404);
     return json({ ok: true });
   }
 
@@ -473,13 +523,14 @@ async function handleWallets(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/transactions ─────────────────────────────────────
 async function handleTransactions(req: Request, env: Env): Promise<Response> {
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan query
+
   const url = new URL(req.url);
   const admin = getAdmin(env);
 
   if (req.method === "GET") {
-    const userId = url.searchParams.get("user_id");
-    if (!userId) return json({ error: "user_id required" }, 400);
-
     let query = admin
       .from("transactions")
       .select("*")
@@ -505,7 +556,10 @@ async function handleTransactions(req: Request, env: Env): Promise<Response> {
 
   if (req.method === "POST") {
     const body = await getBody(req);
-    const { data, error } = await admin.from("transactions").insert(body).select().single();
+    // Whitelist field insert (mass assignment ditutup)
+    const rec = pickFields(body, ["id", "wallet_id", "type", "category", "description", "amount", "occurred_at", "source", "ref_id", "recur", "recur_parent"]);
+    if (typeof rec.id !== "string" || !rec.id) delete rec.id;
+    const { data, error } = await admin.from("transactions").insert({ ...rec, user_id: userId }).select().single();
     if (error) throw error;
     return json({ data }, 201);
   }
@@ -513,8 +567,10 @@ async function handleTransactions(req: Request, env: Env): Promise<Response> {
   if (req.method === "DELETE") {
     const id = url.searchParams.get("id");
     if (!id) return json({ error: "id required" }, 400);
-    const { error } = await admin.from("transactions").delete().eq("id", id);
+    // Ownership check
+    const { data, error } = await admin.from("transactions").delete().eq("id", id).eq("user_id", userId).select("id");
     if (error) throw error;
+    if (!data || data.length === 0) return json({ error: "Data tidak ditemukan" }, 404);
     return json({ ok: true });
   }
 
@@ -523,12 +579,14 @@ async function handleTransactions(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/debts ────────────────────────────────────────────
 async function handleDebts(req: Request, env: Env): Promise<Response> {
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan body/query
+
   const url = new URL(req.url);
   const admin = getAdmin(env);
 
   if (req.method === "GET") {
-    const userId = url.searchParams.get("user_id");
-    if (!userId) return json({ error: "user_id required" }, 400);
     const { data, error } = await admin
       .from("debts")
       .select("*")
@@ -540,25 +598,34 @@ async function handleDebts(req: Request, env: Env): Promise<Response> {
 
   if (req.method === "POST") {
     const body = await getBody(req);
-    const { data, error } = await admin.from("debts").insert(body).select().single();
+    // Whitelist field insert (mass assignment ditutup)
+    const rec = pickFields(body, ["id", "name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at"]);
+    if (typeof rec.id !== "string" || !rec.id) delete rec.id;
+    const { data, error } = await admin.from("debts").insert({ ...rec, user_id: userId }).select().single();
     if (error) throw error;
     return json({ data }, 201);
   }
 
   if (req.method === "PATCH") {
     const body = await getBody(req);
-    const { id, ...patch } = body;
+    const id = body.id as string | undefined;
     if (!id) return json({ error: "id required" }, 400);
-    const { data, error } = await admin.from("debts").update(patch).eq("id", id).select().single();
+    // Whitelist field update + ownership check
+    const patch = pickFields(body, ["name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at"]);
+    if (Object.keys(patch).length === 0) return json({ error: "Tidak ada field yang boleh diupdate" }, 400);
+    const { data, error } = await admin.from("debts").update(patch).eq("id", id).eq("user_id", userId).select().single();
     if (error) throw error;
+    if (!data) return json({ error: "Data tidak ditemukan" }, 404);
     return json({ data });
   }
 
   if (req.method === "DELETE") {
     const id = url.searchParams.get("id");
     if (!id) return json({ error: "id required" }, 400);
-    const { error } = await admin.from("debts").delete().eq("id", id);
+    // Ownership check
+    const { data, error } = await admin.from("debts").delete().eq("id", id).eq("user_id", userId).select("id");
     if (error) throw error;
+    if (!data || data.length === 0) return json({ error: "Data tidak ditemukan" }, 404);
     return json({ ok: true });
   }
 
@@ -567,12 +634,12 @@ async function handleDebts(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/subscription ─────────────────────────────────────
 async function handleSubscription(req: Request, env: Env): Promise<Response> {
-  const url = new URL(req.url);
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan query
   const admin = getAdmin(env);
 
   if (req.method === "GET") {
-    const userId = url.searchParams.get("user_id");
-    if (!userId) return json({ error: "user_id required" }, 400);
     const { data, error } = await admin.from("subscriptions").select("*").eq("user_id", userId).single();
     if (error && error.code === "PGRST116") {
       return json({ data: { plan: "free", started_at: null, expires_at: null } });
@@ -581,37 +648,10 @@ async function handleSubscription(req: Request, env: Env): Promise<Response> {
     return json({ data });
   }
 
+  // POST /api/subscription dinonaktifkan (Keputusan #1): aktivasi Pro HANYA
+  // lewat webhook Midtrans yang terverifikasi signature — mencegah self-upgrade.
   if (req.method === "POST") {
-    const body = await getBody(req);
-    const userId = body.user_id as string;
-    const plan = body.plan as string;
-    if (!userId || !plan) return json({ error: "user_id dan plan required" }, 400);
-
-    const { data: existing } = await admin.from("subscriptions").select("id").eq("user_id", userId).single();
-    const billing = body.billing as string || "monthly";
-    const durationDays = billing === "annual" ? 365 : 30;
-    const expiresAt = plan === "pro" ? new Date(Date.now() + durationDays * 86400000).toISOString() : null;
-    const billingSuffix = billing === "annual" ? "_annual" : "_monthly";
-
-    let result;
-    if (existing) {
-      // Try with billing column; fall back if column doesn't exist
-      let updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString(), expires_at: expiresAt, billing };
-      result = await admin.from("subscriptions").update(updateData).eq("user_id", userId).select().single();
-      if (result.error && (result.error.message || "").includes("billing")) {
-        const { billing: _, ...fallback } = updateData;
-        result = await admin.from("subscriptions").update(fallback).eq("user_id", userId).select().single();
-      }
-    } else {
-      let insertData: Record<string, unknown> = { user_id: userId, plan, expires_at: expiresAt, billing };
-      result = await admin.from("subscriptions").insert(insertData).select().single();
-      if (result.error && (result.error.message || "").includes("billing")) {
-        const { billing: _, ...fallback } = insertData;
-        result = await admin.from("subscriptions").insert(fallback).select().single();
-      }
-    }
-    if (result.error) throw result.error;
-    return json({ data: result.data });
+    return json({ error: "Aktivasi Pro hanya melalui pembayaran Midtrans. Endpoint ini sudah dinonaktifkan." }, 405);
   }
 
   return json({ error: "Method not allowed" }, 405);
@@ -619,9 +659,9 @@ async function handleSubscription(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/summary ──────────────────────────────────────────
 async function handleSummary(req: Request, env: Env): Promise<Response> {
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("user_id");
-  if (!userId) return json({ error: "user_id required" }, 400);
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan query
 
   const admin = getAdmin(env);
   const [txnsRes, debtsRes] = await Promise.all([
@@ -723,13 +763,15 @@ async function handleSignup(req: Request, env: Env): Promise<Response> {
 
 // ─── API: /api/sync ─────────────────────────────────────────────
 async function handleSync(req: Request, env: Env): Promise<Response> {
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan body/query
   const admin = getAdmin(env);
 
   if (req.method === "POST") {
     const body = await getBody(req);
-    const userId = body.user_id as string;
     const syncData = body.data as Record<string, unknown>;
-    if (!userId || !syncData) return json({ error: "user_id dan data required" }, 400);
+    if (!syncData) return json({ error: "data required" }, 400);
 
     // Only Pro can sync (with KV cache)
     const isPro = await isProUser(env, userId);
@@ -771,12 +813,8 @@ async function handleSync(req: Request, env: Env): Promise<Response> {
     return json({ ok: true, synced: Object.keys(results) });
   }
 
-  // GET — pull all data
+  // GET — pull all data (hanya milik user dari token)
   if (req.method === "GET") {
-    const url = new URL(req.url);
-    const userId = url.searchParams.get("user_id");
-    if (!userId) return json({ error: "user_id required" }, 400);
-
     const [wallets, transactions, debts, budgets, customCats, subscription] = await Promise.all([
       admin.from("wallets").select("*").eq("user_id", userId),
       admin.from("transactions").select("*").eq("user_id", userId).order("occurred_at", { ascending: false }),
@@ -879,12 +917,13 @@ async function handleResetPassword(req: Request, env: Env): Promise<Response> {
 
 // ─── Midtrans: Create Snap Transaction ──────────────────────────
 async function handleMidtransCreate(req: Request, env: Env): Promise<Response> {
-  const body = await getBody(req);
-  const userId = body.user_id as string;
-  const email = body.email as string;
-  const name = body.name as string || "Saya";
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
 
-  if (!userId) return json({ error: "user_id required" }, 400);
+  const body = await getBody(req);
+  const userId = user.userId; // dari token, bukan body
+  const email = (body.email as string) || user.email;
+  const name = (body.name as string) || "Saya";
 
   // Support annual billing (amount override)
   const requestedAmount = (body.amount as number) || 29000;
@@ -1044,9 +1083,9 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
 
 // ─── API: /api/payment/history ────────────────────────────────
 async function handlePaymentHistory(req: Request, env: Env): Promise<Response> {
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("user_id");
-  if (!userId) return json({ error: "user_id required" }, 400);
+  const user = await getUserFromToken(req, env);
+  if (!user) return unauthorized();
+  const userId = user.userId; // dari token, bukan query
 
   const admin = getAdmin(env);
 

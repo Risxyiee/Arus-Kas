@@ -102,10 +102,35 @@ function pickFields(body: Record<string, unknown>, fields: string[]): Record<str
 }
 
 // ─── SHA-512 helper (for Midtrans signature verification) ────────
-async function sha512(message: string): Promise<string> {
+export async function sha512(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-512", data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// S4: verifikasi signature webhook Midtrans — WAJIB (fail-closed).
+// Rumus resmi Midtrans: SHA512(order_id + status_code + gross_amount + server_key)
+export async function verifyMidtransSignature(
+  body: Record<string, unknown>,
+  serverKey: string | undefined
+): Promise<{ ok: boolean; status: number; error?: string }> {
+  const orderId = body.order_id as string;
+  const signatureKey = body.signature_key as string;
+  const statusCode = body.status_code as string;
+  const grossAmount = body.gross_amount as string;
+  if (!serverKey) {
+    // Konfigurasi server tidak lengkap — jangan pernah memproses tanpa verifikasi.
+    console.error("MIDTRANS_SERVER_KEY tidak diset — webhook ditolak");
+    return { ok: false, status: 500, error: "Webhook verification unavailable" };
+  }
+  if (!orderId || !signatureKey || !statusCode || !grossAmount) {
+    return { ok: false, status: 403, error: "Forbidden: signature_key, status_code, dan gross_amount wajib ada" };
+  }
+  const expectedSig = await sha512(orderId + statusCode + grossAmount + serverKey);
+  if (signatureKey !== expectedSig) {
+    return { ok: false, status: 403, error: "Invalid signature" };
+  }
+  return { ok: true, status: 200 };
 }
 
 // ─── Admin Auth Verification (with KV session cache) ───────────
@@ -1013,15 +1038,13 @@ async function handleMidtransWebhook(req: Request, env: Env): Promise<Response> 
     return json({ error: "Invalid webhook payload" }, 400);
   }
 
-  // Verify signature to prevent fake webhook attacks
-  const signatureKey = body.signature_key as string;
-  const grossAmount = body.gross_amount as string;
-  if (signatureKey && env.MIDTRANS_SERVER_KEY) {
-    const expectedSig = await sha512(orderId + transactionStatus + grossAmount + env.MIDTRANS_SERVER_KEY);
-    if (signatureKey !== expectedSig) {
-      return json({ error: "Invalid signature" }, 403);
-    }
+  // S4: verifikasi signature WAJIB (fail-closed) — webhook tanpa signature
+  // valid tidak boleh memicu perubahan langganan (fake webhook ditolak).
+  const sig = await verifyMidtransSignature(body, env.MIDTRANS_SERVER_KEY);
+  if (!sig.ok) {
+    return json({ error: sig.error }, sig.status);
   }
+  const grossAmount = body.gross_amount as string; // sudah divalidasi ada di gate di atas
 
   const admin = getAdmin(env);
 

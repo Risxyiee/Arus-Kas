@@ -112,30 +112,24 @@ async function sha512(message: string): Promise<string> {
 async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-  const token = authHeader.replace("Bearer ", "");
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
 
-  // Check KV session cache first
-  const cached = await getCachedSession(env, token);
-  if (cached) {
-    const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
-    if (cached.email !== adminEmail) return null;
-    return cached;
-  }
-
-  // Verify token+cache session
+  // Verifikasi SELALU langsung ke Supabase — tidak percaya session cache KV.
+  // (Dulu KV bisa ditulis publik lewat /api/cache generik — fix S3.)
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
   });
   if (!res.ok) return null;
-  const user = await res.json() as { id: string; email: string };
+  const user = await res.json() as { id?: string; email?: string };
+  if (!user?.id || !user?.email) return null;
 
   const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
   if (user.email !== adminEmail) return null;
 
-  // Cache the session
+  // Cache session untuk dipakai getUserFromToken (tulis setelah verifikasi sukses)
   const sessionData = { userId: user.id, email: user.email };
   await cacheSession(env, token, sessionData);
-
   return sessionData;
 }
 
@@ -1313,66 +1307,42 @@ async function isProUser(env: Env, userId: string): Promise<boolean> {
 // handleStorage, handleBackup, handleRestore removed — R2 not bound.
 // All /api/storage/* routes return 503 via r2Disabled().
 
-// ─── API: /api/cache — KV Feature Flags, Cache & Sessions ──────
+// ─── API: /api/cache/flags — Feature Flags only (fix S3) ──────
+// Endpoint KV generik DIHAPUS (Keputusan #2): dulu tanpa auth siapa pun bisa
+// baca/tulis/hapus SEMUA key KV — termasuk session admin & rate limit.
 async function handleCache(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const subPath = url.pathname.replace("/api/cache", "").replace("//", "/");
 
-  // ── Feature Flags ──
-  if (subPath === "/flags" || subPath === "/flags/") {
-    if (req.method === "GET") {
-      // Get all feature flags (merged with defaults)
-      const flags: Record<string, string> = { ...DEFAULT_FEATURE_FLAGS };
-      try {
-        const list = await env.arus_kv.list({ prefix: "ff:" });
-        for (const k of list.keys) {
-          const val = await env.arus_kv.get(k.name);
-          if (val !== null) flags[k.name] = val;
-        }
-      } catch {}
-      return json({ flags });
-    }
-
-    if (req.method === "PUT") {
-      // Admin: set a feature flag
-      const body = await getBody(req);
-      const flag = body.flag as string;
-      const value = body.value as string;
-      if (!flag || value === undefined) return json({ error: "flag dan value required" }, 400);
-      await setFeatureFlag(env, flag, value);
-      return json({ ok: true, flag: `ff:${flag}`, value });
-    }
+  if (subPath !== "/flags" && subPath !== "/flags/") {
+    return json({ error: "Not found. Hanya /api/cache/flags yang tersedia." }, 404);
   }
 
-  // ── Generic KV Get/Put/Delete ──
+  // GET — baca semua feature flags (gabungan default + KV)
   if (req.method === "GET") {
-    const key = url.searchParams.get("key");
-    if (key) {
-      const value = await env.arus_kv.get(key);
-      return json({ key, value });
-    }
-    // List all keys with prefix
-    const prefix = url.searchParams.get("prefix") || "";
-    const list = await env.arus_kv.list({ prefix });
-    return json({ keys: list.keys.map((k) => ({ name: k.name, expiration: k.expiration })) });
+    const flags: Record<string, string> = { ...DEFAULT_FEATURE_FLAGS };
+    try {
+      const list = await env.arus_kv.list({ prefix: "ff:" });
+      for (const k of list.keys) {
+        const val = await env.arus_kv.get(k.name);
+        if (val !== null) flags[k.name] = val;
+      }
+    } catch {}
+    return json({ flags });
   }
 
+  // PUT — hanya admin (verifikasi fresh via verifyAdmin)
   if (req.method === "PUT") {
+    const admin = await verifyAdmin(req, env);
+    if (!admin) return json({ error: "Akses ditolak. Hanya admin yang bisa mengubah feature flag." }, 403);
     const body = await getBody(req);
-    const key = body.key as string;
+    const flag = body.flag as string;
     const value = body.value as string;
-    const ttl = body.ttl as number | undefined;
-    if (!key || value === undefined) return json({ error: "key dan value required" }, 400);
-    const opts = ttl ? { expirationTtl: ttl } : undefined;
-    await env.arus_kv.put(key, value, opts);
-    return json({ ok: true, key });
-  }
-
-  if (req.method === "DELETE") {
-    const key = url.searchParams.get("key");
-    if (!key) return json({ error: "key required" }, 400);
-    await env.arus_kv.delete(key);
-    return json({ ok: true });
+    if (!flag || value === undefined) return json({ error: "flag dan value required" }, 400);
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(flag)) return json({ error: "Nama flag tidak valid" }, 400);
+    if (!/^[-a-zA-Z0-9_.]{1,64}$/.test(value)) return json({ error: "Value flag tidak valid" }, 400);
+    await setFeatureFlag(env, flag, value);
+    return json({ ok: true, flag: `ff:${flag}`, value });
   }
 
   return json({ error: "Method not allowed" }, 405);
@@ -1404,7 +1374,7 @@ export default {
     // Global maintenance mode check (feature flag via KV)
     if (url.pathname.startsWith("/api")) {
       const maintenance = await getFeatureFlag(env, "maintenance");
-      if (maintenance === "true" && !url.pathname.startsWith("/api/cache")) {
+      if (maintenance === "true" && !url.pathname.startsWith("/api/cache/flags")) {
         return withSecurityHeaders(json({ error: "Sedang maintenance. Coba lagi nanti.", maintenance: true }, 503));
       }
 

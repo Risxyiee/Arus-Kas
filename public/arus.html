@@ -339,6 +339,10 @@ const addMonthsISO=dstr=>{const d=parseISO(dstr);const n=new Date(d.getFullYear(
 const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const MONF=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const fmtDate=s=>{const d=parseISO(s);return d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear();};
+// Tanggal lokal (YYYY-MM-DD) dari stempel ISO — dipakai tampilan & isian form
+const createdDay=s=>{if(!s)return'';const d=new Date(s);return isNaN(d)?'':iso(d);};
+// Nilai input type=date (lokal) → stempel ISO jam 12 siang lokal, aman untuk zona UTC+7..+9
+const dateValToISO=v=>{if(!v)return null;const d=new Date(v+'T12:00:00');return isNaN(d)?null:d.toISOString();};
 const monthName=ym=>{const a=ym.split('-');return MONF[a[1]-1]+' '+a[0];};
 function fmtDay(s){const diff=Math.round((parseISO(todayISO())-parseISO(s))/864e5);
  if(diff===0)return 'Hari ini';if(diff===1)return 'Kemarin';if(diff===-1)return 'Besok';return fmtDate(s);}
@@ -653,7 +657,8 @@ function updateTransaction(id,patch){
 function addDebt(o){
  o.id=uid();o.paid_amount=0;o.status='unpaid';o.settled_at=null;
  o.note=o.note||'';
- o.created_at=new Date().toISOString();db.debts.push(o);save();}
+ if(!o.created_at)o.created_at=new Date().toISOString(); // boleh diisi mundur dari form (tanggal buat)
+ db.debts.push(o);save();}
 function deleteDebt(id){
  const d=db.debts.find(x=>x.id===id);if(!d)return;
  db.debts=db.debts.filter(x=>x.id!==id);
@@ -724,7 +729,7 @@ function relatedTxns(d){
   .sort((a,b)=>a.occurred_at.localeCompare(b.occurred_at));}
 function statementRows(d){
  const out=[];
- const created=(d.created_at||'').slice(0,10)||d.due_date||todayISO();
+ const created=createdDay(d.created_at)||d.due_date||todayISO();
  const kind=d.type==='debt'?'Utang':'Piutang';
  const desc=d.note?kind+': '+d.note:kind;
  out.push([fmtDate(created),desc,money(d.amount),'-',money(d.amount)]);
@@ -1285,7 +1290,8 @@ function debtRow(d){
   '<div class="grow minw">'+
    '<div class="row wrap" style="gap:8px"><span class="tname">'+esc(d.name)+'</span>'+statusBadge(d.status)+'</div>'+
    '<div class="xs muted" style="margin-top:2px"><span class="'+(isDebt?'neg':'pos')+'" style="font-weight:600">'+(isDebt?'Utang':'Piutang')+'</span> · '+
-   '<span class="'+(over?'neg':'')+'" style="'+(over?'font-weight:600':'')+'">'+dueLabel(d)+'</span></div>'+
+   '<span class="'+(over?'neg':'')+'" style="'+(over?'font-weight:600':'')+'">'+dueLabel(d)+'</span>'+
+   (createdDay(d.created_at)?' · dibuat '+fmtDate(createdDay(d.created_at)):'')+'</div>'+
    (d.note?'<div class="xs" style="margin-top:3px;color:var(--ink);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">'+esc(d.note)+'</div>':'')+
    '<div class="prog" style="margin-top:8px;max-width:220px"><i style="width:'+pct+'%;background:'+(isDebt?'var(--neg)':'var(--pos)')+'"></i></div></div>'+
   '<div class="right" style="flex-shrink:0">'+
@@ -1375,10 +1381,11 @@ function pageDebts(){
    '<div class="row between wrap" style="gap:10px">'+
     '<div style="font-weight:700;font-size:14.5px">Catat utang / piutang</div>'+
     '<button class="btn primary" id="allpdf-btn">'+ic('dl')+' Unduh semua (PDF)</button></div>'+
-   '<form id="d-form" autocomplete="off" class="dform" style="display:grid;grid-template-columns:2fr 1.4fr 1fr 1.2fr auto;gap:10px;margin-top:12px">'+
+   '<form id="d-form" autocomplete="off" class="dform" style="display:grid;grid-template-columns:2fr 1.4fr 1fr 1fr 1fr auto;gap:10px;margin-top:12px">'+
     '<div><label class="lbl">Nama orang / lembaga</label><input id="d-name" class="fld" placeholder="cth: Budi Santoso"></div>'+
     '<div><label class="lbl">Jenis</label><select id="d-type" class="fld"><option value="debt">Utang — saya berutang</option><option value="receivable">Piutang — dipertanggungkan ke saya</option></select></div>'+
     '<div><label class="lbl">Jumlah</label><input id="d-amt" class="fld mono" inputmode="decimal" placeholder="0"></div>'+
+    '<div><label class="lbl">Tanggal buat</label><input id="d-created" type="date" class="fld mono" value="'+todayISO()+'"></div>'+
     '<div><label class="lbl">Jatuh tempo</label><input id="d-due" type="date" class="fld mono"></div>'+
     '<div style="display:flex;align-items:flex-end"><button class="btn primary" style="width:100%" title="Tambah" aria-label="Tambah">'+ic('plus')+'</button></div>'+
    '</form>'+
@@ -1400,7 +1407,7 @@ function afterDebts(){
   if(!name){toast('Isi nama orang/lembaga.','error');$('#d-name').focus();return;}
   if(!(amt>0)){toast('Masukkan jumlah yang valid.','error');$('#d-amt').focus();return;}
   if(atLimit('debts')){showUpgrade('debts','Paket '+planName()+' cuma bisa '+planLimit('debts')+' entri utang/piutang aktif. Upgrade untuk unlimited.');return;}
-  addDebt({name:name,type:$('#d-type').value,amount:amt,due_date:$('#d-due').value||null,note:$('#d-note').value.trim()});
+  addDebt({name:name,type:$('#d-type').value,amount:amt,due_date:$('#d-due').value||null,note:$('#d-note').value.trim(),created_at:dateValToISO($('#d-created').value)||undefined});
   toast(($('#d-type').value==='debt'?'Utang':'Piutang')+' <b class="mono">'+money(amt)+'</b> atas nama '+esc(name)+' tercatat.');
   render();});
  $('#d-tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;
@@ -1418,6 +1425,8 @@ function editDebtModal(id){
   '<option value="debt" '+(d.type==='debt'?'selected':'')+'>Utang</option>'+
   '<option value="receivable" '+(d.type==='receivable'?'selected':'')+'>Piutang</option></select></div>'+
   '<div><label class="lbl">Jatuh tempo</label><input id="ed-due" type="date" class="fld mono" value="'+(d.due_date||'')+'"></div></div>'+
+  '<div style="margin-top:12px"><label class="lbl">Tanggal buat</label><input id="ed-created" type="date" class="fld mono" value="'+createdDay(d.created_at)+'">'+
+  '<div class="xs muted" style="margin-top:6px">Tanggal utang/piutang ini dicatat — ubah kalau entri dibuat mundur.</div></div>'+
   '<div style="margin-top:12px"><label class="lbl">Total tagihan</label><input id="ed-amt" class="fld mono" inputmode="decimal" value="'+d.amount+'">'+
   (d.paid_amount>0?'<div class="xs muted" style="margin-top:6px">Sudah dibayar '+money(d.paid_amount)+' — total tidak boleh di bawah nilai ini.</div>':'')+'</div>'+
   '<div style="margin-top:12px"><label class="lbl">Keterangan</label><input id="ed-note" class="fld" value="'+esc(d.note||'')+'" maxlength="120" placeholder="cth: Pinjam modal usaha"></div>'+
@@ -1429,7 +1438,7 @@ function editDebtModal(id){
   const name=$('#ed-name').value.trim(),amt=parseAmt($('#ed-amt').value);
   if(!name){toast('Nama tidak boleh kosong.','error');return;}
   if(!(amt>0)||amt<d.paid_amount){toast('Jumlah tidak valid / di bawah yang sudah dibayar.','error');return;}
-  updateDebt(id,{name:name,type:$('#ed-type').value,amount:amt,due_date:$('#ed-due').value||null,note:$('#ed-note').value.trim()});
+  updateDebt(id,{name:name,type:$('#ed-type').value,amount:amt,due_date:$('#ed-due').value||null,note:$('#ed-note').value.trim(),created_at:dateValToISO($('#ed-created').value)||d.created_at});
   closeModal();toast('Entri diperbarui.');render();});}
 function settleModal(id){
  const d=db.debts.find(x=>x.id===id);if(!d||d.status==='paid')return;

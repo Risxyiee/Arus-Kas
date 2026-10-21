@@ -593,8 +593,9 @@ async function handleDebts(req: Request, env: Env): Promise<Response> {
   if (req.method === "POST") {
     const body = await getBody(req);
     // Whitelist field insert (mass assignment ditutup)
-    const rec = pickFields(body, ["id", "name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at"]);
+    const rec = pickFields(body, ["id", "name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at", "created_at"]);
     if (typeof rec.id !== "string" || !rec.id) delete rec.id;
+    if (typeof rec.created_at !== "string" || Number.isNaN(Date.parse(rec.created_at))) delete rec.created_at;
     const { data, error } = await admin.from("debts").insert({ ...rec, user_id: userId }).select().single();
     if (error) throw error;
     return json({ data }, 201);
@@ -605,7 +606,8 @@ async function handleDebts(req: Request, env: Env): Promise<Response> {
     const id = body.id as string | undefined;
     if (!id) return json({ error: "id required" }, 400);
     // Whitelist field update + ownership check
-    const patch = pickFields(body, ["name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at"]);
+    const patch = pickFields(body, ["name", "type", "amount", "paid_amount", "due_date", "note", "status", "settled_at", "created_at"]);
+    if (typeof patch.created_at !== "string" || Number.isNaN(Date.parse(patch.created_at))) delete patch.created_at;
     if (Object.keys(patch).length === 0) return json({ error: "Tidak ada field yang boleh diupdate" }, 400);
     const { data, error } = await admin.from("debts").update(patch).eq("id", id).eq("user_id", userId).select().single();
     if (error) throw error;
@@ -798,6 +800,8 @@ async function handleSync(req: Request, env: Env): Promise<Response> {
         id: d.id, user_id: userId, name: d.name, type: d.type, amount: d.amount,
         paid_amount: d.paid_amount || 0, due_date: d.due_date || null, note: d.note || "",
         status: d.status || "unpaid", settled_at: d.settled_at || null,
+        // tanggal buat boleh diubah user — kirim hanya jika valid (hindari overwrite NULL)
+        ...(typeof d.created_at === "string" && !Number.isNaN(Date.parse(d.created_at)) ? { created_at: d.created_at } : {}),
       }));
       const { data: r, error } = await admin.from("debts").upsert(debts, { onConflict: "id" });
       if (error) throw error;

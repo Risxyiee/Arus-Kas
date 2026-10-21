@@ -645,7 +645,9 @@ function deleteTransaction(id){
 function updateTransaction(id,patch){
  const t=db.transactions.find(x=>x.id===id);if(!t)return;
  const oldRef=t.ref_id;
- Object.assign(t,patch);save();syncTop();
+ Object.assign(t,patch);
+ t.updated_at=new Date().toISOString(); // agar edit lokal menang saat tarik awan
+ save();syncTop();
  recomputeDebt(oldRef);
  if(patch.ref_id&&patch.ref_id!==oldRef)recomputeDebt(patch.ref_id);}
 function addDebt(o){
@@ -659,6 +661,7 @@ function deleteDebt(id){
 function updateDebt(id,patch){
  const d=db.debts.find(x=>x.id===id);if(!d)return;
  Object.assign(d,patch);
+ d.updated_at=new Date().toISOString(); // fix: edit (cth. jatuh tempo) tidak boleh tertimpa tarik awan
  d.paid_amount=Math.min(d.paid_amount,d.amount);
  d.status=d.paid_amount>=d.amount?'paid':(d.paid_amount>0?'partially_paid':'unpaid');
  if(d.status==='paid'&&!d.settled_at)d.settled_at=new Date().toISOString();
@@ -871,15 +874,33 @@ async function syncToCloud(){
  else if(r.error)toast(r.error);
 }
 
+// Merge cloud → lokal per-ID. Baris yang BARU diedit lokal (ada updated_at)
+// menang atas versi server — memperbaiki bug edit (jatuh tempo utang) terasa
+// "tidak bisa disimpan" karena timpaan syncFromCloud. Sinkron dua arah penuh
+// (banding updated_at + konfirmasi konflik) menyusul di fase terpisah.
+function mergeCloudLists(localList,cloudList){
+ const loc=localList||[];
+ if(!cloudList||!cloudList.length)return loc;
+ const byId=new Map(loc.map(x=>[x.id,x]));
+ const merged=cloudList.map(c=>{
+  const l=byId.get(c.id);
+  if(l&&l.updated_at&&(!c.updated_at||new Date(l.updated_at)>new Date(c.updated_at)))return l;
+  return c;
+ });
+ // baris yang hanya ada lokal (belum pernah terdorong) tetap disimpan
+ for(const l of loc){if(!merged.some(x=>x.id===l.id))merged.push(l);}
+ return merged;
+}
+
 async function syncFromCloud(){
  if(!currentUser)return;
  const r=await api('/sync?user_id='+currentUser.id);
  if(r.error||!r.data)return r;
  const d=r.data;
- // Merge cloud data into local (cloud wins for conflicts)
- if(d.wallets?.length)db.wallets=d.wallets;
- if(d.transactions?.length)db.transactions=d.transactions;
- if(d.debts?.length)db.debts=d.debts;
+ // Merge cloud data into local — baris lokal yang lebih baru tidak tertimpa
+ db.wallets=mergeCloudLists(db.wallets,d.wallets);
+ db.transactions=mergeCloudLists(db.transactions,d.transactions);
+ db.debts=mergeCloudLists(db.debts,d.debts);
  if(d.budgets&&Object.keys(d.budgets).length)db.budgets=d.budgets;
  if(d.customCats?.length)db.customCats=d.customCats;
  if(d.subscription)db.subscription={plan:d.subscription.plan,startedAt:d.subscription.started_at,expiresAt:d.subscription.expires_at};

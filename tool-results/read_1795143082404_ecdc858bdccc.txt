@@ -1,0 +1,796 @@
+     1→import { NextRequest, NextResponse } from 'next/server'
+     2→
+     3→// Force dynamic rendering — this is an API route, not a static page
+     4→export const dynamic = 'force-dynamic'
+     5→
+     6→// ─── Environment helpers ──────────────────────────────────────────
+     7→function getEnv(key: string): string {
+     8→  return process.env[key] || ''
+     9→}
+    10→
+    11→const SUPABASE_URL = getEnv('NEXT_PUBLIC_SUPABASE_URL')
+    12→const SUPABASE_ANON_KEY = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    13→const SUPABASE_SERVICE_KEY = getEnv('SUPABASE_SERVICE_ROLE_KEY')
+    14→const ADMIN_EMAIL = getEnv('ADMIN_EMAIL') || 'riskiakbarp123@gmail.com'
+    15→
+    16→// ─── JSON response helper ─────────────────────────────────────────
+    17→function json(data: unknown, status = 200): NextResponse {
+    18→  return NextResponse.json(data, { status })
+    19→}
+    20→
+    21→// ─── Config check ────────────────────────────────────────────────
+    22→function isConfigured(): boolean {
+    23→  return !!(SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('YOUR_'))
+    24→}
+    25→
+    26→// ─── Supabase Auth proxy ─────────────────────────────────────────
+    27→async function supabaseAuth(endpoint: string, options: RequestInit): Promise<NextResponse> {
+    28→  const res = await fetch(`${SUPABASE_URL}/auth/v1${endpoint}`, {
+    29→    ...options,
+    30→    headers: {
+    31→      'Content-Type': 'application/json',
+    32→      apikey: SUPABASE_ANON_KEY,
+    33→      ...(options.headers as Record<string, string> || {}),
+    34→    },
+    35→  })
+    36→  const data = await res.json()
+    37→  if (!res.ok) return json({ error: data.error_description || data.msg || data.error || 'Auth gagal' }, res.status)
+    38→  return json(data)
+    39→}
+    40→
+    41→// ─── Admin Auth Verification ─────────────────────────────────────
+    42→async function verifyAdmin(req: NextRequest): Promise<{ userId: string; email: string } | null> {
+    43→  const authHeader = req.headers.get('Authorization')
+    44→  if (!authHeader || !authHeader.startsWith('Bearer ')) return null
+    45→  const token = authHeader.replace('Bearer ', '')
+    46→
+    47→  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    48→    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+    49→  })
+    50→  if (!res.ok) return null
+    51→  const user = await res.json() as { id: string; email: string }
+    52→  if (user.email !== ADMIN_EMAIL) return null
+    53→  return { userId: user.id, email: user.email }
+    54→}
+    55→
+    56→// ─── Supabase Admin Client helper ────────────────────────────────
+    57→function adminHeaders(): Record<string, string> {
+    58→  return {
+    59→    'Content-Type': 'application/json',
+    60→    apikey: SUPABASE_ANON_KEY,
+    61→    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    62→    Prefer: 'return=representation',
+    63→  }
+    64→}
+    65→
+    66→async function sbSelect(table: string, query: string, filters?: Record<string, string>): Promise<{ data: unknown[] | null; error: string | null; count?: number }> {
+    67→  let url = `${SUPABASE_URL}/rest/v1/${table}?select=${query}`
+    68→  if (filters) {
+    69→    for (const [k, v] of Object.entries(filters)) {
+    70→      url += `&${k}=${encodeURIComponent(v)}`
+    71→    }
+    72→  }
+    73→  const res = await fetch(url, { headers: adminHeaders() })
+    74→  const data = await res.json()
+    75→  if (!res.ok) return { data: null, error: data.message || data.error || 'Query failed' }
+    76→  return { data: data as unknown[], error: null, count: (data as unknown[]).length }
+    77→}
+    78→
+    79→async function sbInsert(table: string, body: unknown): Promise<{ data: unknown | null; error: string | null }> {
+    80→  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    81→    method: 'POST',
+    82→    headers: { ...adminHeaders(), Prefer: 'return=representation' },
+    83→    body: JSON.stringify(body),
+    84→  })
+    85→  const data = await res.json()
+    86→  if (!res.ok) return { data: null, error: data.message || data.error || 'Insert failed' }
+    87→  return { data, error: null }
+    88→}
+    89→
+    90→async function sbUpdate(table: string, body: unknown, filters: Record<string, string>): Promise<{ data: unknown | null; error: string | null }> {
+    91→  let url = `${SUPABASE_URL}/rest/v1/${table}?`
+    92→  for (const [k, v] of Object.entries(filters)) {
+    93→    url += `${k}=${encodeURIComponent(v)}&`
+    94→  }
+    95→  const res = await fetch(url, {
+    96→    method: 'PATCH',
+    97→    headers: { ...adminHeaders(), Prefer: 'return=representation' },
+    98→    body: JSON.stringify(body),
+    99→  })
+   100→  const data = await res.json()
+   101→  if (!res.ok) return { data: null, error: data.message || data.error || 'Update failed' }
+   102→  return { data, error: null }
+   103→}
+   104→
+   105→// ─── Get email map from auth admin API ───────────────────────────
+   106→async function getEmailMap(): Promise<Map<string, string>> {
+   107→  const emailMap = new Map<string, string>()
+   108→  if (!SUPABASE_SERVICE_KEY || SUPABASE_SERVICE_KEY.startsWith('YOUR_')) return emailMap
+   109→  try {
+   110→    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
+   111→      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, apikey: SUPABASE_ANON_KEY },
+   112→    })
+   113→    if (res.ok) {
+   114→      const authData = await res.json() as { users: { id: string; email: string }[] }
+   115→      for (const u of (authData.users || [])) {
+   116→        emailMap.set(u.id, u.email)
+   117→      }
+   118→    }
+   119→  } catch { /* proceed without emails */ }
+   120→  return emailMap
+   121→}
+   122→
+   123→// ═══════════════════════════════════════════════════════════════════
+   124→// API HANDLERS
+   125→// ═══════════════════════════════════════════════════════════════════
+   126→
+   127→// ─── Auth: Login ──────────────────────────────────────────────────
+   128→async function handleLogin(req: NextRequest): Promise<NextResponse> {
+   129→  try {
+   130→    const body = await req.json()
+   131→    const { email, password } = body as { email: string; password: string }
+   132→
+   133→    if (!email || !password) {
+   134→      return json({ error: 'Email dan password wajib diisi' }, 400)
+   135→    }
+   136→
+   137→    return await supabaseAuth('/token?grant_type=password', {
+   138→      method: 'POST',
+   139→      body: JSON.stringify({ email, password }),
+   140→    })
+   141→  } catch {
+   142→    return json({ error: 'Request body tidak valid' }, 400)
+   143→  }
+   144→}
+   145→
+   146→// ─── Auth: Signup ─────────────────────────────────────────────────
+   147→async function handleSignup(req: NextRequest): Promise<NextResponse> {
+   148→  try {
+   149→    const body = await req.json()
+   150→    const { email, password, name } = body as { email: string; password: string; name?: string }
+   151→
+   152→    if (!email || !password) {
+   153→      return json({ error: 'Email dan password wajib diisi' }, 400)
+   154→    }
+   155→
+   156→    return await supabaseAuth('/signup', {
+   157→      method: 'POST',
+   158→      body: JSON.stringify({ email, password, data: { name: name || 'Saya' } }),
+   159→    })
+   160→  } catch {
+   161→    return json({ error: 'Request body tidak valid' }, 400)
+   162→  }
+   163→}
+   164→
+   165→// ─── Auth: Me (get current user) ─────────────────────────────────
+   166→async function handleAuthMe(req: NextRequest): Promise<NextResponse> {
+   167→  const authHeader = req.headers.get('Authorization')
+   168→  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+   169→    return json({ error: 'Unauthorized' }, 401)
+   170→  }
+   171→  const token = authHeader.replace('Bearer ', '')
+   172→  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+   173→    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+   174→  })
+   175→  const data = await res.json()
+   176→  if (!res.ok) return json({ error: data.msg || data.error || 'Token tidak valid' }, res.status)
+   177→  return json({ data })
+   178→}
+   179→
+   180→// ─── Auth: Logout ────────────────────────────────────────────────
+   181→async function handleLogout(req: NextRequest): Promise<NextResponse> {
+   182→  const authHeader = req.headers.get('Authorization')
+   183→  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+   184→    return json({ error: 'Unauthorized' }, 401)
+   185→  }
+   186→  const token = authHeader.replace('Bearer ', '')
+   187→  await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+   188→    method: 'POST',
+   189→    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+   190→  })
+   191→  return json({ ok: true })
+   192→}
+   193→
+   194→// ─── Admin: Stats ────────────────────────────────────────────────
+   195→async function handleAdminStats(): Promise<NextResponse> {
+   196→  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+   197→
+   198→  const [profilesRes, subsRes, recentRes] = await Promise.all([
+   199→    sbSelect('profiles', 'id,created_at'),
+   200→    sbSelect('subscriptions', 'plan,expires_at'),
+   201→    sbSelect('profiles', 'id', { created_at: `gte.${sevenDaysAgo}` }),
+   202→  ])
+   203→
+   204→  const totalUsers = (profilesRes.data || []).length
+   205→  const subs = (subsRes.data || []) as { plan: string; expires_at: string | null }[]
+   206→  const proCount = subs.filter(s => s.plan === 'pro').length
+   207→  const freeCount = totalUsers - proCount
+   208→  const now = new Date()
+   209→  const activePro = subs.filter(s => s.plan === 'pro' && s.expires_at && new Date(s.expires_at) >= now).length
+   210→  const expiredPro = subs.filter(s => s.plan === 'pro' && s.expires_at && new Date(s.expires_at) < now).length
+   211→  const recentSignups = (recentRes.data || []).length
+   212→
+   213→  return json({
+   214→    data: { totalUsers, proCount, freeCount, monthlyRevenue: proCount * 29000, recentSignups, activePro, expiredPro },
+   215→  })
+   216→}
+   217→
+   218→// ─── Admin: Users ────────────────────────────────────────────────
+   219→async function handleAdminUsers(): Promise<NextResponse> {
+   220→  const [profilesRes, subsRes] = await Promise.all([
+   221→    sbSelect('profiles', '*'),
+   222→    sbSelect('subscriptions', 'user_id,plan,started_at,expires_at'),
+   223→  ])
+   224→
+   225→  const emailMap = await getEmailMap()
+   226→  const profiles = (profilesRes.data || []) as { id: string; user_id?: string; name?: string; created_at: string }[]
+   227→  const subsData = (subsRes.data || []) as { user_id: string; plan: string; started_at: string | null; expires_at: string | null }[]
+   228→
+   229→  const subMap = new Map<string, { plan: string; started_at: string | null; expires_at: string | null }>()
+   230→  for (const s of subsData) subMap.set(s.user_id, s)
+   231→
+   232→  const users = profiles.map(p => {
+   233→    const uid = p.user_id || p.id
+   234→    const sub = subMap.get(uid)
+   235→    return {
+   236→      user_id: uid,
+   237→      id: p.id,
+   238→      name: p.name || '—',
+   239→      email: emailMap.get(uid) || '—',
+   240→      plan: sub?.plan || 'free',
+   241→      created_at: p.created_at,
+   242→    }
+   243→  })
+   244→
+   245→  return json({ data: users })
+   246→}
+   247→
+   248→// ─── Admin: Subscriptions ────────────────────────────────────────
+   249→async function handleAdminSubscriptions(): Promise<NextResponse> {
+   250→  const { data, error } = await sbSelect('subscriptions', '*', )
+   251→  if (error) return json({ error }, 500)
+   252→
+   253→  const emailMap = await getEmailMap()
+   254→  const subs = (data || []).map((s: Record<string, unknown>) => ({
+   255→    ...s,
+   256→    email: emailMap.get(s.user_id as string) || '—',
+   257→  }))
+   258→
+   259→  return json({ data: subs })
+   260→}
+   261→
+   262→// ─── Admin: Subscription Update ──────────────────────────────────
+   263→async function handleAdminSubscriptionUpdate(req: NextRequest): Promise<NextResponse> {
+   264→  try {
+   265→    const body = await req.json()
+   266→    const userId = body.user_id as string
+   267→    const plan = body.plan as string
+   268→    const expiresAt = body.expires_at as string | undefined
+   269→
+   270→    if (!userId || !plan) return json({ error: 'user_id dan plan required' }, 400)
+   271→    if (plan !== 'free' && plan !== 'pro') return json({ error: "Plan harus 'free' atau 'pro'" }, 400)
+   272→
+   273→    // Check existing
+   274→    const { data: existing } = await sbSelect('subscriptions', 'id', { user_id: `eq.${userId}` })
+   275→
+   276→    if (existing && existing.length > 0) {
+   277→      const updateData: Record<string, unknown> = { plan, started_at: new Date().toISOString() }
+   278→      if (plan === 'pro') {
+   279→        updateData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString()
+   280→      } else {
+   281→        updateData.expires_at = null
+   282→      }
+   283→      const result = await sbUpdate('subscriptions', updateData, { user_id: `eq.${userId}` })
+   284→      if (result.error) return json({ error: result.error }, 500)
+   285→      return json({ data: result.data })
+   286→    } else {
+   287→      const insertData: Record<string, unknown> = { user_id: userId, plan }
+   288→      if (plan === 'pro') {
+   289→        insertData.expires_at = expiresAt || new Date(Date.now() + 30 * 86400000).toISOString()
+   290→      }
+   291→      const result = await sbInsert('subscriptions', insertData)
+   292→      if (result.error) return json({ error: result.error }, 500)
+   293→      return json({ data: result.data }, 201)
+   294→    }
+   295→  } catch {
+   296→    return json({ error: 'Request body tidak valid' }, 400)
+   297→  }
+   298→}
+   299→
+   300→// ─── Admin: Transactions ─────────────────────────────────────────
+   301→async function handleAdminTransactions(req: NextRequest): Promise<NextResponse> {
+   302→  const url = new URL(req.url)
+   303→  const limit = parseInt(url.searchParams.get('limit') || '50', 10)
+   304→  const offset = parseInt(url.searchParams.get('offset') || '0', 10)
+   305→
+   306→  let query = `${SUPABASE_URL}/rest/v1/transactions?select=*&order=occurred_at.desc&offset=${offset}&limit=${limit}`
+   307→
+   308→  const from = url.searchParams.get('from')
+   309→  const to = url.searchParams.get('to')
+   310→  const type = url.searchParams.get('type')
+   311→  if (from) query += `&occurred_at=gte.${from}`
+   312→  if (to) query += `&occurred_at=lte.${to}`
+   313→  if (type) query += `&type=eq.${type}`
+   314→
+   315→  const res = await fetch(query, { headers: adminHeaders() })
+   316→  const data = await res.json()
+   317→  if (!res.ok) return json({ error: data.message || 'Query failed' }, 500)
+   318→
+   319→  const emailMap = await getEmailMap()
+   320→  const txns = (data || []).map((t: Record<string, unknown>) => ({
+   321→    ...t,
+   322→    user_email: emailMap.get(t.user_id as string) || '—',
+   323→  }))
+   324→
+   325→  return json({ data: txns })
+   326→}
+   327→
+   328→// ─── Wallets ─────────────────────────────────────────────────────
+   329→async function handleWallets(req: NextRequest): Promise<NextResponse> {
+   330→  const url = new URL(req.url)
+   331→
+   332→  if (req.method === 'GET') {
+   333→    const userId = url.searchParams.get('user_id')
+   334→    if (!userId) return json({ error: 'user_id required' }, 400)
+   335→    const { data, error } = await sbSelect('wallets', '*', { user_id: `eq.${userId}` })
+   336→    if (error) return json({ error }, 500)
+   337→    return json({ data })
+   338→  }
+   339→
+   340→  if (req.method === 'POST') {
+   341→    try {
+   342→      const body = await req.json()
+   343→      const result = await sbInsert('wallets', body)
+   344→      if (result.error) return json({ error: result.error }, 500)
+   345→      return json({ data: result.data }, 201)
+   346→    } catch {
+   347→      return json({ error: 'Request body tidak valid' }, 400)
+   348→    }
+   349→  }
+   350→
+   351→  if (req.method === 'DELETE') {
+   352→    const id = url.searchParams.get('id')
+   353→    if (!id) return json({ error: 'id required' }, 400)
+   354→    const delUrl = `${SUPABASE_URL}/rest/v1/wallets?id=eq.${id}`
+   355→    const res = await fetch(delUrl, { method: 'DELETE', headers: adminHeaders() })
+   356→    if (!res.ok) return json({ error: 'Delete failed' }, 500)
+   357→    return json({ ok: true })
+   358→  }
+   359→
+   360→  return json({ error: 'Method not allowed' }, 405)
+   361→}
+   362→
+   363→// ─── Transactions ────────────────────────────────────────────────
+   364→async function handleTransactions(req: NextRequest): Promise<NextResponse> {
+   365→  const url = new URL(req.url)
+   366→
+   367→  if (req.method === 'GET') {
+   368→    const userId = url.searchParams.get('user_id')
+   369→    if (!userId) return json({ error: 'user_id required' }, 400)
+   370→
+   371→    let query = `${SUPABASE_URL}/rest/v1/transactions?select=*&user_id=eq.${userId}&order=occurred_at.desc`
+   372→    const from = url.searchParams.get('from')
+   373→    const to = url.searchParams.get('to')
+   374→    const type = url.searchParams.get('type')
+   375→    const category = url.searchParams.get('category')
+   376→    const wallet = url.searchParams.get('wallet')
+   377→    const limit = url.searchParams.get('limit')
+   378→
+   379→    if (from) query += `&occurred_at=gte.${from}`
+   380→    if (to) query += `&occurred_at=lte.${to}`
+   381→    if (type) query += `&type=eq.${type}`
+   382→    if (category) query += `&category=eq.${category}`
+   383→    if (wallet) query += `&wallet_id=eq.${wallet}`
+   384→    if (limit) query += `&limit=${limit}`
+   385→
+   386→    const res = await fetch(query, { headers: adminHeaders() })
+   387→    const data = await res.json()
+   388→    if (!res.ok) return json({ error: data.message || 'Query failed' }, 500)
+   389→    return json({ data })
+   390→  }
+   391→
+   392→  if (req.method === 'POST') {
+   393→    try {
+   394→      const body = await req.json()
+   395→      const result = await sbInsert('transactions', body)
+   396→      if (result.error) return json({ error: result.error }, 500)
+   397→      return json({ data: result.data }, 201)
+   398→    } catch {
+   399→      return json({ error: 'Request body tidak valid' }, 400)
+   400→    }
+   401→  }
+   402→
+   403→  if (req.method === 'DELETE') {
+   404→    const id = url.searchParams.get('id')
+   405→    if (!id) return json({ error: 'id required' }, 400)
+   406→    const delUrl = `${SUPABASE_URL}/rest/v1/transactions?id=eq.${id}`
+   407→    const res = await fetch(delUrl, { method: 'DELETE', headers: adminHeaders() })
+   408→    if (!res.ok) return json({ error: 'Delete failed' }, 500)
+   409→    return json({ ok: true })
+   410→  }
+   411→
+   412→  return json({ error: 'Method not allowed' }, 405)
+   413→}
+   414→
+   415→// ─── Debts ───────────────────────────────────────────────────────
+   416→async function handleDebts(req: NextRequest): Promise<NextResponse> {
+   417→  const url = new URL(req.url)
+   418→
+   419→  if (req.method === 'GET') {
+   420→    const userId = url.searchParams.get('user_id')
+   421→    if (!userId) return json({ error: 'user_id required' }, 400)
+   422→    const { data, error } = await sbSelect('debts', '*', { user_id: `eq.${userId}` })
+   423→    if (error) return json({ error }, 500)
+   424→    return json({ data })
+   425→  }
+   426→
+   427→  if (req.method === 'POST') {
+   428→    try {
+   429→      const body = await req.json()
+   430→      const result = await sbInsert('debts', body)
+   431→      if (result.error) return json({ error: result.error }, 500)
+   432→      return json({ data: result.data }, 201)
+   433→    } catch {
+   434→      return json({ error: 'Request body tidak valid' }, 400)
+   435→    }
+   436→  }
+   437→
+   438→  if (req.method === 'PATCH') {
+   439→    try {
+   440→      const body = await req.json()
+   441→      const { id, ...patch } = body
+   442→      if (!id) return json({ error: 'id required' }, 400)
+   443→      const result = await sbUpdate('debts', patch, { id: `eq.${id}` })
+   444→      if (result.error) return json({ error: result.error }, 500)
+   445→      return json({ data: result.data })
+   446→    } catch {
+   447→      return json({ error: 'Request body tidak valid' }, 400)
+   448→    }
+   449→  }
+   450→
+   451→  if (req.method === 'DELETE') {
+   452→    const id = url.searchParams.get('id')
+   453→    if (!id) return json({ error: 'id required' }, 400)
+   454→    const delUrl = `${SUPABASE_URL}/rest/v1/debts?id=eq.${id}`
+   455→    const res = await fetch(delUrl, { method: 'DELETE', headers: adminHeaders() })
+   456→    if (!res.ok) return json({ error: 'Delete failed' }, 500)
+   457→    return json({ ok: true })
+   458→  }
+   459→
+   460→  return json({ error: 'Method not allowed' }, 405)
+   461→}
+   462→
+   463→// ─── Subscription ────────────────────────────────────────────────
+   464→const PRO_FOREVER = '2099-12-31T23:59:59.999Z';
+   465→
+   466→async function handleSubscription(req: NextRequest): Promise<NextResponse> {
+   467→  const url = new URL(req.url)
+   468→
+   469→  if (req.method === 'GET') {
+   470→    const userId = url.searchParams.get('user_id')
+   471→    const email = (url.searchParams.get('email') || '').toLowerCase()
+   472→    if (!userId) return json({ error: 'user_id required' }, 400)
+   473→    // Admin akun: Pro selamanya, tanpa cek DB
+   474→    if (ADMIN_EMAIL && email === ADMIN_EMAIL.toLowerCase()) {
+   475→      return json({ data: { plan: 'pro', started_at: null, expires_at: PRO_FOREVER } })
+   476→    }
+   477→    const { data, error } = await sbSelect('subscriptions', '*', { user_id: `eq.${userId}` })
+   478→    if (error) return json({ error }, 500)
+   479→    if (!data || data.length === 0) {
+   480→      return json({ data: { plan: 'free', started_at: null, expires_at: null } })
+   481→    }
+   482→    return json({ data: data[0] })
+   483→  }
+   484→
+   485→  if (req.method === 'POST') {
+   486→    try {
+   487→      const body = await req.json()
+   488→      const userId = body.user_id as string
+   489→      const plan = body.plan as string
+   490→      const email = String(body.email || '').toLowerCase()
+   491→      if (!userId || !plan) return json({ error: 'user_id dan plan required' }, 400)
+   492→
+   493→      // Admin akun: paksa Pro selamanya (tidak bisa di-downgrade via endpoint ini)
+   494→      const isAdmin = ADMIN_EMAIL && email === ADMIN_EMAIL.toLowerCase()
+   495→      const effectivePlan = isAdmin ? 'pro' : plan
+   496→      const expiresAt = isAdmin || effectivePlan === 'pro'
+   497→        ? (isAdmin ? PRO_FOREVER : new Date(Date.now() + 30 * 86400000).toISOString())
+   498→        : null
+   499→
+   500→      const { data: existing } = await sbSelect('subscriptions', 'id', { user_id: `eq.${userId}` })
+   501→
+   502→      if (existing && existing.length > 0) {
+   503→        const result = await sbUpdate('subscriptions', { plan: effectivePlan, started_at: new Date().toISOString(), expires_at: expiresAt }, { user_id: `eq.${userId}` })
+   504→        if (result.error) return json({ error: result.error }, 500)
+   505→        return json({ data: result.data })
+   506→      } else {
+   507→        const result = await sbInsert('subscriptions', { user_id: userId, plan: effectivePlan, expires_at: expiresAt })
+   508→        if (result.error) return json({ error: result.error }, 500)
+   509→        return json({ data: result.data }, 201)
+   510→      }
+   511→    } catch {
+   512→      return json({ error: 'Request body tidak valid' }, 400)
+   513→    }
+   514→  }
+   515→
+   516→  return json({ error: 'Method not allowed' }, 405)
+   517→}
+   518→
+   519→// ─── Summary ─────────────────────────────────────────────────────
+   520→async function handleSummary(req: NextRequest): Promise<NextResponse> {
+   521→  const url = new URL(req.url)
+   522→  const userId = url.searchParams.get('user_id')
+   523→  if (!userId) return json({ error: 'user_id required' }, 400)
+   524→
+   525→  const [txnsRes, debtsRes] = await Promise.all([
+   526→    sbSelect('transactions', '*', { user_id: `eq.${userId}` }),
+   527→    sbSelect('debts', '*', { user_id: `eq.${userId}` }),
+   528→  ])
+   529→
+   530→  const transactions = (txnsRes.data || []) as { type: string; amount: number; occurred_at: string }[]
+   531→  const debts = (debtsRes.data || []) as { type: string; status: string; amount: number; paid_amount: number }[]
+   532→
+   533→  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+   534→  const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+   535→  const activeBalance = totalIncome - totalExpenses
+   536→  const totalDebt = debts.filter(d => d.type === 'debt' && d.status !== 'paid').reduce((s, d) => s + (d.amount - d.paid_amount), 0)
+   537→  const totalReceivable = debts.filter(d => d.type === 'receivable' && d.status !== 'paid').reduce((s, d) => s + (d.amount - d.paid_amount), 0)
+   538→
+   539→  return json({ activeBalance, totalIncome, totalExpenses, totalDebt, totalReceivable })
+   540→}
+   541→
+   542→// ─── Categorize ──────────────────────────────────────────────────
+   543→const CATEGORY_RULES: { keywords: string[]; category: string; type: 'income' | 'expense' }[] = [
+   544→  { keywords: ['food', 'lunch', 'dinner', 'breakfast', 'cafe', 'coffee', 'grocery', 'makan', 'beli', 'restaurant'], category: 'F&B', type: 'expense' },
+   545→  { keywords: ['gas', 'fuel', 'uber', 'taxi', 'bus', 'train', 'parking', 'transport', 'ojek', 'bensin'], category: 'Transportation', type: 'expense' },
+   546→  { keywords: ['rent', 'mortgage', 'electricity', 'water', 'utility', 'internet', 'listrik', 'sewa'], category: 'Housing', type: 'expense' },
+   547→  { keywords: ['movie', 'netflix', 'spotify', 'game', 'entertainment', 'hiburan'], category: 'Entertainment', type: 'expense' },
+   548→  { keywords: ['shop', 'shopping', 'clothes', 'belanja', 'purchase'], category: 'Shopping', type: 'expense' },
+   549→  { keywords: ['doctor', 'hospital', 'medicine', 'health', 'dokter', 'obat'], category: 'Healthcare', type: 'expense' },
+   550→  { keywords: ['salary', 'wage', 'paycheck', 'bonus', 'freelance', 'income', 'gaji', 'upah'], category: 'Income', type: 'income' },
+   551→  { keywords: ['transfer', 'deposit', 'withdrawal'], category: 'Transfer', type: 'expense' },
+   552→  { keywords: ['gift', 'donation', 'hadiah', 'sedekah'], category: 'Gift', type: 'expense' },
+   553→]
+   554→
+   555→function autoCategorize(desc: string): { category: string; type: 'income' | 'expense' } {
+   556→  const lower = desc.toLowerCase()
+   557→  for (const rule of CATEGORY_RULES) {
+   558→    for (const kw of rule.keywords) {
+   559→      if (lower.includes(kw)) return { category: rule.category, type: rule.type }
+   560→    }
+   561→  }
+   562→  return { category: 'Other', type: 'expense' }
+   563→}
+   564→
+   565→async function handleCategorize(req: NextRequest): Promise<NextResponse> {
+   566→  try {
+   567→    const body = await req.json()
+   568→    const description = body.description as string
+   569→    if (!description) return json({ error: 'Missing description' }, 400)
+   570→    return json(autoCategorize(description))
+   571→  } catch {
+   572→    return json({ error: 'Request body tidak valid' }, 400)
+   573→  }
+   574→}
+   575→
+   576→// ─── Sync ────────────────────────────────────────────────────────
+   577→async function handleSync(req: NextRequest): Promise<NextResponse> {
+   578→  const url = new URL(req.url)
+   579→
+   580→  if (req.method === 'GET') {
+   581→    const userId = url.searchParams.get('user_id')
+   582→    if (!userId) return json({ error: 'user_id required' }, 400)
+   583→
+   584→    const [wallets, transactions, debts, budgets, customCats, subscription] = await Promise.all([
+   585→      sbSelect('wallets', '*', { user_id: `eq.${userId}` }),
+   586→      sbSelect('transactions', '*', { user_id: `eq.${userId}` }),
+   587→      sbSelect('debts', '*', { user_id: `eq.${userId}` }),
+   588→      sbSelect('budgets', '*', { user_id: `eq.${userId}` }),
+   589→      sbSelect('custom_categories', '*', { user_id: `eq.${userId}` }),
+   590→      sbSelect('subscriptions', '*', { user_id: `eq.${userId}` }),
+   591→    ])
+   592→
+   593→    return json({
+   594→      data: {
+   595→        wallets: wallets.data || [],
+   596→        transactions: transactions.data || [],
+   597→        debts: debts.data || [],
+   598→        budgets: (budgets.data || []).reduce((acc: Record<string, number>, b: Record<string, unknown>) => { acc[b.category as string] = b.amount as number; return acc }, {}),
+   599→        customCats: (customCats.data || []).map((c: Record<string, unknown>) => ({ name: c.name, type: c.type, color: c.color, kw: c.keywords })),
+   600→        subscription: (subscription.data || [])[0] || { plan: 'free' },
+   601→      },
+   602→    })
+   603→  }
+   604→
+   605→  if (req.method === 'POST') {
+   606→    try {
+   607→      const body = await req.json()
+   608→      const userId = body.user_id as string
+   609→      const syncData = body.data as Record<string, unknown>
+   610→      if (!userId || !syncData) return json({ error: 'user_id dan data required' }, 400)
+   611→
+   612→      // Check Pro plan
+   613→      const { data: subs } = await sbSelect('subscriptions', 'plan', { user_id: `eq.${userId}` })
+   614→      const sub = (subs || [])[0] as { plan: string } | undefined
+   615→      if (sub?.plan !== 'pro') return json({ error: 'Sinkronisasi cloud cuma untuk paket Pro.' }, 403)
+   616→
+   617→      const results: Record<string, unknown> = {}
+   618→
+   619→      // Upsert wallets
+   620→      if (Array.isArray(syncData.wallets) && syncData.wallets.length > 0) {
+   621→        const wallets = (syncData.wallets as Record<string, unknown>[]).map(w => ({
+   622→          id: w.id, user_id: userId, name: w.name, color: w.color || '#C9A962', initial_balance: w.initial || 0,
+   623→        }))
+   624→        const res = await fetch(`${SUPABASE_URL}/rest/v1/wallets`, {
+   625→          method: 'POST',
+   626→          headers: { ...adminHeaders(), Prefer: 'resolution=merge-duplicates' },
+   627→          body: JSON.stringify(wallets),
+   628→        })
+   629→        if (res.ok) results.wallets = await res.json()
+   630→      }
+   631→
+   632→      // Upsert transactions
+   633→      if (Array.isArray(syncData.transactions) && syncData.transactions.length > 0) {
+   634→        const txns = (syncData.transactions as Record<string, unknown>[]).map(t => ({
+   635→          id: t.id, user_id: userId, wallet_id: t.wallet_id, type: t.type, category: t.category,
+   636→          description: t.description, amount: t.amount, occurred_at: t.occurred_at,
+   637→          source: t.source || 'manual', ref_id: t.ref_id || null, recur: t.recur || 'none', recur_parent: t.recur_parent || null,
+   638→        }))
+   639→        const res = await fetch(`${SUPABASE_URL}/rest/v1/transactions`, {
+   640→          method: 'POST',
+   641→          headers: { ...adminHeaders(), Prefer: 'resolution=merge-duplicates' },
+   642→          body: JSON.stringify(txns),
+   643→        })
+   644→        if (res.ok) results.transactions = await res.json()
+   645→      }
+   646→
+   647→      // Upsert debts
+   648→      if (Array.isArray(syncData.debts) && syncData.debts.length > 0) {
+   649→        const debts = (syncData.debts as Record<string, unknown>[]).map(d => ({
+   650→          id: d.id, user_id: userId, name: d.name, type: d.type, amount: d.amount,
+   651→          paid_amount: d.paid_amount || 0, due_date: d.due_date || null, note: d.note || '',
+   652→          status: d.status || 'unpaid', settled_at: d.settled_at || null,
+   653→        }))
+   654→        const res = await fetch(`${SUPABASE_URL}/rest/v1/debts`, {
+   655→          method: 'POST',
+   656→          headers: { ...adminHeaders(), Prefer: 'resolution=merge-duplicates' },
+   657→          body: JSON.stringify(debts),
+   658→        })
+   659→        if (res.ok) results.debts = await res.json()
+   660→      }
+   661→
+   662→      return json({ ok: true, synced: Object.keys(results) })
+   663→    } catch {
+   664→      return json({ error: 'Request body tidak valid' }, 400)
+   665→    }
+   666→  }
+   667→
+   668→  return json({ error: 'Method not allowed' }, 405)
+   669→}
+   670→
+   671→// ─── Payment: Create ─────────────────────────────────────────────
+   672→async function handlePaymentCreate(req: NextRequest): Promise<NextResponse> {
+   673→  try {
+   674→    const body = await req.json()
+   675→    const userId = body.user_id as string
+   676→    const email = body.email as string
+   677→    const name = (body.name as string) || 'Saya'
+   678→    if (!userId) return json({ error: 'user_id required' }, 400)
+   679→
+   680→    const midtransKey = getEnv('MIDTRANS_SERVER_KEY')
+   681→    if (!midtransKey || midtransKey.includes('placeholder')) {
+   682→      return json({ error: 'Midtrans belum dikonfigurasi. Set MIDTRANS_SERVER_KEY di .env' }, 503)
+   683→    }
+   684→
+   685→    const isProd = getEnv('MIDTRANS_IS_PRODUCTION') === 'true'
+   686→    const baseUrl = isProd
+   687→      ? 'https://app.midtrans.com/snap/v1/transactions'
+   688→      : 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+   689→
+   690→    const orderId = `ARUS-PRO-${userId.slice(0, 8)}-${Date.now()}`
+   691→    const payload = {
+   692→      transaction_details: { order_id: orderId, gross_amount: 29000 },
+   693→      item_details: [{ id: 'pro-monthly', price: 29000, quantity: 1, name: 'Arus Pro — Bulanan', category: 'Subscription' }],
+   694→      customer_details: { first_name: name, email: email || undefined },
+   695→      metadata: { user_id: userId, plan: 'pro' },
+   696→    }
+   697→
+   698→    const authKey = Buffer.from(midtransKey + ':').toString('base64')
+   699→    const res = await fetch(baseUrl, {
+   700→      method: 'POST',
+   701→      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Basic ${authKey}` },
+   702→      body: JSON.stringify(payload),
+   703→    })
+   704→    const data = await res.json()
+   705→    if (!res.ok) return json({ error: data.error_messages?.[0] || 'Midtrans error' }, 400)
+   706→
+   707→    // Save pending order
+   708→    await fetch(`${SUPABASE_URL}/rest/v1/subscriptions`, {
+   709→      method: 'POST',
+   710→      headers: { ...adminHeaders(), Prefer: 'resolution=merge-duplicates' },
+   711→      body: JSON.stringify({ user_id: userId, plan: 'free', payment_method: 'midtrans', transaction_id: orderId }),
+   712→    })
+   713→
+   714→    return json({ token: data.token, redirect_url: data.redirect_url, order_id: orderId })
+   715→  } catch (e) {
+   716→    return json({ error: 'Gagal membuat pembayaran' }, 500)
+   717→  }
+   718→}
+   719→
+   720→// ═══════════════════════════════════════════════════════════════════
+   721→// MAIN ROUTE HANDLER
+   722→// ═══════════════════════════════════════════════════════════════════
+   723→
+   724→export async function GET(req: NextRequest) {
+   725→  return handleRequest(req)
+   726→}
+   727→
+   728→export async function POST(req: NextRequest) {
+   729→  return handleRequest(req)
+   730→}
+   731→
+   732→export async function PUT(req: NextRequest) {
+   733→  return handleRequest(req)
+   734→}
+   735→
+   736→export async function PATCH(req: NextRequest) {
+   737→  return handleRequest(req)
+   738→}
+   739→
+   740→export async function DELETE(req: NextRequest) {
+   741→  return handleRequest(req)
+   742→}
+   743→
+   744→async function handleRequest(req: NextRequest): Promise<NextResponse> {
+   745→  // Check if Supabase is configured
+   746→  if (!isConfigured()) {
+   747→    return json({
+   748→      error: 'Supabase belum dikonfigurasi. Tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di file .env',
+   749→      setup: true,
+   750→    }, 503)
+   751→  }
+   752→
+   753→  const url = new URL(req.url)
+   754→  const pathParts = url.pathname.replace('/api/', '').split('/')
+   755→  const path = '/' + pathParts.join('/')
+   756→
+   757→  try {
+   758→    // ─── Auth routes ───
+   759→    if (path === '/auth/login') return await handleLogin(req)
+   760→    if (path === '/auth/signup') return await handleSignup(req)
+   761→    if (path === '/auth/me') return await handleAuthMe(req)
+   762→    if (path === '/auth/logout') return await handleLogout(req)
+   763→
+   764→    // ─── Admin routes (require admin verification) ───
+   765→    if (path.startsWith('/admin')) {
+   766→      const admin = await verifyAdmin(req)
+   767→      if (!admin) return json({ error: 'Akses ditolak. Halaman ini hanya untuk admin.' }, 403)
+   768→
+   769→      if (path === '/admin/stats') return await handleAdminStats()
+   770→      if (path === '/admin/users') return await handleAdminUsers()
+   771→      if (path === '/admin/subscriptions') return await handleAdminSubscriptions()
+   772→      if (path === '/admin/subscription/update') return await handleAdminSubscriptionUpdate(req)
+   773→      if (path === '/admin/transactions') return await handleAdminTransactions(req)
+   774→      return json({ error: 'Admin endpoint not found' }, 404)
+   775→    }
+   776→
+   777→    // ─── Data routes ───
+   778→    if (path === '/wallets' || path.startsWith('/wallets')) return await handleWallets(req)
+   779→    if (path === '/transactions' || path.startsWith('/transactions')) return await handleTransactions(req)
+   780→    if (path === '/debts' || path.startsWith('/debts')) return await handleDebts(req)
+   781→    if (path === '/subscription') return await handleSubscription(req)
+   782→    if (path === '/summary') return await handleSummary(req)
+   783→    if (path === '/categorize') return await handleCategorize(req)
+   784→    if (path === '/sync') return await handleSync(req)
+   785→    if (path === '/payment/create') return await handlePaymentCreate(req)
+   786→
+   787→    // ─── Root ───
+   788→    if (path === '/' || path === '') return json({ message: 'Arus Kas API v3.1', status: 'ok' })
+   789→
+   790→    return json({ error: 'Not found' }, 404)
+   791→  } catch (err: unknown) {
+   792→    const msg = err instanceof Error ? err.message : 'Server error'
+   793→    return json({ error: msg }, 500)
+   794→  }
+   795→}
+   796→

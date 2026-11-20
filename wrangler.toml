@@ -3,9 +3,11 @@ main = "worker/index.ts"
 compatibility_date = "2024-09-25"
 compatibility_flags = ["nodejs_compat"]
 
-# Build: generate Next.js static export before deploying
+# Build: kumpulkan aset statis dari public/ ke out/ (arsitektur pure Workers:
+# worker/index.ts menangani /api/*, out/ hanya berisi file statis).
+# TIDAK menjalankan next build — output:export bentrok dengan route API force-dynamic.
 [build]
-command = "bun run build"
+command = "mkdir -p out && cp -r public/. out/ && printf '<!DOCTYPE html><html lang=\"id\"><head><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0;url=/arus.html\"><title>Arus</title></head><body>Membuka aplikasi Arus...</body></html>' > out/index.html"
 
 # Static assets (landing page + arus.html + admin.html + _next/static)
 [assets]
@@ -14,6 +16,9 @@ binding = "ASSETS"
 
 [vars]
 SUPABASE_URL = "https://evntvbqrprizgqogjyva.supabase.co"
+# Publishable key (anon baru) — memang dirancang publik, aman di-commit.
+# Key JWT lama sudah dicabut Supabase karena bocor; worker mem-prioritaskan key ini.
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_vvSBUy-g0ZlCSRDqM1_H4A_Qt6OUPpo"
 MIDTRANS_IS_PRODUCTION = "false"
 ADMIN_EMAIL = "riskiakbarp123@gmail.com"
 

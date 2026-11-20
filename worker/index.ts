@@ -15,7 +15,8 @@ interface Env {
   arus_kv: KVNamespace;            // Rate limiting, session cache, feature flags
   // R2 (ARUS_STORAGE) skipped — not bound. All /storage/* routes return 503.
   SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
+  SUPABASE_PUBLISHABLE_KEY?: string; // key baru format sb_publishable_... (publik, aman di [vars])
+  SUPABASE_ANON_KEY?: string;        // key lama (JWT) — fallback jika publishable tidak ada
   SUPABASE_SERVICE_KEY: string;
   MIDTRANS_SERVER_KEY: string;
   MIDTRANS_IS_PRODUCTION: string; // "true" or "false"
@@ -64,6 +65,12 @@ function getParams(url: URL): Record<string, string> {
   return p;
 }
 
+// apikey untuk endpoint auth/REST anon — pakai publishable key baru bila ada,
+// karena key JWT lama sudah dicabut Supabase (leak di repo publik)
+function anonKey(env: Env): string {
+  return env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "";
+}
+
 // ─── Bearer Auth (fix S1/S2/S5) ─────────────────────────────────
 // user_id SELALU berasal dari token Supabase, tidak pernah dari body/query.
 async function getUserFromToken(req: Request, env: Env): Promise<{ userId: string; email: string } | null> {
@@ -77,7 +84,7 @@ async function getUserFromToken(req: Request, env: Env): Promise<{ userId: strin
   if (cached) return cached;
 
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env) },
   });
   if (!res.ok) return null;
   const user = await res.json() as { id?: string; email?: string };
@@ -143,7 +150,7 @@ async function verifyAdmin(req: Request, env: Env): Promise<{ userId: string; em
   // Verifikasi SELALU langsung ke Supabase — tidak percaya session cache KV.
   // (Dulu KV bisa ditulis publik lewat /api/cache generik — fix S3.)
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env) },
   });
   if (!res.ok) return null;
   const user = await res.json() as { id?: string; email?: string };
@@ -216,7 +223,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     let emailMap = new Map<string, string>();
     try {
       const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
-        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
       });
       if (authRes.ok) {
         const authData = await authRes.json() as { users: { id: string; email: string }[] };
@@ -261,7 +268,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     if (!userId) {
       try {
         const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
-          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
         });
         if (authRes.ok) {
           const authData = await authRes.json() as { users: { id: string; email: string }[] };
@@ -320,7 +327,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     let emailMap = new Map<string, string>();
     try {
       const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
-        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
       });
       if (authRes.ok) {
         const authData = await authRes.json() as { users: { id: string; email: string }[] };
@@ -367,7 +374,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     if (userIds.length > 0) {
       try {
         const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?limit=1000`, {
-          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+          headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
         });
         if (authRes.ok) {
           const authData = await authRes.json() as { users: { id: string; email: string }[] };
@@ -400,7 +407,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     try {
       await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+        headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
       });
     } catch { /* continue even if auth delete fails */ }
 
@@ -433,7 +440,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     // Update user's app_metadata to ban them
     const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: "PUT",
-      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env), "Content-Type": "application/json" },
       body: JSON.stringify({ app_metadata: { banned: ban } }),
     });
     if (!authRes.ok) {
@@ -456,7 +463,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     // Send password reset email via Supabase
     // First get the user's email
     const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: env.SUPABASE_ANON_KEY },
+      headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, apikey: anonKey(env) },
     });
     if (!authRes.ok) return json({ error: "User tidak ditemukan" }, 404);
     const userData = await authRes.json() as { email: string };
@@ -465,7 +472,7 @@ async function handleAdmin(req: Request, env: Env, path: string): Promise<Respon
     // Send recovery email
     await fetch(`${env.SUPABASE_URL}/auth/v1/recover`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+      headers: { "Content-Type": "application/json", apikey: anonKey(env) },
       body: JSON.stringify({ email: userData.email }),
     });
 
@@ -660,6 +667,12 @@ async function handleSubscription(req: Request, env: Env): Promise<Response> {
   const userId = user.userId; // dari token, bukan query
   const admin = getAdmin(env);
 
+  // Guard admin: email admin selalu Pro selamanya (sinkron dengan /api/subscription Next.js)
+  const adminEmail = env.ADMIN_EMAIL || "riskiakbarp123@gmail.com";
+  if (user.email && user.email.toLowerCase() === adminEmail.toLowerCase()) {
+    return json({ data: { plan: "pro", started_at: null, expires_at: "2099-12-31T23:59:59.999Z" } });
+  }
+
   if (req.method === "GET") {
     const { data, error } = await admin.from("subscriptions").select("*").eq("user_id", userId).single();
     if (error && error.code === "PGRST116") {
@@ -753,7 +766,7 @@ async function handleLogin(req: Request, env: Env): Promise<Response> {
 
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+    headers: { "Content-Type": "application/json", apikey: anonKey(env) },
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
@@ -774,7 +787,7 @@ async function handleSignup(req: Request, env: Env): Promise<Response> {
 
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/signup`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+    headers: { "Content-Type": "application/json", apikey: anonKey(env) },
     body: JSON.stringify({ email, password, data: { name: name || "Saya" } }),
   });
   const data = await res.json();
@@ -870,7 +883,7 @@ async function handleAuthMe(req: Request, env: Env): Promise<Response> {
   }
   const token = authHeader.replace("Bearer ", "");
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env) },
   });
   const data = await res.json();
   if (!res.ok) return json({ error: data.msg || "Invalid token" }, res.status);
@@ -890,7 +903,7 @@ async function handleLogout(req: Request, env: Env): Promise<Response> {
 
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/logout`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env) },
   });
   return json({ ok: true });
 }
@@ -904,7 +917,7 @@ async function handleForgotPassword(req: Request, env: Env): Promise<Response> {
 
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/recover`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: env.SUPABASE_ANON_KEY },
+    headers: { "Content-Type": "application/json", apikey: anonKey(env) },
     body: JSON.stringify({ email }),
   });
   // Supabase always returns 200 for password reset (security: don't reveal if email exists)
@@ -922,13 +935,13 @@ async function handleResetPassword(req: Request, env: Env): Promise<Response> {
 
   // Verify the recovery token and update password
   const verifyRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env) },
   });
   if (!verifyRes.ok) return json({ error: "Token tidak valid atau sudah kadaluarsa" }, 401);
 
   const updateRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
     method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey(env), "Content-Type": "application/json" },
     body: JSON.stringify({ password: newPassword }),
   });
   if (!updateRes.ok) {
@@ -1156,10 +1169,10 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   try {
     // Check critical env vars are set
-    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_SERVICE_KEY) {
+    if (!env.SUPABASE_URL || !anonKey(env) || !env.SUPABASE_SERVICE_KEY) {
       const missing: string[] = [];
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
-      if (!env.SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
+      if (!anonKey(env)) missing.push("SUPABASE_PUBLISHABLE_KEY (atau SUPABASE_ANON_KEY lama)");
       if (!env.SUPABASE_SERVICE_KEY) missing.push("SUPABASE_SERVICE_KEY");
       return json({
         error: `Worker secrets belum dikonfigurasi: ${missing.join(", ")}. Set via dashboard → Worker → Settings → Variables and Secrets.`,

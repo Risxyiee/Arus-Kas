@@ -29,10 +29,19 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
 
     if (!res.ok) {
-      return NextResponse.json(
-        { error: data.error_description || data.msg || "Signup gagal" },
-        { status: res.status }
-      );
+      const raw = String(data.error_description || data.msg || data.message || data.error || "Signup gagal");
+      const isKeyIssue = /invalid api key/i.test(raw);
+      let error: string;
+      if (isKeyIssue) {
+        error = "Server pendaftaran sedang bermasalah (API key Supabase tidak valid). Coba lagi nanti atau hubungi admin.";
+      } else if (/already registered|already exists/i.test(raw)) {
+        error = "Email sudah terdaftar — silakan masuk saja.";
+      } else if (/password/i.test(raw) && /short|weak|at least/i.test(raw)) {
+        error = "Password terlalu pendek — minimal 6 karakter.";
+      } else {
+        error = raw;
+      }
+      return NextResponse.json({ error, serverIssue: isKeyIssue }, { status: res.status });
     }
 
     return NextResponse.json(data, { status: 200 });

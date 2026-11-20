@@ -28,10 +28,19 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
 
     if (!res.ok) {
-      return NextResponse.json(
-        { error: data.error_description || data.msg || "Login gagal" },
-        { status: res.status }
-      );
+      const raw = String(data.error_description || data.msg || data.message || data.error || "Login gagal");
+      const isKeyIssue = /invalid api key/i.test(raw) || (res.status === 401 && !data.error_description && !data.msg && !data.error);
+      let error: string;
+      if (isKeyIssue) {
+        error = "Server login sedang bermasalah (API key Supabase tidak valid). Gunakan 'Masuk mode lokal' di bawah — data tetap aman di perangkat.";
+      } else if (/invalid login credentials/i.test(raw)) {
+        error = "Email atau password salah.";
+      } else if (/email not confirmed/i.test(raw)) {
+        error = "Email belum dikonfirmasi — cek inbox kamu, lalu coba masuk lagi.";
+      } else {
+        error = raw;
+      }
+      return NextResponse.json({ error, serverIssue: isKeyIssue }, { status: res.status });
     }
 
     return NextResponse.json(data, { status: 200 });

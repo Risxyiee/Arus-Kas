@@ -814,8 +814,29 @@ function openAuthModal(mode='login'){
   '<input id="auth-pass" type="password" placeholder="Password" minlength="6" style="width:100%;padding:10px;margin-bottom:4px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px">'+
   (isLogin?'<p style="margin-top:4px;margin-bottom:12px;font-size:12px;text-align:right"><a onclick="openForgotModal()" style="color:var(--mut);cursor:pointer">Lupa password?</a></p>':'<div style="margin-bottom:12px"></div>')+
   '<button onclick="doAuth(\''+mode+'\')" class="btn primary" style="width:100%;padding:12px;border-radius:8px;font-size:15px">'+(isLogin?'Masuk':'Daftar')+'</button>'+
+  (isLogin?'<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px"><div style="flex:1;height:1px;background:var(--line)"></div><span class="xs muted">atau</span><div style="flex:1;height:1px;background:var(--line)"></div></div>'+
+  '<button onclick="doLocalLogin()" class="btn" style="width:100%;padding:10px;border-radius:8px;font-size:13px">Masuk mode lokal (tanpa server)</button>'+
+  '<p class="xs muted" style="margin-top:8px">Data tetap aman di perangkat ini. Sinkron cloud menyusul setelah server pulih.</p>':'')+
   (isLogin?'<p style="margin-top:12px;font-size:12px;color:var(--mut)">Belum punya akun? <a onclick="openAuthModal(\'signup\')" style="color:var(--pos);cursor:pointer">Daftar</a></p>':'')+
   '</div>');
+}
+
+/* ── Local login fallback (server tidak tersedia) ── */
+function doLocalLogin(){
+ const email=(document.getElementById('auth-email')?.value||'').trim().toLowerCase();
+ const stored=JSON.parse(localStorage.getItem('arus-current-user')||'null');
+ const finalEmail=email||(stored&&stored.email)||'';
+ if(!finalEmail){toast('Isi email dulu untuk masuk mode lokal.','error');return;}
+ currentUser={id:'local-'+finalEmail,email:finalEmail,name:(stored&&stored.email===finalEmail&&stored.name)||finalEmail.split('@')[0]};
+ authToken=null;
+ localStorage.setItem('arus-auth-token','');
+ localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
+ closeModal();
+ if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};}
+ save();
+ toast('Masuk mode lokal sebagai '+finalEmail+' 👋','info');
+ render();
+ updateProfileUI();
 }
 
 async function doAuth(mode){
@@ -826,7 +847,14 @@ async function doAuth(mode){
  const endpoint=mode==='login'?'/auth/login':'/auth/signup';
  const body=mode==='login'?{email,password:pass}:{email,password:pass,name:name||'Saya'};
  const r=await api(endpoint,{method:'POST',body:JSON.stringify(body)});
- if(r.error){toast(r.error);return;}
+ if(r.error){
+  toast(r.error,'error');
+  if(r.serverIssue){
+   const localBtn=document.querySelector('#modal-root button[onclick="doLocalLogin()"]');
+   if(localBtn){localBtn.classList.add('primary');localBtn.scrollIntoView({behavior:'smooth',block:'center'});}
+  }
+  return;
+ }
  // Signup may require email confirmation — no access_token yet
  if(!r.access_token){
   closeModal();
@@ -2515,7 +2543,21 @@ function afterLangganan(){
  $$('[data-downgrade]').forEach(b=>b.onclick=()=>{confirmModal('Kembali ke Gratis?','Fitur Pro akan terkunci. Data tetap aman.',cancelPlan);});
  /* Load payment history from API */
  if(currentUser&&$('#pay-history')){
-  api('/payment/history?user_id='+currentUser.id).then(r=>{
+  const isLocalUser=!authToken;
+  if(isLocalUser){
+   /* Mode lokal: tidak ada riwayat pembayaran server — tampilkan info lokal saja */
+   const el=$('#pay-history');
+   let html='';
+   if(db.subscription.transactionId){
+    html+='<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+     '<span class="small grow" style="font-weight:600">'+esc(db.subscription.transactionId)+'</span>'+
+     '<span class="xs muted">'+(db.subscription.billing||'bulanan')+'</span>'+
+     '<span class="tagx" style="background:var(--pos-soft);color:var(--pos)">Aktif</span></div>';
+   }
+   if(isAdminUser()) html+='<div class="small muted" style="margin-top:6px">Paket admin aktif selamanya — tanpa tagihan.</div>';
+   else if(!html) html='<div class="small muted">Belum ada riwayat pembayaran.</div>';
+   el.innerHTML=html;
+  } else api('/payment/history?user_id='+currentUser.id).then(r=>{
    const el=$('#pay-history');
    if(!el)return;
    if(r.error){el.innerHTML='<div class="small muted">Gagal memuat riwayat.</div>';return;}

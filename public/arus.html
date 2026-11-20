@@ -409,7 +409,7 @@ const ADMIN_EMAILS=['riskiakbarp123@gmail.com'];
 function isAdminUser(){return !!(currentUser&&currentUser.email&&ADMIN_EMAILS.indexOf(String(currentUser.email).toLowerCase())>-1);}
 const PLANS={
  free:{id:'free',name:'Gratis',price:0,period:'',color:'plan-free',
-  wallets:2,debts:5,budgets:3,recurring:false,cloudSync:false,
+  wallets:2,debts:10,budgets:3,recurring:false,cloudSync:false,
   customCats:3,invoice:false,plReport:false,brandedPdf:false,
   notifPush:false},
  pro:{id:'pro',name:'Pro',price:29000,period:'/bln',color:'plan-pro',
@@ -2445,7 +2445,7 @@ function pageLangganan(){
  const featureRows=[
   featRow('Transaksi',Infinity,Infinity),
   featRow('Dompet',2,Infinity),
-  featRow('Utang & piutang aktif',5,Infinity),
+  featRow('Utang & piutang aktif',10,Infinity),
   featRow('Budget per kategori',3,Infinity),
   featRow('Kategori kustom',3,Infinity),
   featRow('Transaksi berulang',false,true),
@@ -2463,7 +2463,7 @@ function pageLangganan(){
   'PDF dengan logo usaha sendiri','Notifikasi jatuh tempo',
   'Buat & kirim invoice ke klien'];
  const freeFeatures=[
-  'Transaksi unlimited','2 dompet','5 utang/piutang aktif',
+  'Transaksi unlimited','2 dompet','10 utang/piutang aktif',
   '3 budget per kategori','3 kategori kustom','Laporan dasar','Ekspor PDF/CSV'];
  return '<div style="text-align:center;padding:8px 0 16px">'+
   '<div style="display:inline-flex;color:var(--pos);margin-bottom:4px">'+ic('crown','w20')+'</div>'+

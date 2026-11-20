@@ -461,12 +461,19 @@ async function handleDebts(req: NextRequest): Promise<NextResponse> {
 }
 
 // ─── Subscription ────────────────────────────────────────────────
+const PRO_FOREVER = '2099-12-31T23:59:59.999Z';
+
 async function handleSubscription(req: NextRequest): Promise<NextResponse> {
   const url = new URL(req.url)
 
   if (req.method === 'GET') {
     const userId = url.searchParams.get('user_id')
+    const email = (url.searchParams.get('email') || '').toLowerCase()
     if (!userId) return json({ error: 'user_id required' }, 400)
+    // Admin akun: Pro selamanya, tanpa cek DB
+    if (ADMIN_EMAIL && email === ADMIN_EMAIL.toLowerCase()) {
+      return json({ data: { plan: 'pro', started_at: null, expires_at: PRO_FOREVER } })
+    }
     const { data, error } = await sbSelect('subscriptions', '*', { user_id: `eq.${userId}` })
     if (error) return json({ error }, 500)
     if (!data || data.length === 0) {
@@ -480,17 +487,24 @@ async function handleSubscription(req: NextRequest): Promise<NextResponse> {
       const body = await req.json()
       const userId = body.user_id as string
       const plan = body.plan as string
+      const email = String(body.email || '').toLowerCase()
       if (!userId || !plan) return json({ error: 'user_id dan plan required' }, 400)
 
+      // Admin akun: paksa Pro selamanya (tidak bisa di-downgrade via endpoint ini)
+      const isAdmin = ADMIN_EMAIL && email === ADMIN_EMAIL.toLowerCase()
+      const effectivePlan = isAdmin ? 'pro' : plan
+      const expiresAt = isAdmin || effectivePlan === 'pro'
+        ? (isAdmin ? PRO_FOREVER : new Date(Date.now() + 30 * 86400000).toISOString())
+        : null
+
       const { data: existing } = await sbSelect('subscriptions', 'id', { user_id: `eq.${userId}` })
-      const expiresAt = plan === 'pro' ? new Date(Date.now() + 30 * 86400000).toISOString() : null
 
       if (existing && existing.length > 0) {
-        const result = await sbUpdate('subscriptions', { plan, started_at: new Date().toISOString(), expires_at: expiresAt }, { user_id: `eq.${userId}` })
+        const result = await sbUpdate('subscriptions', { plan: effectivePlan, started_at: new Date().toISOString(), expires_at: expiresAt }, { user_id: `eq.${userId}` })
         if (result.error) return json({ error: result.error }, 500)
         return json({ data: result.data })
       } else {
-        const result = await sbInsert('subscriptions', { user_id: userId, plan, expires_at: expiresAt })
+        const result = await sbInsert('subscriptions', { user_id: userId, plan: effectivePlan, expires_at: expiresAt })
         if (result.error) return json({ error: result.error }, 500)
         return json({ data: result.data }, 201)
       }

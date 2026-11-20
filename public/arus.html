@@ -405,6 +405,8 @@ function smartScan(desc,type){
  return null;}
 
 /* ══════ PLANS & Monetisasi ══════ */
+const ADMIN_EMAILS=['riskiakbarp123@gmail.com'];
+function isAdminUser(){return !!(currentUser&&currentUser.email&&ADMIN_EMAILS.indexOf(String(currentUser.email).toLowerCase())>-1);}
 const PLANS={
  free:{id:'free',name:'Gratis',price:0,period:'',color:'plan-free',
   wallets:2,debts:5,budgets:3,recurring:false,cloudSync:false,
@@ -415,7 +417,7 @@ const PLANS={
   customCats:Infinity,invoice:true,plReport:true,brandedPdf:true,
   notifPush:true}};
 const PLAN_ORDER=['free','pro'];
-function getPlan(){return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
+function getPlan(){if(isAdminUser())return PLANS.pro;return PLANS[(db.subscription&&db.subscription.plan)||'free'];}
 function planName(){const p=getPlan();return p.id==='free'?'Gratis':p.name;}
 function planBadge(){const p=getPlan();return '<span class="plan-pill '+p.color+'">'+p.name.toUpperCase()+'</span>';}
 function canDo(feature){const p=getPlan();return p[feature]!==false&&p[feature]!==0;}
@@ -481,6 +483,7 @@ function activatePlan(planId,billing){
  });
 }
 function cancelPlan(){
+ if(isAdminUser()){toast('Paket admin aktif selamanya — tidak bisa dibatalkan.','info');return;}
  db.subscription={plan:'free',startedAt:null,expiresAt:null};
  save();render();
  toast('Paket Pro dibatalkan');
@@ -841,8 +844,9 @@ async function doAuth(mode){
  save();
  toast(mode==='login'?'Selamat datang! 👋':'Akun dibuat! 🎉');
  // Sync subscription from server
- const sub=await api('/subscription?user_id='+currentUser.id);
+ const sub=await api('/subscription?user_id='+currentUser.id+'&email='+encodeURIComponent(currentUser.email||''));
  if(sub.data){db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};save();}
+ if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};save();}
  // Pull cloud data if Pro (sync via Supabase, not R2)
  if(getPlan().id==='pro'){await syncFromCloud();}
  render();
@@ -862,6 +866,7 @@ function doLogout(){
 /* ── Cloud Sync ── */
 async function syncSubscription(){
  if(!currentUser)return;
+ if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};save();return;}
  const sub=await api('/subscription?user_id='+currentUser.id);
  if(sub.data){
   const oldPlan=(db.subscription&&db.subscription.plan)||'free';
@@ -909,6 +914,7 @@ async function syncFromCloud(){
  if(d.budgets&&Object.keys(d.budgets).length)db.budgets=d.budgets;
  if(d.customCats?.length)db.customCats=d.customCats;
  if(d.subscription)db.subscription={plan:d.subscription.plan,startedAt:d.subscription.started_at,expiresAt:d.subscription.expires_at};
+ if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};}
  save();
  return r;
 }
@@ -987,7 +993,7 @@ function pageDashboard(){
  return '<div style="margin-bottom:16px">'+
   '<div style="font-size:21px;font-weight:800;letter-spacing:-.02em">'+greet+', '+esc((db.profile.name||'Saya').split(' ')[0])+'</div>'+
   '<div class="row" style="gap:8px;margin-top:4px;align-items:center"><span class="small muted">Posisi keuanganmu saat ini.</span>'+planBadge()+
-  (getPlan().id==='pro'?'<span class="xs muted">· berlaku hingga '+(db.subscription.expiresAt?fmtDate(db.subscription.expiresAt):'-')+'</span>':'')+
+  (getPlan().id==='pro'?'<span class="xs muted">· '+(isAdminUser()?'<b style="color:var(--pos)">Pro selamanya</b>':(db.subscription.expiresAt?'berlaku hingga '+fmtDate(db.subscription.expiresAt):'-'))+'</span>':'')+
   '</div></div>'+
   backupBanner()+budgetBanner()+
   '<div class="grid dashgrid">'+
@@ -1747,7 +1753,7 @@ function pagePengaturan(){
    '<div class="row between wrap" style="gap:8px">'+
    '<div class="row" style="gap:8px"><div style="font-weight:700;font-size:14.5px">Langganan</div>'+planBadge()+'</div>'+
    '<button class="btn mini" id="go-plan">'+ic('crown','w12')+' Kelola paket</button></div>'+
-   (getPlan().id!=='free'?'<div class="xs muted" style="margin-top:6px">'+money(getPlan().price)+'/bln · berlaku hingga '+(db.subscription.expiresAt?fmtDate(db.subscription.expiresAt):'-')+'</div>':
+   (getPlan().id!=='free'?'<div class="xs muted" style="margin-top:6px">'+(isAdminUser()?'<b style="color:var(--pos)">Pro selamanya</b> — akun admin':money(getPlan().price)+'/bln · berlaku hingga '+(db.subscription.expiresAt?fmtDate(db.subscription.expiresAt):'-'))+'</div>':
    '<div class="xs muted" style="margin-top:6px">Gratis — '+limitLabel('debts')+' utang/piutang, '+limitLabel('wallets')+' dompet, '+limitLabel('budgets')+' budget</div>')+
   '</div>'+
   '<div class="card" style="padding:18px 20px">'+
@@ -2439,10 +2445,10 @@ function pageLangganan(){
   /* Current plan banner */
   (isPro?'<div class="card" style="padding:14px 18px;margin-bottom:14px">'+
    '<div class="row between wrap" style="gap:8px">'+
-   '<div class="row" style="gap:8px">'+planBadge()+'<span style="font-weight:700">Paket Pro aktif</span></div>'+
+   '<div class="row" style="gap:8px">'+planBadge()+(isAdminUser()?'<span style="font-weight:700">Paket Pro — <b style="color:var(--pos)">Selamanya</b> (admin)</span>':'<span style="font-weight:700">Paket Pro aktif</span>')+'</div>'+
    '<div class="row" style="gap:8px">'+
-   (db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
-   '<button class="btn mini danger" id="cancel-sub">Batalkan</button></div></div></div>':'')+
+   (!isAdminUser()&&db.subscription.expiresAt?'<span class="xs mono muted">Berlaku hingga '+fmtDate(db.subscription.expiresAt)+'</span>':'')+
+   (!isAdminUser()?'<button class="btn mini danger" id="cancel-sub">Batalkan</button>':'')+'</div></div></div>':'')+
   /* Two plan cards side by side */
   '<div class="plan-grid">'+
   /* FREE */
@@ -2840,13 +2846,14 @@ render();
    currentUser={id:me.data.id,email:me.data.email,name:me.data.user_metadata?.name||'Saya'};
    localStorage.setItem('arus-current-user',JSON.stringify(currentUser));
    // Sync subscription from server (critical: admin may have changed plan)
-   const sub=await api('/subscription?user_id='+currentUser.id);
+   const sub=await api('/subscription?user_id='+currentUser.id+'&email='+encodeURIComponent(currentUser.email||''));
    if(sub.data){
     const oldPlan=(db.subscription&&db.subscription.plan)||'free';
     db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};
     save();
     if(oldPlan!==sub.data.plan)toast('Paket diperbarui: '+sub.data.plan.toUpperCase(),'info');
    }
+   if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};save();}
    // Pull cloud data if Pro (sync via Supabase, not R2)
    if(getPlan().id==='pro'){await syncFromCloud();}
    renderPlanBadge();
@@ -2863,13 +2870,14 @@ render();
   // Auth/me failed — still try to sync subscription from server as fallback
   try{
    if(currentUser){
-    const sub=await api('/subscription?user_id='+currentUser.id);
+    const sub=await api('/subscription?user_id='+currentUser.id+'&email='+encodeURIComponent(currentUser.email||''));
     if(sub.data){
      const oldPlan=(db.subscription&&db.subscription.plan)||'free';
      db.subscription={plan:sub.data.plan,startedAt:sub.data.started_at,expiresAt:sub.data.expires_at};
      save();
      if(oldPlan!==sub.data.plan){renderPlanBadge();render();toast('Paket diperbarui: '+sub.data.plan.toUpperCase(),'info');}
     }
+    if(isAdminUser()){db.subscription={plan:'pro',startedAt:db.subscription.startedAt||new Date().toISOString(),expiresAt:null};save();}
    }
   }catch(e2){}
  }finally{
